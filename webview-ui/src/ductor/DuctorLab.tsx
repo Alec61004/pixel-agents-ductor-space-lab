@@ -47,7 +47,8 @@ export function DuctorLab({ snapshot }: DuctorLabProps) {
         {cards.map((card) => {
           const style = {
             '--ductor-role-color': card.color,
-            '--ductor-sprite-url': `url('${assetUrl(`characters/char_${card.palette.toString()}.png`)}')`,
+            '--ductor-sprite-url': `url('${assetUrl(card.portrait.asset)}')`,
+            '--ductor-sprite-position': card.portrait.position,
           } as CSSProperties;
           return (
             <article
@@ -62,6 +63,7 @@ export function DuctorLab({ snapshot }: DuctorLabProps) {
               <div className="ductor-station__identity">
                 <div
                   className={`ductor-character ductor-character--${card.state}`}
+                  data-portrait={card.portrait.id}
                   aria-hidden="true"
                 />
                 <div>

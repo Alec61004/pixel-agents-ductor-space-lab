@@ -21,20 +21,46 @@ export interface DuctorRoleCard extends DuctorRoleStatus {
   duty: 'Coordinator' | 'Implementer' | 'Reviewer';
   station: 'left' | 'center' | 'right';
   color: string;
-  palette: 0 | 3 | 5;
+  portrait: {
+    id: 'purple-commander' | 'cyan-engineer' | 'red-sentinel';
+    asset: 'themes/ductor-space-lab/crew-sprites.webp';
+    position: string;
+  };
 }
 
 const ROLE_PRESENTATION: Record<
   DuctorRoleName,
-  Pick<DuctorRoleCard, 'duty' | 'station' | 'color' | 'palette'>
+  Pick<DuctorRoleCard, 'duty' | 'station' | 'color' | 'portrait'>
 > = {
-  Alec: { duty: 'Coordinator', station: 'left', color: DUCTOR_ALEC_COLOR, palette: 0 },
-  Kevin: { duty: 'Implementer', station: 'center', color: DUCTOR_KEVIN_COLOR, palette: 3 },
+  Alec: {
+    duty: 'Coordinator',
+    station: 'left',
+    color: DUCTOR_ALEC_COLOR,
+    portrait: {
+      id: 'purple-commander',
+      asset: 'themes/ductor-space-lab/crew-sprites.webp',
+      position: '53.333% 0%',
+    },
+  },
+  Kevin: {
+    duty: 'Implementer',
+    station: 'center',
+    color: DUCTOR_KEVIN_COLOR,
+    portrait: {
+      id: 'cyan-engineer',
+      asset: 'themes/ductor-space-lab/crew-sprites.webp',
+      position: '0% 28.571%',
+    },
+  },
   Benjamin: {
     duty: 'Reviewer',
     station: 'right',
     color: DUCTOR_BENJAMIN_COLOR,
-    palette: 5,
+    portrait: {
+      id: 'red-sentinel',
+      asset: 'themes/ductor-space-lab/crew-sprites.webp',
+      position: '0% 0%',
+    },
   },
 };
 

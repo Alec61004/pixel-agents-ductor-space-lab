@@ -56,13 +56,61 @@ test('creates exactly three stable left/center/right role cards', () => {
   const cards = createDuctorRoleCards(status);
 
   assert.deepEqual(
-    cards.map(({ name, duty, station, color }) => ({ name, duty, station, color })),
+    cards.map(({ name, duty, station, color, portrait }) => ({
+      name,
+      duty,
+      station,
+      color,
+      portrait,
+    })),
     [
-      { name: 'Alec', duty: 'Coordinator', station: 'left', color: DUCTOR_ALEC_COLOR },
-      { name: 'Kevin', duty: 'Implementer', station: 'center', color: DUCTOR_KEVIN_COLOR },
-      { name: 'Benjamin', duty: 'Reviewer', station: 'right', color: DUCTOR_BENJAMIN_COLOR },
+      {
+        name: 'Alec',
+        duty: 'Coordinator',
+        station: 'left',
+        color: DUCTOR_ALEC_COLOR,
+        portrait: {
+          id: 'purple-commander',
+          asset: 'themes/ductor-space-lab/crew-sprites.webp',
+          position: '53.333% 0%',
+        },
+      },
+      {
+        name: 'Kevin',
+        duty: 'Implementer',
+        station: 'center',
+        color: DUCTOR_KEVIN_COLOR,
+        portrait: {
+          id: 'cyan-engineer',
+          asset: 'themes/ductor-space-lab/crew-sprites.webp',
+          position: '0% 28.571%',
+        },
+      },
+      {
+        name: 'Benjamin',
+        duty: 'Reviewer',
+        station: 'right',
+        color: DUCTOR_BENJAMIN_COLOR,
+        portrait: {
+          id: 'red-sentinel',
+          asset: 'themes/ductor-space-lab/crew-sprites.webp',
+          position: '0% 0%',
+        },
+      },
     ],
   );
+});
+
+test('uses purple, cyan, and red role accents', () => {
+  const rgb = (color: string) =>
+    [1, 3, 5].map((start) => Number.parseInt(color.slice(start, start + 2), 16));
+  const [alecRed = 0, alecGreen = 0, alecBlue = 0] = rgb(DUCTOR_ALEC_COLOR);
+  const [kevinRed = 0, kevinGreen = 0, kevinBlue = 0] = rgb(DUCTOR_KEVIN_COLOR);
+  const [benjaminRed = 0, benjaminGreen = 0, benjaminBlue = 0] = rgb(DUCTOR_BENJAMIN_COLOR);
+
+  assert.ok(alecRed > alecGreen && alecBlue > alecGreen);
+  assert.ok(kevinGreen > kevinRed && kevinBlue > kevinRed);
+  assert.ok(benjaminRed > benjaminGreen && benjaminRed > benjaminBlue);
 });
 
 test('preserves simultaneous working states instead of collapsing to one active role', () => {
@@ -73,9 +121,12 @@ test('preserves simultaneous working states instead of collapsing to one active 
 });
 
 test('resolves theme assets from the app root instead of relative to the CSS bundle', () => {
-  assert.equal(ductorAssetUrl('./', 'characters/char_0.png'), '/assets/characters/char_0.png');
   assert.equal(
-    ductorAssetUrl('/preview/', 'characters/char_0.png'),
-    '/preview/assets/characters/char_0.png',
+    ductorAssetUrl('./', 'themes/ductor-space-lab/crew-sprites.webp'),
+    '/assets/themes/ductor-space-lab/crew-sprites.webp',
+  );
+  assert.equal(
+    ductorAssetUrl('/preview/', 'themes/ductor-space-lab/crew-sprites.webp'),
+    '/preview/assets/themes/ductor-space-lab/crew-sprites.webp',
   );
 });

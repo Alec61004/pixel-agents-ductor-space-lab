@@ -330,23 +330,25 @@
 }
 
 .ductor-character {
-  width: 16px;
-  height: 32px;
-  flex: 0 0 16px;
-  margin: 10px 18px 10px 10px;
+  width: 72px;
+  height: 108px;
+  flex: 0 0 72px;
+  border: 1px solid var(--ductor-role-color);
   background-image: var(--ductor-sprite-url);
   background-repeat: no-repeat;
-  background-position: 0 0;
+  background-position: var(--ductor-sprite-position);
+  background-size: 1600% 800%;
   image-rendering: pixelated;
-  transform: scale(2.5);
-  transform-origin: center;
-  filter: drop-shadow(0 0 5px var(--ductor-role-color));
+  box-shadow:
+    inset 0 0 22px #05050c,
+    0 0 10px var(--ductor-role-color);
+  filter: brightness(0.82) contrast(1.18);
 }
 
 .ductor-character--working,
 .ductor-character--review,
 .ductor-character--waiting {
-  animation: ductor-character-type 0.55s steps(2, end) infinite;
+  animation: ductor-character-signal 1.6s ease-in-out infinite alternate;
 }
 
 .ductor-character--blocked {
@@ -419,22 +421,22 @@
   letter-spacing: 0.04em;
 }
 
-@keyframes ductor-character-type {
+@keyframes ductor-character-signal {
   from {
-    background-position: 0 0;
+    transform: translateY(0);
   }
   to {
-    background-position: -32px 0;
+    transform: translateY(-3px);
   }
 }
 
 @keyframes ductor-character-alert {
   0%,
   100% {
-    transform: scale(2.5) translateY(0);
+    transform: translateX(0);
   }
   50% {
-    transform: scale(2.5) translateY(-2px);
+    transform: translateX(2px);
   }
 }
 

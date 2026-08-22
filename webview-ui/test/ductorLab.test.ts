@@ -45,6 +45,11 @@ test('renders exactly three accessible role stations and simultaneous activity',
   assert.match(markup, /aria-label="Kevin, Implementer, working"/);
   assert.match(markup, /aria-label="Benjamin, Reviewer, review"/);
   assert.equal((markup.match(/data-state="working"/g) ?? []).length, 2);
+  assert.equal((markup.match(/crew-sprites\.webp/g) ?? []).length, 3);
+  assert.doesNotMatch(markup, /characters\/char_[0-9]\.png/);
+  assert.match(markup, /data-portrait="purple-commander"/);
+  assert.match(markup, /data-portrait="cyan-engineer"/);
+  assert.match(markup, /data-portrait="red-sentinel"/);
   assert.match(markup, /Ductor Space Lab/);
   assert.match(markup, /Signals marked derived are presence-based/);
 });
