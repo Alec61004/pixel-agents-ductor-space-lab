@@ -3,8 +3,8 @@ import './index.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
-import App from './App.tsx';
 import { isBrowserRuntime } from './runtime';
+import { RuntimeRoot } from './RuntimeRoot.js';
 
 async function main() {
   // browserMock is for Vite dev mode only (UI prototyping without a server).
@@ -15,7 +15,7 @@ async function main() {
   }
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
-      <App />
+      <RuntimeRoot />
     </StrictMode>,
   );
 }

@@ -7,6 +7,7 @@ import {
   createDuctorRoleCards,
   ductorAssetUrl,
   type DuctorStatusSnapshot,
+  selectRuntimeSurface,
   selectScenePreset,
 } from '../src/ductor/ductorLabModel.js';
 
@@ -43,6 +44,12 @@ const status: DuctorStatusSnapshot = {
 test('selects the upstream office unless the Ductor preset is explicitly available', () => {
   assert.equal(selectScenePreset(null), 'office');
   assert.equal(selectScenePreset(status), 'ductor-space-lab');
+});
+
+test('keeps the upstream transport unloaded until the local preset check resolves', () => {
+  assert.equal(selectRuntimeSurface(undefined), 'checking');
+  assert.equal(selectRuntimeSurface(null), 'office');
+  assert.equal(selectRuntimeSurface(status), 'ductor-space-lab');
 });
 
 test('creates exactly three stable left/center/right role cards', () => {

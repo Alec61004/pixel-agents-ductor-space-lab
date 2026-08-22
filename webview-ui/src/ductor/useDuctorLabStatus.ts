@@ -4,8 +4,8 @@ import { type DuctorStatusSnapshot, isDuctorStatusSnapshot } from './ductorLabMo
 
 const STATUS_POLL_MS = 2_000;
 
-export function useDuctorLabStatus(): DuctorStatusSnapshot | null {
-  const [snapshot, setSnapshot] = useState<DuctorStatusSnapshot | null>(null);
+export function useDuctorLabStatus(): DuctorStatusSnapshot | null | undefined {
+  const [snapshot, setSnapshot] = useState<DuctorStatusSnapshot | null | undefined>(undefined);
 
   useEffect(() => {
     let disposed = false;
@@ -14,7 +14,10 @@ export function useDuctorLabStatus(): DuctorStatusSnapshot | null {
     const refresh = async (): Promise<void> => {
       try {
         const response = await fetch('/api/ductor/status', { cache: 'no-store' });
-        if (!response.ok) return;
+        if (!response.ok) {
+          if (!disposed) setSnapshot((current) => (current === undefined ? null : current));
+          return;
+        }
         const candidate: unknown = await response.json();
         if (!disposed && isDuctorStatusSnapshot(candidate)) {
           setSnapshot(candidate);
@@ -22,6 +25,7 @@ export function useDuctorLabStatus(): DuctorStatusSnapshot | null {
         }
       } catch {
         // Upstream office and Vite mock modes intentionally have no Ductor endpoint.
+        if (!disposed) setSnapshot((current) => (current === undefined ? null : current));
       }
     };
 

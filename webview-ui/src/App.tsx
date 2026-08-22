@@ -13,8 +13,6 @@ import { Tooltip } from './components/Tooltip.js';
 import { Modal } from './components/ui/Modal.js';
 import { VersionIndicator } from './components/VersionIndicator.js';
 import { ZoomControls } from './components/ZoomControls.js';
-import { DuctorLab } from './ductor/DuctorLab.js';
-import { useDuctorLabStatus } from './ductor/useDuctorLabStatus.js';
 import { useEditorActions } from './hooks/useEditorActions.js';
 import { useEditorKeyboard } from './hooks/useEditorKeyboard.js';
 import { useExtensionMessages } from './hooks/useExtensionMessages.js';
@@ -50,8 +48,6 @@ function getOfficeState(): OfficeState {
 }
 
 function App() {
-  const ductorStatus = useDuctorLabStatus();
-
   // Browser runtime (dev or static dist): dispatch mock messages after the
   // useExtensionMessages listener has been registered.
   useEffect(() => {
@@ -330,10 +326,6 @@ function App() {
       }
       return false;
     })();
-
-  if (ductorStatus) {
-    return <DuctorLab snapshot={ductorStatus} />;
-  }
 
   if (!layoutReady) {
     return <div className="w-full h-full flex items-center justify-center ">Loading...</div>;

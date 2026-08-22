@@ -44,6 +44,13 @@ export function selectScenePreset(
   return snapshot?.theme === 'ductor-space-lab' ? 'ductor-space-lab' : 'office';
 }
 
+export function selectRuntimeSurface(
+  snapshot: DuctorStatusSnapshot | null | undefined,
+): 'checking' | 'office' | 'ductor-space-lab' {
+  if (snapshot === undefined) return 'checking';
+  return selectScenePreset(snapshot);
+}
+
 export function createDuctorRoleCards(snapshot: DuctorStatusSnapshot): DuctorRoleCard[] {
   return snapshot.roles.map((role) => ({ ...role, ...ROLE_PRESENTATION[role.name] }));
 }
