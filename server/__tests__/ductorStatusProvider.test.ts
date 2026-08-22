@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  DuctorStatusProvider,
   mapDuctorState,
   normalizeDuctorRoles,
 } from '../src/providers/status/ductor/ductorStatusProvider.js';
@@ -8,6 +9,36 @@ import {
 const observedAt = '2026-08-22T05:30:00.000Z';
 
 describe('Ductor status normalization', () => {
+  it('uses only documented workspace paths and whitelisted status variables', () => {
+    const observedPaths: string[] = [];
+    const provider = new DuctorStatusProvider({
+      env: {
+        DUCTOR_HOME: '/safe/ductor',
+        PIXEL_AGENTS_DUCTOR_ALEC_STATE: 'working',
+        PIXEL_AGENTS_DUCTOR_ALEC_TASK: 'Verify Space Lab',
+      },
+      exists: (filePath) => {
+        observedPaths.push(filePath);
+        return true;
+      },
+      now: () => new Date(observedAt),
+    });
+
+    const result = provider.snapshot();
+
+    expect(observedPaths).toEqual([
+      '/safe/ductor/workspace',
+      '/safe/ductor/agents/kevin/workspace',
+      '/safe/ductor/agents/benjamin/workspace',
+    ]);
+    expect(result.roles[0]).toMatchObject({
+      name: 'Alec',
+      state: 'working',
+      taskLabel: 'Verify Space Lab',
+      derived: false,
+    });
+  });
+
   it.each([
     ['idle', 'idle'],
     ['active', 'working'],

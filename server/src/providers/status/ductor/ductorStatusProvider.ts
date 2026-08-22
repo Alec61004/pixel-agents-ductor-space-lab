@@ -120,8 +120,9 @@ export class DuctorStatusProvider {
   private readonly now: () => Date;
 
   constructor(options: DuctorStatusProviderOptions = {}) {
-    this.ductorHome = options.ductorHome ?? path.join(os.homedir(), '.ductor');
     this.env = options.env ?? process.env;
+    this.ductorHome =
+      options.ductorHome ?? this.env['DUCTOR_HOME'] ?? path.join(os.homedir(), '.ductor');
     this.exists = options.exists ?? fs.existsSync;
     this.now = options.now ?? (() => new Date());
   }
