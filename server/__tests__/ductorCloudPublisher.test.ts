@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -43,6 +44,22 @@ function validConfigText(): string {
 }
 
 describe('Ductor cloud publisher', () => {
+  it('starts through the repo package script without a module-format transform failure', () => {
+    const result = spawnSync(
+      'npm',
+      ['run', 'ductor:publish', '--', '--config', '.ductor-space-lab/missing.env', '--once'],
+      {
+        cwd: path.resolve('..'),
+        encoding: 'utf8',
+      },
+    );
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('ductor-heartbeat: stopped with an error');
+    expect(result.stderr).not.toContain('Top-level await');
+    expect(result.stderr).not.toContain('Transform failed');
+  });
+
   it('maps the strict local file to exact public roles and redacts arbitrary source fields', () => {
     const snapshot = buildCloudPublishSnapshot(
       {

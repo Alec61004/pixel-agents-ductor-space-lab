@@ -95,9 +95,7 @@ async function main(): Promise<void> {
   } while (!stopped);
 }
 
-try {
-  await main();
-} catch {
+void main().catch(() => {
   process.stderr.write('ductor-heartbeat: stopped with an error\n');
   process.exitCode = 1;
-}
+});
