@@ -275,6 +275,11 @@ export const CONTEXT_GAUGE_BG = '#222';
 export const TEAM_LEAD_COLOR = '#ffd700';
 export const TEAM_ROLE_COLOR = '#66aaff';
 
+// Ductor Space Lab role identity (opt-in preset only)
+export const DUCTOR_ALEC_COLOR = '#42e8ff';
+export const DUCTOR_KEVIN_COLOR = '#ff4fd8';
+export const DUCTOR_BENJAMIN_COLOR = '#ffd166';
+
 // ── Pets ────────────────────────────────────────────────────────
 /** Walking speed in world pixels per second (matches character walk speed visually but slower). */
 export const PET_WALK_SPEED_PX_PER_SEC = 32;
