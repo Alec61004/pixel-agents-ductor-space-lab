@@ -15,8 +15,8 @@ import {
   DUCTOR_ROLE_PRESENTATION,
   type DuctorAgentObservation,
 } from '../src/ductor/ductorOfficeRuntime.js';
-import { buildDynamicCatalog } from '../src/office/layout/furnitureCatalog.js';
 import { getCharacterSprite } from '../src/office/engine/characters.js';
+import { buildDynamicCatalog } from '../src/office/layout/furnitureCatalog.js';
 import { getCharacterSprites } from '../src/office/sprites/spriteData.js';
 import {
   isReadingToolName,
