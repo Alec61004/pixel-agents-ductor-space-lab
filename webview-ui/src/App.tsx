@@ -240,6 +240,13 @@ function App() {
     transport.send({ type: 'focusAgent', id: focusId });
   }, []);
 
+  const handleSaveAgentSeats = useCallback(
+    (seats: ReturnType<OfficeState['getPersistableSeats']>) => {
+      transport.send({ type: 'saveAgentSeats', seats });
+    },
+    [],
+  );
+
   const officeState = getOfficeState();
 
   // Merged set of folders the Areas dropdown can map: real workspace folders plus
@@ -350,6 +357,7 @@ function App() {
         panRef={editor.panRef}
         showAreas={effectiveShowAreas}
         activeAreaLabel={activeAreaLabel}
+        onSaveAgentSeats={handleSaveAgentSeats}
       />
 
       {!isDebugMode ? (

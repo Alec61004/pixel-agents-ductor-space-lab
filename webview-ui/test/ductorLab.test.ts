@@ -4,8 +4,70 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { test } from 'vitest';
 
+import { FALLBACK_FLOOR_COLOR } from '../src/constants.js';
 import { DuctorLab } from '../src/ductor/DuctorLab.js';
 import type { DuctorStatusSnapshot } from '../src/ductor/ductorLabModel.js';
+import { createDuctorOfficeRuntime } from '../src/ductor/ductorOfficeRuntime.js';
+import { buildDynamicCatalog } from '../src/office/layout/furnitureCatalog.js';
+
+const PIXEL = [[FALLBACK_FLOOR_COLOR]];
+buildDynamicCatalog({
+  catalog: [
+    {
+      id: 'CUSHIONED_CHAIR_BACK',
+      label: 'Lab chair',
+      category: 'chairs',
+      width: 16,
+      height: 16,
+      footprintW: 1,
+      footprintH: 1,
+      isDesk: false,
+      orientation: 'back',
+    },
+    {
+      id: 'DESK_FRONT',
+      label: 'Console',
+      category: 'desks',
+      width: 48,
+      height: 32,
+      footprintW: 3,
+      footprintH: 2,
+      isDesk: true,
+      orientation: 'front',
+      backgroundTiles: 1,
+    },
+    {
+      id: 'PC_FRONT_OFF',
+      label: 'Terminal',
+      category: 'electronics',
+      width: 16,
+      height: 32,
+      footprintW: 1,
+      footprintH: 2,
+      isDesk: false,
+      orientation: 'front',
+      backgroundTiles: 1,
+      canPlaceOnSurfaces: true,
+    },
+    {
+      id: 'DOUBLE_BOOKSHELF',
+      label: 'Review archive',
+      category: 'wall',
+      width: 32,
+      height: 32,
+      footprintW: 2,
+      footprintH: 2,
+      isDesk: false,
+      canPlaceOnWalls: true,
+    },
+  ],
+  sprites: {
+    CUSHIONED_CHAIR_BACK: PIXEL,
+    DESK_FRONT: PIXEL,
+    PC_FRONT_OFF: PIXEL,
+    DOUBLE_BOOKSHELF: PIXEL,
+  },
+});
 
 const snapshot: DuctorStatusSnapshot = {
   theme: 'ductor-space-lab',
@@ -37,19 +99,18 @@ const snapshot: DuctorStatusSnapshot = {
   ],
 };
 
-test('renders exactly three accessible role stations and simultaneous activity', () => {
-  const markup = renderToStaticMarkup(createElement(DuctorLab, { snapshot }));
+test('does not retain the static three-card layout as the primary Ductor experience', () => {
+  const markup = renderToStaticMarkup(
+    createElement(DuctorLab, { snapshot, initialRuntime: createDuctorOfficeRuntime(snapshot) }),
+  );
 
-  assert.equal((markup.match(/data-role-card=/g) ?? []).length, 3);
-  assert.match(markup, /aria-label="Alec, Coordinator, working"/);
-  assert.match(markup, /aria-label="Kevin, Implementer, working"/);
-  assert.match(markup, /aria-label="Benjamin, Reviewer, review"/);
-  assert.equal((markup.match(/data-state="working"/g) ?? []).length, 2);
-  assert.equal((markup.match(/crew-sprites\.webp/g) ?? []).length, 3);
-  assert.doesNotMatch(markup, /characters\/char_[0-9]\.png/);
-  assert.match(markup, /data-portrait="purple-commander"/);
-  assert.match(markup, /data-portrait="cyan-engineer"/);
-  assert.match(markup, /data-portrait="red-sentinel"/);
+  assert.equal((markup.match(/data-role-card=/g) ?? []).length, 0);
+  assert.match(markup, /data-ductor-engine-surface="true"/);
+  assert.match(markup, /<canvas/);
+  assert.equal((markup.match(/data-ductor-agent=/g) ?? []).length, 3);
+  assert.match(markup, /aria-label="Alec, Planner \/ Architect, working"/);
+  assert.match(markup, /aria-label="Kevin, Builder \/ Implementer, working"/);
+  assert.match(markup, /aria-label="Benjamin, Independent QA \/ Reviewer, review"/);
   assert.match(markup, /Ductor Space Lab/);
   assert.match(markup, /Signals marked derived are presence-based/);
 });
@@ -69,10 +130,15 @@ test('labels cloud provenance and stale offline status honestly', () => {
     })),
   };
 
-  const markup = renderToStaticMarkup(createElement(DuctorLab, { snapshot: staleSnapshot }));
+  const markup = renderToStaticMarkup(
+    createElement(DuctorLab, {
+      snapshot: staleSnapshot,
+      initialRuntime: createDuctorOfficeRuntime(staleSnapshot),
+    }),
+  );
 
   assert.match(markup, /REMOTE HEARTBEAT/);
-  assert.match(markup, /Cloud heartbeat stale · roles marked offline/);
+  assert.match(markup, /Cloud heartbeat stale · agents inactive/);
   assert.equal((markup.match(/stale cloud heartbeat/g) ?? []).length, 3);
   assert.doesNotMatch(markup, /127\.0\.0\.1/);
 });

@@ -26,7 +26,7 @@ import type {
   CharacterDirectionSprites,
 } from '../../core/src/assets/types.ts';
 
-interface MockPayload {
+export interface BrowserOfficeAssets {
   characters: CharacterDirectionSprites[];
   floorSprites: string[][][];
   wallSets: string[][][][];
@@ -38,7 +38,8 @@ interface MockPayload {
 
 // ── Module-level state ─────────────────────────────────────────────────────────
 
-let mockPayload: MockPayload | null = null;
+let mockPayload: BrowserOfficeAssets | null = null;
+let loadPromise: Promise<BrowserOfficeAssets> | null = null;
 
 // ── PNG decode helpers (browser fallback) ───────────────────────────────────
 
@@ -179,7 +180,7 @@ async function decodeFurnitureFromPng(
  * Fetches all pre-decoded assets from the Vite dev server and stores them
  * for dispatchMockMessages().
  */
-export async function initBrowserMock(): Promise<void> {
+async function loadBrowserOfficeAssetsOnce(): Promise<BrowserOfficeAssets> {
   console.log('[BrowserMock] Loading assets...');
 
   const base = import.meta.env.BASE_URL; // '/' in dev, '/sub/' with a subpath, './' in production
@@ -242,6 +243,18 @@ export async function initBrowserMock(): Promise<void> {
   console.log(
     `[BrowserMock] Ready (${hasDecoded ? 'decoded-json' : 'browser-png-decode'}) — ${characters.length} chars, ${floorSprites.length} floors, ${wallSets.length} wall sets, ${carpetSets.length} carpets, ${catalog.length} furniture items`,
   );
+  return mockPayload;
+}
+
+/** Load the canonical browser office assets once without dispatching transport messages. */
+export function loadBrowserOfficeAssets(): Promise<BrowserOfficeAssets> {
+  if (mockPayload) return Promise.resolve(mockPayload);
+  loadPromise ??= loadBrowserOfficeAssetsOnce();
+  return loadPromise;
+}
+
+export async function initBrowserMock(): Promise<void> {
+  await loadBrowserOfficeAssets();
 }
 
 /**

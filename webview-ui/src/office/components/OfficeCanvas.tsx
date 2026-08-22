@@ -9,7 +9,6 @@ import {
   ZOOM_SCROLL_THRESHOLD,
 } from '../../constants.js';
 import { unlockAudio } from '../../notificationSound.js';
-import { transport } from '../../transport/index.js';
 import { getColorizedSprite } from '../colorize.js';
 import { canPlaceFurniture, getWallPlacementRow } from '../editor/editorActions.js';
 import type { EditorState } from '../editor/editorState.js';
@@ -45,6 +44,9 @@ interface OfficeCanvasProps {
   showAreas: boolean;
   /** Currently-selected area label in the editor (alpha-bumped overlay). null otherwise. */
   activeAreaLabel: string | null;
+  /** Disable user-authored movement/seat changes while retaining selection and camera follow. */
+  readOnly?: boolean;
+  onSaveAgentSeats?: (seats: ReturnType<OfficeState['getPersistableSeats']>) => void;
 }
 
 export function OfficeCanvas({
@@ -64,6 +66,8 @@ export function OfficeCanvas({
   panRef,
   showAreas,
   activeAreaLabel,
+  readOnly = false,
+  onSaveAgentSeats,
 }: OfficeCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -752,7 +756,7 @@ export function OfficeCanvas({
       }
 
       // No agent hit — check seat click while agent is selected
-      if (officeState.selectedAgentId !== null) {
+      if (!readOnly && officeState.selectedAgentId !== null) {
         const selectedCh = officeState.characters.get(officeState.selectedAgentId);
         // Skip seat reassignment for sub-agents
         if (selectedCh && !selectedCh.isSubagent) {
@@ -773,10 +777,7 @@ export function OfficeCanvas({
                   officeState.reassignSeat(officeState.selectedAgentId, seatId);
                   officeState.selectedAgentId = null;
                   officeState.cameraFollowId = null;
-                  transport.send({
-                    type: 'saveAgentSeats',
-                    seats: officeState.getPersistableSeats(),
-                  });
+                  onSaveAgentSeats?.(officeState.getPersistableSeats());
                   return;
                 }
               }
@@ -788,7 +789,7 @@ export function OfficeCanvas({
         officeState.cameraFollowId = null;
       }
     },
-    [officeState, onClick, screenToWorld, screenToTile, isEditMode],
+    [officeState, onClick, screenToWorld, screenToTile, isEditMode, readOnly, onSaveAgentSeats],
   );
 
   const handleMouseLeave = useCallback(() => {
@@ -819,14 +820,14 @@ export function OfficeCanvas({
       e.preventDefault();
       if (isEditMode) return;
       // Right-click to walk selected agent to tile
-      if (officeState.selectedAgentId !== null) {
+      if (!readOnly && officeState.selectedAgentId !== null) {
         const tile = screenToTile(e.clientX, e.clientY);
         if (tile) {
           officeState.walkToTile(officeState.selectedAgentId, tile.col, tile.row);
         }
       }
     },
-    [isEditMode, officeState, screenToTile],
+    [isEditMode, officeState, screenToTile, readOnly],
   );
 
   // Wheel: Ctrl+wheel to zoom, plain wheel/trackpad to pan
