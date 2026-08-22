@@ -52,8 +52,10 @@ export function isDuctorStatusSnapshot(value: unknown): value is DuctorStatusSna
   if (!value || typeof value !== 'object') return false;
   const snapshot = value as Partial<DuctorStatusSnapshot>;
   if (snapshot.theme !== 'ductor-space-lab' || !Array.isArray(snapshot.roles)) return false;
+  const roleNames = snapshot.roles.map((role) => (role as DuctorRoleStatus | undefined)?.name);
   return (
     snapshot.roles.length === 3 &&
+    new Set(roleNames).size === 3 &&
     snapshot.roles.every(
       (role) =>
         !!role &&

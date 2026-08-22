@@ -95,6 +95,7 @@
     "build:webview": "cd webview-ui && npm run build",
     "compile": "npm run asyncapi:generate && npm run check-types && npm run lint && node esbuild.js && npm run build:webview",
     "build": "npm run compile",
+    "ductor:lab": "PIXEL_AGENTS_DUCTOR_LAB=1 node dist/cli.js --host 127.0.0.1 --port 3100",
     "watch": "npm-run-all -p watch:*",
     "watch:esbuild": "node esbuild.js --watch",
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
