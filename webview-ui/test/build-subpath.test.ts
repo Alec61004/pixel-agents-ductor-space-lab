@@ -97,6 +97,10 @@ test('production build stays accessible from a fixed subpath', async () => {
 
     assert.match(html, /\/sub\/assets\//);
 
+    const faviconPath = html.match(/rel="icon"[^>]+href="([^"]+)"/)?.[1];
+    assert.ok(faviconPath, 'expected a favicon in the production HTML');
+    await assertUrlOk(new URL(faviconPath, indexUrl).toString());
+
     const bundleUrls = collectBundleUrls(html, indexUrl);
     assert.ok(bundleUrls.length > 0, 'expected at least one built JS or CSS asset');
 
