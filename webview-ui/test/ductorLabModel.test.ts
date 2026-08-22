@@ -5,6 +5,7 @@ import { test } from 'vitest';
 import { DUCTOR_ALEC_COLOR, DUCTOR_BENJAMIN_COLOR, DUCTOR_KEVIN_COLOR } from '../src/constants.js';
 import {
   createDuctorRoleCards,
+  ductorAssetUrl,
   type DuctorStatusSnapshot,
   selectScenePreset,
 } from '../src/ductor/ductorLabModel.js';
@@ -62,4 +63,12 @@ test('preserves simultaneous working states instead of collapsing to one active 
 
   assert.equal(cards.filter((card) => card.state === 'working').length, 2);
   assert.equal(cards.find((card) => card.name === 'Benjamin')?.state, 'review');
+});
+
+test('resolves theme assets from the app root instead of relative to the CSS bundle', () => {
+  assert.equal(ductorAssetUrl('./', 'characters/char_0.png'), '/assets/characters/char_0.png');
+  assert.equal(
+    ductorAssetUrl('/preview/', 'characters/char_0.png'),
+    '/preview/assets/characters/char_0.png',
+  );
 });

@@ -1,6 +1,10 @@
 import type { CSSProperties } from 'react';
 
-import { createDuctorRoleCards, type DuctorStatusSnapshot } from './ductorLabModel.js';
+import {
+  createDuctorRoleCards,
+  ductorAssetUrl,
+  type DuctorStatusSnapshot,
+} from './ductorLabModel.js';
 
 export interface DuctorLabProps {
   snapshot: DuctorStatusSnapshot;
@@ -16,13 +20,13 @@ function formatSignalTime(timestamp: string): string {
 
 export function DuctorLab({ snapshot }: DuctorLabProps) {
   const cards = createDuctorRoleCards(snapshot);
-  const assetBase = `${import.meta.env.BASE_URL}assets/`;
+  const assetUrl = (relativePath: string) => ductorAssetUrl(import.meta.env.BASE_URL, relativePath);
 
   return (
     <main className="ductor-lab" aria-label="Ductor Space Lab agent monitor">
       <img
         className="ductor-lab__scene"
-        src={`${assetBase}themes/ductor-space-lab/space-lab.webp`}
+        src={assetUrl('themes/ductor-space-lab/space-lab.webp')}
         alt=""
         aria-hidden="true"
       />
@@ -43,7 +47,7 @@ export function DuctorLab({ snapshot }: DuctorLabProps) {
         {cards.map((card) => {
           const style = {
             '--ductor-role-color': card.color,
-            '--ductor-sprite-url': `url('${assetBase}characters/char_${card.palette.toString()}.png')`,
+            '--ductor-sprite-url': `url('${assetUrl(`characters/char_${card.palette.toString()}.png`)}')`,
           } as CSSProperties;
           return (
             <article

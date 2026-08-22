@@ -48,6 +48,11 @@ export function createDuctorRoleCards(snapshot: DuctorStatusSnapshot): DuctorRol
   return snapshot.roles.map((role) => ({ ...role, ...ROLE_PRESENTATION[role.name] }));
 }
 
+export function ductorAssetUrl(baseUrl: string, relativePath: string): string {
+  const normalizedBase = baseUrl === './' ? '/' : `${baseUrl.replace(/\/?$/, '/')}`;
+  return `${normalizedBase}assets/${relativePath.replace(/^\/+/, '')}`;
+}
+
 export function isDuctorStatusSnapshot(value: unknown): value is DuctorStatusSnapshot {
   if (!value || typeof value !== 'object') return false;
   const snapshot = value as Partial<DuctorStatusSnapshot>;
