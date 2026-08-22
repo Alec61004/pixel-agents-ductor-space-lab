@@ -2,15 +2,22 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
-export const DUCTOR_ROLE_NAMES = ['Alec', 'Kevin', 'Benjamin'] as const;
+import {
+  DUCTOR_ROLE_NAMES,
+  type DuctorRoleName,
+  type DuctorRoleState,
+  readDuctorStatusFile,
+  sanitizeDuctorTaskLabel,
+} from './ductorStatusFile.js';
+
+export type { DuctorRoleName, DuctorRoleState } from './ductorStatusFile.js';
+export { DUCTOR_ROLE_NAMES } from './ductorStatusFile.js';
 
 export function isSafeDuctorLabHost(host: string): boolean {
   return ['127.0.0.1', 'localhost', '::1'].includes(host.trim().toLowerCase());
 }
 
-export type DuctorRoleName = (typeof DUCTOR_ROLE_NAMES)[number];
 export type DuctorPresence = 'online' | 'offline';
-export type DuctorRoleState = 'idle' | 'working' | 'waiting' | 'review' | 'blocked' | 'offline';
 
 export interface DuctorRoleStatus {
   name: DuctorRoleName;
@@ -58,9 +65,7 @@ export function mapDuctorState(rawState: unknown, present: boolean): DuctorRoleS
 }
 
 function publicTaskLabel(value: unknown): string | null {
-  if (typeof value !== 'string') return null;
-  const label = value.replace(/\s+/g, ' ').trim();
-  return label ? label.slice(0, 120) : null;
+  return sanitizeDuctorTaskLabel(value);
 }
 
 function publicTimestamp(value: unknown, fallback: string): string {
@@ -102,6 +107,8 @@ export function normalizeDuctorRoles(
 
 export interface DuctorStatusProviderOptions {
   ductorHome?: string;
+  statusFile?: string;
+  statusRoot?: string;
   env?: NodeJS.ProcessEnv;
   exists?: (filePath: string) => boolean;
   now?: () => Date;
@@ -109,13 +116,17 @@ export interface DuctorStatusProviderOptions {
 
 /**
  * Local, read-only Ductor adapter. Presence comes only from documented
- * workspace-directory conventions. Optional high-level activity comes from
- * six explicitly named environment variables per role; the adapter never
- * enumerates the environment or opens Ductor registry/session/task files.
+ * workspace-directory conventions. When configured, a strict repo-local JSON
+ * heartbeat is re-read for every snapshot. Exact environment variables remain
+ * a backwards-compatible fallback only when no heartbeat path is configured.
+ * The adapter never enumerates the environment or opens registry/session/task
+ * files.
  */
 export class DuctorStatusProvider {
   private readonly ductorHome: string;
   private readonly env: NodeJS.ProcessEnv;
+  private readonly statusFile: string | undefined;
+  private readonly statusRoot: string;
   private readonly exists: (filePath: string) => boolean;
   private readonly now: () => Date;
 
@@ -123,6 +134,8 @@ export class DuctorStatusProvider {
     this.env = options.env ?? process.env;
     this.ductorHome =
       options.ductorHome ?? this.env['DUCTOR_HOME'] ?? path.join(os.homedir(), '.ductor');
+    this.statusFile = options.statusFile ?? this.env['PIXEL_AGENTS_DUCTOR_STATUS_FILE'];
+    this.statusRoot = options.statusRoot ?? process.cwd();
     this.exists = options.exists ?? fs.existsSync;
     this.now = options.now ?? (() => new Date());
   }
@@ -134,7 +147,24 @@ export class DuctorStatusProvider {
       Benjamin: this.exists(path.join(this.ductorHome, 'agents', 'benjamin', 'workspace')),
     };
 
-    const rawRoles = Object.fromEntries(
+    const rawRoles = this.readRawRoles();
+
+    return normalizeDuctorRoles(rawRoles, presence, this.now().toISOString());
+  }
+
+  private readRawRoles(): RawRoles {
+    if (this.statusFile) {
+      try {
+        const reports = readDuctorStatusFile(this.statusRoot, this.statusFile)?.roles ?? {};
+        return Object.fromEntries(
+          Object.entries(reports).map(([name, report]) => [name, { ...report }]),
+        ) as RawRoles;
+      } catch {
+        return {};
+      }
+    }
+
+    return Object.fromEntries(
       DUCTOR_ROLE_NAMES.map((name) => {
         const prefix = `PIXEL_AGENTS_DUCTOR_${name.toUpperCase()}`;
         return [
@@ -147,7 +177,5 @@ export class DuctorStatusProvider {
         ];
       }),
     ) as RawRoles;
-
-    return normalizeDuctorRoles(rawRoles, presence, this.now().toISOString());
   }
 }

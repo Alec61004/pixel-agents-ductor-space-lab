@@ -1,4 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   DuctorStatusProvider,
@@ -7,6 +11,22 @@ import {
 } from '../src/providers/status/ductor/ductorStatusProvider.js';
 
 const observedAt = '2026-08-22T05:30:00.000Z';
+
+let tempRoot: string;
+let statusFile: string;
+
+beforeEach(() => {
+  tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pxl-ductor-status-'));
+  statusFile = path.join(tempRoot, 'status.json');
+});
+
+afterEach(() => {
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+function writeStatus(value: unknown): void {
+  fs.writeFileSync(statusFile, JSON.stringify(value));
+}
 
 describe('Ductor status normalization', () => {
   it('uses only documented workspace paths and whitelisted status variables', () => {
@@ -114,5 +134,165 @@ describe('Ductor status normalization', () => {
     expect(serialized).not.toContain('private message body');
     expect(serialized).not.toContain('private task result');
     expect(serialized).not.toMatch(/token|prompt|result/i);
+  });
+
+  it('re-reads three simultaneous role reports on every snapshot without a restart', () => {
+    const provider = new DuctorStatusProvider({
+      statusFile,
+      statusRoot: tempRoot,
+      exists: () => true,
+      now: () => new Date(observedAt),
+    });
+
+    expect(provider.snapshot().roles.map((role) => role.state)).toEqual(['idle', 'idle', 'idle']);
+
+    writeStatus({
+      version: 1,
+      roles: {
+        Alec: { state: 'working', taskLabel: 'Planning', updatedAt: observedAt },
+        Kevin: { state: 'waiting', taskLabel: 'Awaiting input', updatedAt: observedAt },
+        Benjamin: { state: 'review', taskLabel: 'Reviewing', updatedAt: observedAt },
+      },
+    });
+
+    expect(provider.snapshot().roles.map((role) => role.state)).toEqual([
+      'working',
+      'waiting',
+      'review',
+    ]);
+
+    writeStatus({
+      version: 1,
+      roles: {
+        Alec: { state: 'review', taskLabel: 'Audit', updatedAt: observedAt },
+        Kevin: { state: 'working', taskLabel: 'Implement', updatedAt: observedAt },
+        Benjamin: { state: 'blocked', taskLabel: 'Gate blocked', updatedAt: observedAt },
+      },
+    });
+
+    expect(provider.snapshot().roles.map((role) => role.state)).toEqual([
+      'review',
+      'working',
+      'blocked',
+    ]);
+  });
+
+  it('sanitizes a reported task label and exposes no file-only fields', () => {
+    writeStatus({
+      version: 1,
+      roles: {
+        Alec: {
+          state: 'working',
+          taskLabel: `Build\u0000  safe\nheartbeat ${'x'.repeat(160)}`,
+          updatedAt: observedAt,
+        },
+      },
+    });
+    const provider = new DuctorStatusProvider({
+      statusFile,
+      statusRoot: tempRoot,
+      exists: () => true,
+      now: () => new Date(observedAt),
+    });
+
+    const alec = provider.snapshot().roles[0];
+
+    expect(alec.taskLabel).toHaveLength(120);
+    expect(alec.taskLabel).not.toMatch(/[\u0000-\u001f\u007f]/u);
+    expect(Object.keys(alec)).toEqual([
+      'name',
+      'presence',
+      'state',
+      'taskLabel',
+      'updatedAt',
+      'derived',
+    ]);
+  });
+
+  it.each([
+    ['malformed JSON', () => fs.writeFileSync(statusFile, '{not-json')],
+    ['oversized content', () => fs.writeFileSync(statusFile, ' '.repeat(17 * 1024))],
+    [
+      'unknown role',
+      () =>
+        writeStatus({
+          version: 1,
+          roles: { Mallory: { state: 'working', updatedAt: observedAt } },
+        }),
+    ],
+    [
+      'unknown state',
+      () =>
+        writeStatus({
+          version: 1,
+          roles: { Alec: { state: 'executing-shell', updatedAt: observedAt } },
+        }),
+    ],
+    [
+      'arbitrary secret-like properties',
+      () =>
+        writeStatus({
+          version: 1,
+          roles: {
+            Alec: {
+              state: 'working',
+              updatedAt: observedAt,
+              token: 'never-return-this',
+              prompt: 'private message',
+            },
+          },
+        }),
+    ],
+  ])('rejects %s and falls back to presence-derived idle', (_name, arrange) => {
+    arrange();
+    const provider = new DuctorStatusProvider({
+      statusFile,
+      statusRoot: tempRoot,
+      exists: () => true,
+      now: () => new Date(observedAt),
+    });
+
+    const snapshot = provider.snapshot();
+
+    expect(snapshot.roles.map((role) => role.state)).toEqual(['idle', 'idle', 'idle']);
+    expect(snapshot.roles.every((role) => role.derived)).toBe(true);
+    expect(JSON.stringify(snapshot)).not.toMatch(/never-return-this|private message|token|prompt/i);
+  });
+
+  it('rejects a symlinked status file', () => {
+    const target = path.join(tempRoot, 'target.json');
+    fs.writeFileSync(
+      target,
+      JSON.stringify({
+        version: 1,
+        roles: { Alec: { state: 'working', updatedAt: observedAt } },
+      }),
+    );
+    fs.symlinkSync(target, statusFile);
+    const provider = new DuctorStatusProvider({
+      statusFile,
+      statusRoot: tempRoot,
+      exists: () => true,
+      now: () => new Date(observedAt),
+    });
+
+    expect(provider.snapshot().roles.map((role) => role.state)).toEqual(['idle', 'idle', 'idle']);
+  });
+
+  it('rejects a configured status path that escapes its allowlisted root', () => {
+    const allowedRoot = path.join(tempRoot, 'repo');
+    fs.mkdirSync(allowedRoot);
+    writeStatus({
+      version: 1,
+      roles: { Alec: { state: 'working', updatedAt: observedAt } },
+    });
+    const provider = new DuctorStatusProvider({
+      statusFile,
+      statusRoot: allowedRoot,
+      exists: () => true,
+      now: () => new Date(observedAt),
+    });
+
+    expect(provider.snapshot().roles.map((role) => role.state)).toEqual(['idle', 'idle', 'idle']);
   });
 });
