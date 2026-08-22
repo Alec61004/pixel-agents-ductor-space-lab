@@ -5,9 +5,17 @@ cyan), and Benjamin (independent QA, red)._
 
 ![Ductor Space Lab showing the three-agent command deck](docs/assets/ductor-space-lab.png)
 
-Ductor Space Lab turns the Alec-Kevin-Benjamin workflow into a focused pixel-art status
-board. It shows who is active, what stage each role is in, and how fresh that signal is
-without exposing the conversations behind the work.
+Ductor Space Lab turns the Alec-Kevin-Benjamin workflow into a focused pixel-art command
+deck powered by the canonical 2D pixel engine. Alec, Kevin, and Benjamin are rendered as
+in-world moving agents with dedicated work lanes and real-time pathfinding:
+
+- **Truthful actions:** agents move to assigned stations and animate based on their actual
+  state—typing at workstations when `working`, reading at archives during `review`, wandering
+  when `idle`, holding when `waiting`, or standing down when `blocked` or `offline`.
+- **Live retargeting:** incoming status updates immediately redirect character routes and
+  actions in place without reloading or restarting the canvas.
+- **Privacy preserving:** shows who is active, what stage each role is in, and how fresh that
+  signal is without exposing underlying prompts, code, or conversations.
 
 ## The crew
 
