@@ -1,6 +1,5 @@
 import { DUCTOR_ALEC_COLOR, DUCTOR_BENJAMIN_COLOR, DUCTOR_KEVIN_COLOR } from '../constants.js';
 import { OfficeState } from '../office/engine/officeState.js';
-import { setProviderCapabilities } from '../office/toolUtils.js';
 import type {
   Character,
   OfficeLayout,
@@ -174,7 +173,6 @@ export class DuctorOfficeRuntime {
   private readonly applied = new Map<DuctorRoleName, AppliedRoleState>();
 
   constructor(snapshot: DuctorStatusSnapshot) {
-    setProviderCapabilities({ readingTools: ['Read'], subagentToolNames: [] });
     this.officeState = new OfficeState(createDuctorSpaceLabLayout());
 
     for (const name of ROLE_NAMES) {

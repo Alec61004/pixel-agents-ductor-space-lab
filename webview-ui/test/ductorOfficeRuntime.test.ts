@@ -16,6 +16,13 @@ import {
   type DuctorAgentObservation,
 } from '../src/ductor/ductorOfficeRuntime.js';
 import { buildDynamicCatalog } from '../src/office/layout/furnitureCatalog.js';
+import { getCharacterSprite } from '../src/office/engine/characters.js';
+import { getCharacterSprites } from '../src/office/sprites/spriteData.js';
+import {
+  isReadingToolName,
+  isSubagentToolName,
+  setProviderCapabilities,
+} from '../src/office/toolUtils.js';
 import { CharacterState } from '../src/office/types.js';
 
 const PIXEL = [[FALLBACK_FLOOR_COLOR]];
@@ -170,18 +177,49 @@ test('changes positions across engine ticks, reaches stations, and uses typing/r
     assert.notDeepEqual([end.x, end.y], [start.x, start.y], `${name} must visibly move`);
     assert.equal(end.atTarget, true, `${name} must reach its assigned target`);
   }
-  assert.equal(
-    runtime.officeState.characters.get(DUCTOR_AGENT_IDS.Alec)?.state,
-    CharacterState.TYPE,
+  const alec = runtime.officeState.characters.get(DUCTOR_AGENT_IDS.Alec);
+  const kevin = runtime.officeState.characters.get(DUCTOR_AGENT_IDS.Kevin);
+  const benjamin = runtime.officeState.characters.get(DUCTOR_AGENT_IDS.Benjamin);
+  assert.ok(alec);
+  assert.ok(kevin);
+  assert.ok(benjamin);
+
+  assert.equal(alec.state, CharacterState.TYPE);
+  assert.equal(kevin.state, CharacterState.TYPE);
+  assert.equal(benjamin.state, CharacterState.IDLE);
+
+  const alecSprites = getCharacterSprites(alec.palette, alec.hueShift);
+  const kevinSprites = getCharacterSprites(kevin.palette, kevin.hueShift);
+  assert.deepEqual(
+    getCharacterSprite(alec, alecSprites),
+    alecSprites.typing[alec.dir][alec.frame % 2],
   );
-  assert.equal(
-    runtime.officeState.characters.get(DUCTOR_AGENT_IDS.Kevin)?.state,
-    CharacterState.TYPE,
+  assert.deepEqual(
+    getCharacterSprite(kevin, kevinSprites),
+    kevinSprites.reading[kevin.dir][kevin.frame % 2],
   );
-  assert.equal(
-    runtime.officeState.characters.get(DUCTOR_AGENT_IDS.Benjamin)?.state,
-    CharacterState.IDLE,
-  );
+});
+
+test('preserves generic upstream provider capabilities without global mutation during construction', () => {
+  setProviderCapabilities({
+    readingTools: ['Read', 'Grep', 'Glob', 'WebFetch', 'WebSearch'],
+    subagentToolNames: ['Task', 'Agent'],
+  });
+
+  assert.equal(isReadingToolName('Grep'), true);
+  assert.equal(isReadingToolName('Glob'), true);
+  assert.equal(isSubagentToolName('Task'), true);
+  assert.equal(isSubagentToolName('Agent'), true);
+
+  const runtime = createDuctorOfficeRuntime(snapshot(['working', 'review', 'idle']));
+  assert.equal(runtime.officeState.characters.size, 3);
+
+  // Generic mode provider capabilities must remain untouched after Ductor construction
+  assert.equal(isReadingToolName('Grep'), true);
+  assert.equal(isReadingToolName('Glob'), true);
+  assert.equal(isSubagentToolName('Task'), true);
+  assert.equal(isSubagentToolName('Agent'), true);
+  assert.equal(isReadingToolName('Read'), true);
 });
 
 test('applies a live snapshot to existing character objects and starts a new route without restart', () => {
