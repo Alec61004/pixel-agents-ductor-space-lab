@@ -2,6 +2,12 @@ import { DUCTOR_ALEC_COLOR, DUCTOR_BENJAMIN_COLOR, DUCTOR_KEVIN_COLOR } from '..
 
 export type DuctorRoleName = 'Alec' | 'Kevin' | 'Benjamin';
 export type DuctorRoleState = 'idle' | 'working' | 'waiting' | 'review' | 'blocked' | 'offline';
+export type DuctorStatusProvenance =
+  | 'operator-agent-reported'
+  | 'local-status-file-fallback'
+  | 'stale-local-report'
+  | 'stale-cloud-heartbeat'
+  | 'cloud-unavailable';
 
 export interface DuctorRoleStatus {
   name: DuctorRoleName;
@@ -10,10 +16,13 @@ export interface DuctorRoleStatus {
   taskLabel: string | null;
   updatedAt: string;
   derived: boolean;
+  provenance?: DuctorStatusProvenance;
 }
 
 export interface DuctorStatusSnapshot {
   theme: 'ductor-space-lab';
+  publishedAt?: string;
+  stale?: boolean;
   roles: DuctorRoleStatus[];
 }
 
@@ -87,18 +96,99 @@ export function ductorAssetUrl(baseUrl: string, relativePath: string): string {
 }
 
 export function isDuctorStatusSnapshot(value: unknown): value is DuctorStatusSnapshot {
-  if (!value || typeof value !== 'object') return false;
-  const snapshot = value as Partial<DuctorStatusSnapshot>;
-  if (snapshot.theme !== 'ductor-space-lab' || !Array.isArray(snapshot.roles)) return false;
-  const roleNames = snapshot.roles.map((role) => (role as DuctorRoleStatus | undefined)?.name);
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const snapshot = value as Record<string, unknown>;
+  const isCloud = 'publishedAt' in snapshot || 'stale' in snapshot;
+  const topKeys = isCloud
+    ? new Set(['theme', 'publishedAt', 'stale', 'roles'])
+    : new Set(['theme', 'roles']);
+  if (
+    Object.keys(snapshot).some((key) => !topKeys.has(key)) ||
+    snapshot['theme'] !== 'ductor-space-lab' ||
+    !Array.isArray(snapshot['roles']) ||
+    snapshot['roles'].length !== 3
+  ) {
+    return false;
+  }
+  if (
+    isCloud &&
+    (typeof snapshot['stale'] !== 'boolean' || !isCanonicalTimestamp(snapshot['publishedAt']))
+  ) {
+    return false;
+  }
+  const expectedNames: DuctorRoleName[] = ['Alec', 'Kevin', 'Benjamin'];
+  return snapshot['roles'].every((role, index) =>
+    isDuctorRoleStatus(role, expectedNames[index], isCloud),
+  );
+}
+
+const ROLE_STATES = new Set<DuctorRoleState>([
+  'idle',
+  'working',
+  'waiting',
+  'review',
+  'blocked',
+  'offline',
+]);
+const PROVENANCE = new Set<DuctorStatusProvenance>([
+  'operator-agent-reported',
+  'local-status-file-fallback',
+  'stale-local-report',
+  'stale-cloud-heartbeat',
+  'cloud-unavailable',
+]);
+
+function isCanonicalTimestamp(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  const parsed = Date.parse(value);
+  return !Number.isNaN(parsed) && new Date(parsed).toISOString() === value;
+}
+
+function isTaskLabel(value: unknown): value is string | null {
   return (
-    snapshot.roles.length === 3 &&
-    new Set(roleNames).size === 3 &&
-    snapshot.roles.every(
-      (role) =>
-        !!role &&
-        typeof role === 'object' &&
-        ['Alec', 'Kevin', 'Benjamin'].includes((role as DuctorRoleStatus).name),
-    )
+    value === null ||
+    (typeof value === 'string' &&
+      value.length > 0 &&
+      value.length <= 120 &&
+      value.trim() === value &&
+      ![...value].some((character) => {
+        const codePoint = character.codePointAt(0) ?? 0;
+        return codePoint <= 31 || codePoint === 127;
+      }))
+  );
+}
+
+function isDuctorRoleStatus(
+  value: unknown,
+  expectedName: DuctorRoleName | undefined,
+  isCloud: boolean,
+): value is DuctorRoleStatus {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const role = value as Record<string, unknown>;
+  const roleKeys = isCloud
+    ? new Set(['name', 'presence', 'state', 'taskLabel', 'updatedAt', 'derived', 'provenance'])
+    : new Set(['name', 'presence', 'state', 'taskLabel', 'updatedAt', 'derived']);
+  if (Object.keys(role).some((key) => !roleKeys.has(key))) return false;
+  const state = role['state'];
+  const presence = role['presence'];
+  const derived = role['derived'];
+  if (
+    role['name'] !== expectedName ||
+    typeof state !== 'string' ||
+    !ROLE_STATES.has(state as DuctorRoleState) ||
+    (presence !== 'online' && presence !== 'offline') ||
+    (state === 'offline') !== (presence === 'offline') ||
+    !isTaskLabel(role['taskLabel']) ||
+    !isCanonicalTimestamp(role['updatedAt']) ||
+    typeof derived !== 'boolean'
+  ) {
+    return false;
+  }
+  if (!isCloud) return true;
+  const provenance = role['provenance'];
+  return (
+    typeof provenance === 'string' &&
+    PROVENANCE.has(provenance as DuctorStatusProvenance) &&
+    (provenance === 'operator-agent-reported') !== derived
   );
 }

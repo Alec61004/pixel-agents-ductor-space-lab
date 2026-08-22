@@ -53,3 +53,26 @@ test('renders exactly three accessible role stations and simultaneous activity',
   assert.match(markup, /Ductor Space Lab/);
   assert.match(markup, /Signals marked derived are presence-based/);
 });
+
+test('labels cloud provenance and stale offline status honestly', () => {
+  const staleSnapshot: DuctorStatusSnapshot = {
+    ...snapshot,
+    publishedAt: '2026-08-22T05:30:00.000Z',
+    stale: true,
+    roles: snapshot.roles.map((role) => ({
+      ...role,
+      presence: 'offline',
+      state: 'offline',
+      taskLabel: null,
+      derived: true,
+      provenance: 'stale-cloud-heartbeat',
+    })),
+  };
+
+  const markup = renderToStaticMarkup(createElement(DuctorLab, { snapshot: staleSnapshot }));
+
+  assert.match(markup, /REMOTE HEARTBEAT/);
+  assert.match(markup, /Cloud heartbeat stale · roles marked offline/);
+  assert.equal((markup.match(/stale cloud heartbeat/g) ?? []).length, 3);
+  assert.doesNotMatch(markup, /127\.0\.0\.1/);
+});

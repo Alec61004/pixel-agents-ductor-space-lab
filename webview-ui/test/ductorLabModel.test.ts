@@ -7,6 +7,7 @@ import {
   createDuctorRoleCards,
   ductorAssetUrl,
   type DuctorStatusSnapshot,
+  isDuctorStatusSnapshot,
   selectRuntimeSurface,
   selectScenePreset,
 } from '../src/ductor/ductorLabModel.js';
@@ -128,5 +129,39 @@ test('resolves theme assets from the app root instead of relative to the CSS bun
   assert.equal(
     ductorAssetUrl('/preview/', 'themes/ductor-space-lab/crew-sprites.webp'),
     '/preview/assets/themes/ductor-space-lab/crew-sprites.webp',
+  );
+});
+
+test('accepts the exact cloud public shape while retaining the local shape', () => {
+  const cloud = {
+    ...status,
+    publishedAt: '2026-08-22T05:30:00.000Z',
+    stale: false,
+    roles: status.roles.map((role) => ({
+      ...role,
+      provenance: 'operator-agent-reported',
+    })),
+  };
+
+  assert.equal(isDuctorStatusSnapshot(status), true);
+  assert.equal(isDuctorStatusSnapshot(cloud), true);
+  assert.equal(isDuctorStatusSnapshot({ ...cloud, secret: 'never' }), false);
+  assert.equal(
+    isDuctorStatusSnapshot({
+      ...cloud,
+      roles: cloud.roles.map((role, index) =>
+        index === 0 ? { ...role, arbitraryMetadata: 'never' } : role,
+      ),
+    }),
+    false,
+  );
+  assert.equal(
+    isDuctorStatusSnapshot({
+      ...cloud,
+      roles: cloud.roles.map((role, index) =>
+        index === 0 ? { ...role, provenance: 'telegram-message' } : role,
+      ),
+    }),
+    false,
   );
 });

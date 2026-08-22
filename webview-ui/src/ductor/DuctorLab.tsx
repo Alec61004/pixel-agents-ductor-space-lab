@@ -20,6 +20,7 @@ function formatSignalTime(timestamp: string): string {
 
 export function DuctorLab({ snapshot }: DuctorLabProps) {
   const cards = createDuctorRoleCards(snapshot);
+  const isCloud = snapshot.publishedAt !== undefined;
   const assetUrl = (relativePath: string) => ductorAssetUrl(import.meta.env.BASE_URL, relativePath);
 
   return (
@@ -34,12 +35,18 @@ export function DuctorLab({ snapshot }: DuctorLabProps) {
 
       <header className="ductor-lab__header">
         <div>
-          <p className="ductor-lab__eyebrow">PRIVATE // LOCAL SIGNAL ARRAY</p>
+          <p className="ductor-lab__eyebrow">
+            {isCloud ? 'PRIVATE // REMOTE HEARTBEAT' : 'PRIVATE // LOCAL SIGNAL ARRAY'}
+          </p>
           <h1>Ductor Space Lab</h1>
         </div>
         <div className="ductor-lab__link" role="status" aria-live="polite">
           <span className="ductor-lab__link-dot" />
-          127.0.0.1 · READ ONLY
+          {isCloud
+            ? snapshot.stale
+              ? 'Cloud heartbeat stale · roles marked offline'
+              : 'Protected remote · read only'
+            : '127.0.0.1 · READ ONLY'}
         </div>
       </header>
 
@@ -83,7 +90,9 @@ export function DuctorLab({ snapshot }: DuctorLabProps) {
               </p>
               <div className="ductor-station__meta">
                 <span>{card.presence}</span>
-                <span>{card.derived ? 'derived' : 'reported'}</span>
+                <span>
+                  {card.provenance?.replaceAll('-', ' ') ?? (card.derived ? 'derived' : 'reported')}
+                </span>
                 <time dateTime={card.updatedAt}>{formatSignalTime(card.updatedAt)}</time>
               </div>
             </article>
