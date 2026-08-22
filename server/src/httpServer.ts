@@ -19,6 +19,7 @@ import {
   WS_CLOSE_FORBIDDEN_ORIGIN,
   WS_CLOSE_UNAUTHORIZED,
 } from './constants.js';
+import type { DuctorStatusProvider } from './providers/status/ductor/ductorStatusProvider.js';
 import type { AgentState } from './types.js';
 
 /** Options for creating the HTTP + WebSocket server. */
@@ -45,6 +46,8 @@ export interface HttpServerOptions {
   onSetHooksEnabled?: SetHooksEnabledSideEffect;
   /** Invoked when an external asset directory is added/removed. Standalone reloads + re-broadcasts assets here. */
   onReloadAssets?: ReloadAssetsSideEffect;
+  /** Opt-in, read-only status source for the private Ductor Space Lab preset. */
+  ductorStatusProvider?: Pick<DuctorStatusProvider, 'snapshot'>;
 }
 
 /** Result of createHttpServer(). */
@@ -85,6 +88,7 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Http
   // ── Routes ──────────────────────────────────────────────────
 
   registerHealthRoute(app);
+  registerDuctorStatusRoute(app, options);
   registerHookRoute(app, options);
   registerWebSocketRoute(app, options);
 
@@ -95,6 +99,14 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Http
   const port = typeof address === 'object' ? (address?.port ?? 0) : 0;
 
   return { app, port };
+}
+
+function registerDuctorStatusRoute(app: FastifyInstance, options: HttpServerOptions): void {
+  if (!options.ductorStatusProvider) return;
+  app.get('/api/ductor/status', (_request, reply) => {
+    reply.header('Cache-Control', 'no-store');
+    return options.ductorStatusProvider!.snapshot();
+  });
 }
 
 // ── Health ──────────────────────────────────────────────────────

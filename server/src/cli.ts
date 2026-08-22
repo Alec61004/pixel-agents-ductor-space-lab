@@ -28,6 +28,10 @@ import {
 import { MAX_PORT, MIN_PORT } from './constants.js';
 import { FileStateAdapter } from './fileStateAdapter.js';
 import { claudeProvider, copyHookScript, hookProviderById } from './providers/index.js';
+import {
+  DuctorStatusProvider,
+  isSafeDuctorLabHost,
+} from './providers/status/ductor/ductorStatusProvider.js';
 import { PixelAgentsServer } from './server.js';
 
 // ── Argument parsing ──────────────────────────────────────────
@@ -109,6 +113,12 @@ async function main(): Promise<void> {
     args = parseArgs(process.argv.slice(2));
   } catch (err) {
     console.error(`[Pixel Agents] ${err instanceof Error ? err.message : String(err)}`);
+    process.exit(1);
+  }
+
+  const ductorLabEnabled = process.env['PIXEL_AGENTS_DUCTOR_LAB'] === '1';
+  if (ductorLabEnabled && !isSafeDuctorLabHost(args.host)) {
+    console.error('[Pixel Agents] Ductor Space Lab can only bind to a loopback host.');
     process.exit(1);
   }
 
@@ -237,18 +247,22 @@ async function main(): Promise<void> {
       assetCache,
       onSetHooksEnabled,
       onReloadAssets,
+      ductorStatusProvider: ductorLabEnabled ? new DuctorStatusProvider() : undefined,
+      allowReuse: !ductorLabEnabled,
     });
     currentConfig = { port: config.port, token: config.token };
 
     // Sync runtime refs with persisted settings BEFORE first scan tick. The
     // runtime's single hooksEnabled ref follows the Claude provider until the
     // scanners grow per-provider awareness alongside the Settings UI.
-    runtime.hooksEnabled.current = getHooksEnabled(claudeProvider.id);
+    runtime.hooksEnabled.current = ductorLabEnabled ? false : getHooksEnabled(claudeProvider.id);
     runtime.watchAllSessions.current = adapter.getSetting('pixel-agents.watchAllSessions', false);
 
     // Install hooks on startup if the persisted setting says so — gated on the
     // one-time consent to modify ~/.claude/settings.json.
-    if (runtime.hooksEnabled.current) {
+    if (ductorLabEnabled) {
+      console.log('[Pixel Agents] Ductor Space Lab enabled (read-only status bridge).');
+    } else if (runtime.hooksEnabled.current) {
       let consent = getHooksConsent(claudeProvider.id) === 'granted';
       if (!consent && (await claudeProvider.areHooksInstalled())) {
         // Our hooks are already installed and already firing — a pre-consent
@@ -283,14 +297,16 @@ async function main(): Promise<void> {
     }
 
     // Start scanning for external sessions (Claude running in user's terminal)
-    const cwd = process.cwd();
-    const dirs = claudeProvider.getSessionDirs?.(cwd);
-    if (dirs && dirs[0]) {
-      const projectDir = dirs[0];
-      console.log(`[Pixel Agents] Scanning project dir: ${projectDir}`);
-      runtime.startProjectScan(projectDir);
-      runtime.startExternalScanning(projectDir);
-      runtime.startStaleCheck();
+    if (!ductorLabEnabled) {
+      const cwd = process.cwd();
+      const dirs = claudeProvider.getSessionDirs?.(cwd);
+      if (dirs && dirs[0]) {
+        const projectDir = dirs[0];
+        console.log(`[Pixel Agents] Scanning project dir: ${projectDir}`);
+        runtime.startProjectScan(projectDir);
+        runtime.startExternalScanning(projectDir);
+        runtime.startStaleCheck();
+      }
     }
 
     // The URL the operator opens has to be REACHABLE (a wildcard bind address
@@ -302,9 +318,10 @@ async function main(): Promise<void> {
     // address; only the consent-bearing toggle needs the token.
     const displayHost =
       args.host === '0.0.0.0' || args.host === '::' || args.host === '' ? '127.0.0.1' : args.host;
-    console.log(
-      `\n  Pixel Agents server running at http://${displayHost}:${config.port}/?token=${config.token}\n`,
-    );
+    const displayUrl = ductorLabEnabled
+      ? `http://${displayHost}:${config.port}/`
+      : `http://${displayHost}:${config.port}/?token=${config.token}`;
+    console.log(`\n  Pixel Agents server running at ${displayUrl}\n`);
 
     // ── Graceful shutdown ──
     function shutdown(): void {

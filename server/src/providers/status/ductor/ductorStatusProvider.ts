@@ -4,6 +4,10 @@ import * as path from 'node:path';
 
 export const DUCTOR_ROLE_NAMES = ['Alec', 'Kevin', 'Benjamin'] as const;
 
+export function isSafeDuctorLabHost(host: string): boolean {
+  return ['127.0.0.1', 'localhost', '::1'].includes(host.trim().toLowerCase());
+}
+
 export type DuctorRoleName = (typeof DUCTOR_ROLE_NAMES)[number];
 export type DuctorPresence = 'online' | 'offline';
 export type DuctorRoleState = 'idle' | 'working' | 'waiting' | 'review' | 'blocked' | 'offline';

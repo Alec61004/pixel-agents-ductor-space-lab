@@ -18,6 +18,7 @@ import {
   SERVERS_DIR,
 } from './constants.js';
 import { createHttpServer } from './httpServer.js';
+import type { DuctorStatusProvider } from './providers/status/ductor/ductorStatusProvider.js';
 import type { ServerConfig } from './serverConfig.js';
 import { isServerConfig, isServerTarget } from './serverConfig.js';
 
@@ -69,6 +70,8 @@ export class PixelAgentsServer {
     assetCache?: AssetCache;
     onSetHooksEnabled?: SetHooksEnabledSideEffect;
     onReloadAssets?: ReloadAssetsSideEffect;
+    ductorStatusProvider?: Pick<DuctorStatusProvider, 'snapshot'>;
+    allowReuse?: boolean;
   }): Promise<ServerConfig> {
     const embedded = options?.embedded ?? true;
     const wantsSpa = !embedded;
@@ -80,7 +83,8 @@ export class PixelAgentsServer {
     // server (blank page). Prune dead entries first so a crashed server's
     // stale file never blocks discovery of a live one.
     const registry = this.readAndPruneRegistry();
-    const candidate = registry.find((e) => e.servesSpa === wantsSpa);
+    const candidate =
+      options?.allowReuse === false ? undefined : registry.find((e) => e.servesSpa === wantsSpa);
     if (candidate) {
       this.config = candidate;
       this.ownsServer = false;
@@ -106,6 +110,7 @@ export class PixelAgentsServer {
       onHookEvent: (providerId, event) => this.callback?.(providerId, event),
       onSetHooksEnabled: options?.onSetHooksEnabled,
       onReloadAssets: options?.onReloadAssets,
+      ductorStatusProvider: options?.ductorStatusProvider,
     });
 
     this.app = app;
