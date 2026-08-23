@@ -50,6 +50,18 @@ def rgba_to_hex(r, g, b, a):
         return rgb
     return f"{rgb}{a:02X}"
 
+def find_reference_image():
+    candidates = [
+        'telegram_files/2026-08-22/photo_AQADaxFrG51tSVR-.webp',
+        '/home/bao/.ductor/workspace/telegram_files/2026-08-22/photo_AQADaxFrG51tSVR-.webp',
+        '/home/bao/ductor/agents/kevin/workspace/telegram_files/2026-08-22/photo_AQADaxFrG51tSVR-.webp',
+        os.path.expanduser('~/.ductor/workspace/telegram_files/2026-08-22/photo_AQADaxFrG51tSVR-.webp'),
+    ]
+    for c in candidates:
+        if os.path.exists(c):
+            return c
+    return None
+
 # Palette definitions matching photo_AQADaxFrG51tSVR-.webp
 PALETTE = {
     # Void & Galaxy
@@ -119,7 +131,7 @@ PALETTE = {
     'fluid_glow': '#1A6B7B',
 }
 
-def create_dark_metal_floor_tile():
+def create_dark_metal_floor_tile(ref_img=None):
     """Generates 16x16 dark metallic sci-fi floor tile."""
     img = Image.new('RGBA', (16, 16), (0, 0, 0, 0))
     c = {k: hex_to_rgba(v) for k, v in PALETTE.items()}
@@ -261,7 +273,7 @@ def create_sci_fi_wall_set_image():
         full_img.paste(piece, (col * 16, row * 32), piece)
     return full_img
 
-def create_galaxy_window_image(width_tiles=6, height_tiles=2):
+def create_galaxy_window_image(ref_img=None, width_tiles=6, height_tiles=2):
     """
     Generates panoramic observation window with purple galaxy background & space station frame.
     Width: width_tiles * 16 (e.g. 6 * 16 = 96px)
@@ -272,36 +284,18 @@ def create_galaxy_window_image(width_tiles=6, height_tiles=2):
     img = Image.new('RGBA', (w, h), (0, 0, 0, 0))
     c = {k: hex_to_rgba(v) for k, v in PALETTE.items()}
 
-    # 1. Cosmic space background with purple nebula gradient
-    for y in range(h):
-        for x in range(w):
-            # Distance from nebula centers
-            nx1 = w * 0.35
-            ny1 = h * 0.45
-            dist1 = ((x - nx1) ** 2 + (y - ny1) ** 2) ** 0.5
-
-            nx2 = w * 0.75
-            ny2 = h * 0.35
-            dist2 = ((x - nx2) ** 2 + (y - ny2) ** 2) ** 0.5
-
-            if dist1 < 10:
-                col = c['nebula_hot']
-            elif dist1 < 20:
-                col = c['nebula_glow']
-            elif dist1 < 35:
-                col = c['nebula_bright']
-            elif dist1 < 50 or dist2 < 18:
-                col = c['nebula_mid']
-            elif dist1 < 65 or dist2 < 30:
-                col = c['nebula_deep']
-            elif dist2 < 45:
-                col = c['space_mid']
-            elif (y % 4 == 0 and x % 3 == 0):
-                col = c['space_dark']
-            else:
-                col = c['space_deep']
-
-            img.putpixel((x, y), col)
+    # Sample nebula gradient from reference window
+    if ref_img is not None:
+        window_crop = ref_img.crop((520, 60, 760, 220)).resize((w, h), Image.Resampling.LANCZOS).convert('RGBA')
+        for y in range(h):
+            for x in range(w):
+                pr, pg, pb, _ = window_crop.getpixel((x, y))
+                img.putpixel((x, y), (min(255, int(pr * 1.1)), min(255, int(pg * 1.05)), min(255, int(pb * 1.2)), 255))
+    else:
+        # Fallback gradient
+        for y in range(h):
+            for x in range(w):
+                img.putpixel((x, y), c['space_deep'])
 
     # 2. Scattered twinkling stars
     stars = [
@@ -364,7 +358,7 @@ def create_galaxy_window_image(width_tiles=6, height_tiles=2):
 
     return img
 
-def create_neon_console_image():
+def create_neon_console_image(ref_img=None):
     """
     Generates 48x32 neon sci-fi control console (3x2 tiles).
     - Top 16px (y: 0..15): Triple monitor displays with cyan/magenta HUD graphs, radar, diagnostics.
@@ -543,7 +537,7 @@ def create_neon_console_image():
 
     return img
 
-def create_specimen_tank_image():
+def create_specimen_tank_image(ref_img=None):
     """
     Generates 32x48 specimen containment cylinder tank (2x3 tiles).
     - Top 10px (y: 0..9): Pressurized filtration dome, pressure gauge, status LEDs.
@@ -692,7 +686,7 @@ def create_specimen_tank_image():
 
     return img
 
-def create_holo_table_image():
+def create_holo_table_image(ref_img=None):
     """
     Generates 32x32 Hologram Star Map Table (2x2 tiles).
     - Top 14px (y: 0..14): Floating 3D Star Map Hologram with glowing star, orbits, planets, light cones.
@@ -807,7 +801,7 @@ def create_holo_table_image():
 
     return img
 
-def create_weapon_rack_image():
+def create_weapon_rack_image(ref_img=None):
     """
     Generates 32x32 Wall-Mounted Weapon Rack (2x2 tiles).
     - Heavy bulkhead armor backplate with magnetic mounting brackets.
@@ -940,8 +934,16 @@ def main():
     out_dir = os.path.join(base_dir, 'webview-ui/public/assets/themes/ductor-space-lab')
     os.makedirs(out_dir, exist_ok=True)
 
+    ref_path = find_reference_image()
+    ref_img = None
+    if ref_path:
+        print(f'✓ Found reference image: {ref_path}')
+        ref_img = Image.open(ref_path).convert('RGB')
+    else:
+        print('! Reference image not found in standard paths, using fallback palette synthesis')
+
     # 1. Floor tile
-    floor_img = create_dark_metal_floor_tile()
+    floor_img = create_dark_metal_floor_tile(ref_img)
     floor_path = os.path.join(out_dir, 'floor-dark-metal.png')
     floor_img.save(floor_path, format='PNG')
     print(f'✓ Generated {floor_path} ({floor_img.size[0]}x{floor_img.size[1]})')
@@ -953,32 +955,32 @@ def main():
     print(f'✓ Generated {wall_path} ({wall_img.size[0]}x{wall_img.size[1]})')
 
     # 3. Observation window & purple galaxy (96x32 = 6x2 tiles)
-    window_img = create_galaxy_window_image(6, 2)
+    window_img = create_galaxy_window_image(ref_img, 6, 2)
     window_path = os.path.join(out_dir, 'window-galaxy.png')
     window_img.save(window_path, format='PNG')
     print(f'✓ Generated {window_path} ({window_img.size[0]}x{window_img.size[1]})')
 
     # 4. Props:
     # (1) Neon Control Console (48x32 = 3x2 tiles)
-    console_neon_img = create_neon_console_image()
+    console_neon_img = create_neon_console_image(ref_img)
     console_neon_path = os.path.join(out_dir, 'console-neon.png')
     console_neon_img.save(console_neon_path, format='PNG')
     print(f'✓ Generated {console_neon_path} ({console_neon_img.size[0]}x{console_neon_img.size[1]})')
 
     # (2) Specimen Containment Tank (32x48 = 2x3 tiles)
-    specimen_tank_img = create_specimen_tank_image()
+    specimen_tank_img = create_specimen_tank_image(ref_img)
     specimen_tank_path = os.path.join(out_dir, 'specimen-tank.png')
     specimen_tank_img.save(specimen_tank_path, format='PNG')
     print(f'✓ Generated {specimen_tank_path} ({specimen_tank_img.size[0]}x{specimen_tank_img.size[1]})')
 
     # (3) Hologram Star Map Table (32x32 = 2x2 tiles)
-    holo_table_img = create_holo_table_image()
+    holo_table_img = create_holo_table_image(ref_img)
     holo_table_path = os.path.join(out_dir, 'holo-table.png')
     holo_table_img.save(holo_table_path, format='PNG')
     print(f'✓ Generated {holo_table_path} ({holo_table_img.size[0]}x{holo_table_img.size[1]})')
 
     # (4) Wall Weapon Rack (32x32 = 2x2 tiles)
-    weapon_rack_img = create_weapon_rack_image()
+    weapon_rack_img = create_weapon_rack_image(ref_img)
     weapon_rack_path = os.path.join(out_dir, 'weapon-rack.png')
     weapon_rack_img.save(weapon_rack_path, format='PNG')
     print(f'✓ Generated {weapon_rack_path} ({weapon_rack_img.size[0]}x{weapon_rack_img.size[1]})')

@@ -80,7 +80,6 @@ interface AppliedRoleState {
 const ROLE_NAMES: readonly DuctorRoleName[] = ['Alec', 'Kevin', 'Benjamin'];
 const LAB_COLS = 22;
 const LAB_ROWS = 16;
-const DIVIDER_COLS = new Set([0, 7, 14, LAB_COLS - 1]);
 
 function roleKey(name: DuctorRoleName): string {
   return name.toLowerCase();
@@ -123,11 +122,11 @@ export function createDuctorSpaceLabLayout(): OfficeLayout {
 
   for (let row = 0; row < LAB_ROWS; row++) {
     for (let col = 0; col < LAB_COLS; col++) {
-      const wall = row === 0 || row === LAB_ROWS - 1 || DIVIDER_COLS.has(col);
+      const wall = row === 0 || row === LAB_ROWS - 1 || col === 0 || col === LAB_COLS - 1;
       tiles.push(wall ? TileType.WALL : TileType.FLOOR_1);
       tileColors.push(null);
       areaTiles.push(
-        wall ? null : col < 7 ? 'ALEC // STRATEGY' : col < 14 ? 'KEVIN // BUILD' : 'BENJAMIN // QA',
+        wall ? null : col < 8 ? 'ALEC // STRATEGY' : col < 15 ? 'KEVIN // BUILD' : 'BENJAMIN // QA',
       );
     }
   }
