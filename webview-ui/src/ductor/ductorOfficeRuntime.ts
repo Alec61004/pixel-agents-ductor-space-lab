@@ -104,10 +104,13 @@ function stationFurniture(name: DuctorRoleName): PlacedFurniture[] {
   const col = DUCTOR_ROLE_PRESENTATION[name].laneCenter;
   const stations = stationsFor(name);
   return [
-    { uid: `${key}-console`, type: 'DESK_FRONT', col: col - 1, row: 2 },
+    { uid: `${key}-console`, type: 'CONSOLE_NEON', col: col - 1, row: 2 },
     { uid: `${key}-terminal`, type: 'PC_FRONT_OFF', col, row: 2 },
+    { uid: `${key}-specimen-tank`, type: 'SPECIMEN_TANK', col: col + 2, row: 1 },
     { uid: stations.workSeatId, type: 'CUSHIONED_CHAIR_BACK', col, row: 4 },
-    { uid: `${key}-archive`, type: 'DOUBLE_BOOKSHELF', col: col - 1, row: 7 },
+    { uid: `${key}-weapon-rack`, type: 'WEAPON_RACK', col: col - 2, row: 5 },
+    { uid: `${key}-holo-table`, type: 'HOLO_TABLE', col: col + 1, row: 6 },
+    { uid: `${key}-archive`, type: 'DOUBLE_BOOKSHELF', col: col - 2, row: 7 },
     { uid: stations.reviewSeatId, type: 'CUSHIONED_CHAIR_BACK', col, row: 9 },
     { uid: stations.spawnSeatId, type: 'CUSHIONED_CHAIR_BACK', col, row: 13 },
   ];

@@ -54,6 +54,51 @@ beforeAll(() => {
         backgroundTiles: 1,
       },
       {
+        id: 'CONSOLE_NEON',
+        label: 'Neon Control Console',
+        category: 'electronics',
+        width: 48,
+        height: 32,
+        footprintW: 3,
+        footprintH: 2,
+        isDesk: true,
+        backgroundTiles: 1,
+      },
+      {
+        id: 'SPECIMEN_TANK',
+        label: 'Specimen Containment Tank',
+        category: 'decor',
+        width: 32,
+        height: 48,
+        footprintW: 2,
+        footprintH: 3,
+        isDesk: false,
+        backgroundTiles: 2,
+      },
+      {
+        id: 'HOLO_TABLE',
+        label: 'Hologram Star Map Table',
+        category: 'decor',
+        width: 32,
+        height: 32,
+        footprintW: 2,
+        footprintH: 2,
+        isDesk: false,
+        backgroundTiles: 1,
+      },
+      {
+        id: 'WEAPON_RACK',
+        label: 'Wall Weapon Rack',
+        category: 'wall',
+        width: 32,
+        height: 32,
+        footprintW: 2,
+        footprintH: 2,
+        isDesk: false,
+        backgroundTiles: 0,
+        canPlaceOnWalls: true,
+      },
+      {
         id: 'PC_FRONT_OFF',
         label: 'Terminal',
         category: 'electronics',
@@ -93,6 +138,10 @@ beforeAll(() => {
     sprites: {
       CUSHIONED_CHAIR_BACK: PIXEL,
       DESK_FRONT: PIXEL,
+      CONSOLE_NEON: PIXEL,
+      SPECIMEN_TANK: PIXEL,
+      HOLO_TABLE: PIXEL,
+      WEAPON_RACK: PIXEL,
       PC_FRONT_OFF: PIXEL,
       DOUBLE_BOOKSHELF: PIXEL,
       WINDOW_GALAXY: PIXEL,
@@ -272,7 +321,10 @@ test('layout exposes disjoint reachable role lanes and meaningful work/review st
   const observations = runtime.observeAgents();
 
   assert.equal(layout.areas?.length, 3);
-  assert.ok(layout.furniture.some(({ type }) => type === 'DESK_FRONT'));
+  assert.ok(layout.furniture.some(({ type }) => type === 'CONSOLE_NEON'));
+  assert.ok(layout.furniture.some(({ type }) => type === 'SPECIMEN_TANK'));
+  assert.ok(layout.furniture.some(({ type }) => type === 'HOLO_TABLE'));
+  assert.ok(layout.furniture.some(({ type }) => type === 'WEAPON_RACK'));
   assert.ok(layout.furniture.some(({ type }) => type === 'DOUBLE_BOOKSHELF'));
   assert.equal(new Set(observations.map(({ targetCol }) => targetCol)).size, 3);
   assert.ok(observations.every(({ pathLength }) => pathLength > 0));
