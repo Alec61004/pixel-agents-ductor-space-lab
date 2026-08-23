@@ -6,6 +6,7 @@ import { Direction as Dir } from '../types.js';
 import bubblePermissionData from './bubble-permission.json';
 import bubblePetData from './bubble-pet.json';
 import bubbleWaitingData from './bubble-waiting.json';
+import ductorCrewSpritesData from './ductorCrewSprites.json';
 
 // ── Speech Bubble Sprites ───────────────────────────────────────
 
@@ -31,10 +32,94 @@ export const BUBBLE_HEART_SPRITE: SpriteData = resolveBubbleSprite(bubblePetData
 // Loaded character sprites (from PNG assets)
 // ════════════════════════════════════════════════════════════════
 
-interface LoadedCharacterData {
+export interface LoadedCharacterData {
   down: SpriteData[];
   up: SpriteData[];
   right: SpriteData[];
+}
+
+export const DUCTOR_CREW_SPRITE_NAMES = ['alec', 'kevin', 'benjamin'] as const;
+export type DuctorCrewName = (typeof DUCTOR_CREW_SPRITE_NAMES)[number];
+
+const registeredCrewSprites = new Map<string, LoadedCharacterData>();
+const crewSpriteCache = new Map<string, CharacterSprites>();
+
+/** Register an in-world Ductor crew character sprite sheet (Alec, Kevin, Benjamin) */
+export function registerCrewSprite(name: string, data: LoadedCharacterData): void {
+  registeredCrewSprites.set(name.toLowerCase(), data);
+  crewSpriteCache.clear();
+}
+
+/** Register multiple Ductor crew character sprite sheets */
+export function registerDuctorCrewSprites(
+  sprites: Record<string, LoadedCharacterData | undefined>,
+): void {
+  for (const [key, data] of Object.entries(sprites)) {
+    if (data) {
+      registerCrewSprite(key, data);
+    }
+  }
+}
+
+/** Get registered in-world crew character sprites by name */
+export function getCrewCharacterSprites(name: string, hueShift = 0): CharacterSprites | null {
+  const normalized = name.toLowerCase();
+  const cacheKey = `${normalized}:${hueShift}`;
+  const cached = crewSpriteCache.get(cacheKey);
+  if (cached) return cached;
+
+  const char = registeredCrewSprites.get(normalized);
+  if (!char) return null;
+
+  const d = char.down;
+  const u = char.up;
+  const rt = char.right;
+  const flip = flipSpriteHorizontal;
+
+  let sprites: CharacterSprites = {
+    walk: {
+      [Dir.DOWN]: [d[0], d[1], d[2], d[1]],
+      [Dir.UP]: [u[0], u[1], u[2], u[1]],
+      [Dir.RIGHT]: [rt[0], rt[1], rt[2], rt[1]],
+      [Dir.LEFT]: [flip(rt[0]), flip(rt[1]), flip(rt[2]), flip(rt[1])],
+    },
+    typing: {
+      [Dir.DOWN]: [d[3], d[4]],
+      [Dir.UP]: [u[3], u[4]],
+      [Dir.RIGHT]: [rt[3], rt[4]],
+      [Dir.LEFT]: [flip(rt[3]), flip(rt[4])],
+    },
+    reading: {
+      [Dir.DOWN]: [d[5], d[6]],
+      [Dir.UP]: [u[5], u[6]],
+      [Dir.RIGHT]: [rt[5], rt[6]],
+      [Dir.LEFT]: [flip(rt[5]), flip(rt[6])],
+    },
+  };
+
+  if (hueShift !== 0) {
+    sprites = hueShiftSprites(sprites, hueShift);
+  }
+
+  crewSpriteCache.set(cacheKey, sprites);
+  return sprites;
+}
+
+/** Check if a crew sprite is registered */
+export function hasCrewSprite(name: string): boolean {
+  return registeredCrewSprites.has(name.toLowerCase());
+}
+
+/** Get map of all registered crew sprites */
+export function getRegisteredCrewSprites(): ReadonlyMap<string, LoadedCharacterData> {
+  return registeredCrewSprites;
+}
+
+// Auto-register pre-decoded default Ductor space lab crew sprites (Alec, Kevin, Benjamin)
+if (ductorCrewSpritesData) {
+  registerDuctorCrewSprites(
+    ductorCrewSpritesData as unknown as Record<string, LoadedCharacterData>,
+  );
 }
 
 let loadedCharacters: LoadedCharacterData[] | null = null;
