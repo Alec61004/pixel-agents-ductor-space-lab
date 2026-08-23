@@ -1,8 +1,9 @@
 import { loadBrowserOfficeAssets } from '../browserMock.js';
 import { setFloorSprites } from '../office/floorTiles.js';
 import { buildDynamicCatalog } from '../office/layout/furnitureCatalog.js';
-import { setCarpetSprites } from '../office/sprites/carpetTiles.js';
+import ductorCrewSpritesData from '../office/sprites/ductorCrewSprites.json';
 import ductorSpaceLabTilesData from '../office/sprites/ductorSpaceLabTiles.json';
+import type { LoadedCharacterData } from '../office/sprites/spriteData.js';
 import { setCharacterTemplates } from '../office/sprites/spriteData.js';
 import { setWallSprites } from '../office/wallTiles.js';
 
@@ -10,7 +11,12 @@ let ready: Promise<void> | null = null;
 
 async function load(): Promise<void> {
   const assets = await loadBrowserOfficeAssets();
-  setCharacterTemplates(assets.characters);
+  const crewTemplates: LoadedCharacterData[] = [
+    ductorCrewSpritesData.alec as unknown as LoadedCharacterData,
+    ductorCrewSpritesData.kevin as unknown as LoadedCharacterData,
+    ductorCrewSpritesData.benjamin as unknown as LoadedCharacterData,
+  ];
+  setCharacterTemplates(crewTemplates);
   setFloorSprites([ductorSpaceLabTilesData.floor as string[][], ...assets.floorSprites]);
   setWallSprites([ductorSpaceLabTilesData.wallSet as string[][][], ...assets.wallSets]);
   setCarpetSprites(assets.carpetSets);

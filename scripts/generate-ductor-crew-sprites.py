@@ -1,38 +1,28 @@
 #!/usr/bin/env python3
 """
-Generate in-world armored crew sprite sheets for Ductor Space Lab:
-- Alec: Purple tactical space armor & helmet
-- Kevin: Cyan / Teal heavy engineering exo-armor & helmet
-- Benjamin: Crimson / Black tactical guardian armor & helmet
+Generate authentic armored crew sprite sheets for Ductor Space Lab
+cut directly from the reference sprite sheet:
+- telegram_files/2026-08-22/photo_AQADbBFrG51tSVR-.webp (or webview-ui/public/assets/themes/ductor-space-lab/crew-sprites.webp)
+
+Variants mapped from 2-row clusters:
+- Rows 0 & 1: Benjamin (Red / Black tactical guardian armor & visor)
+- Rows 2 & 3: Kevin (Teal / Cyan heavy engineering exo-armor & visor)
+- Rows 4 & 5: Alec (Purple / Magenta tactical space armor & visor)
 
 Generates:
 1. PNG sprite sheets in webview-ui/public/assets/themes/ductor-space-lab/
-   - alec.png (112x96)
-   - kevin.png (112x96)
-   - benjamin.png (112x96)
-   (and aliases crew_*.png, crew-*.png)
+   - crew-alec.png (112x96)
+   - crew-kevin.png (112x96)
+   - crew-benjamin.png (112x96)
+   - individual frame PNGs in frames/ subfolder
 2. Decoded JSON in webview-ui/src/office/sprites/ductorCrewSprites.json
    for instant registration in spriteData.ts
 """
 
 import json
 import os
+from collections import deque
 from PIL import Image
-
-def hex_to_rgba(hex_str, alpha=255):
-    hex_str = hex_str.lstrip('#')
-    if len(hex_str) == 6:
-        r = int(hex_str[0:2], 16)
-        g = int(hex_str[2:4], 16)
-        b = int(hex_str[4:6], 16)
-        return (r, g, b, alpha)
-    elif len(hex_str) == 8:
-        r = int(hex_str[0:2], 16)
-        g = int(hex_str[2:4], 16)
-        b = int(hex_str[4:6], 16)
-        a = int(hex_str[6:8], 16)
-        return (r, g, b, a)
-    return (0, 0, 0, 0)
 
 def rgba_to_hex(r, g, b, a):
     if a < 2:
@@ -42,369 +32,85 @@ def rgba_to_hex(r, g, b, a):
         return rgb
     return f"{rgb}{a:02X}"
 
-PALETTES = {
-    'alec': {
-        'name': 'Alec (Purple Commander)',
-        'armor_highlight': '#C8A0F8',
-        'armor_light': '#9E64E8',
-        'armor_main': '#7438C0',
-        'armor_dark': '#4E2088',
-        'armor_deep': '#2E1058',
-        'chassis_light': '#5A5C70',
-        'chassis_main': '#343648',
-        'chassis_dark': '#1E202C',
-        'chassis_deep': '#10121A',
-        'visor_core': '#FFFFFF',
-        'visor_bright': '#F4B8FF',
-        'visor_main': '#D060F8',
-        'visor_glow': '#9020C8',
-        'reactor_glow': '#FFE066',
-        'accent_dot': '#40FFFF',
-        'pad_screen': '#C080FF',
-    },
-    'kevin': {
-        'name': 'Kevin (Cyan Builder)',
-        'armor_highlight': '#8CEEFA',
-        'armor_light': '#36D0E8',
-        'armor_main': '#16A4C2',
-        'armor_dark': '#0E6C84',
-        'armor_deep': '#064252',
-        'chassis_light': '#505E6C',
-        'chassis_main': '#2E3842',
-        'chassis_dark': '#1A2228',
-        'chassis_deep': '#0E1418',
-        'visor_core': '#FFFFFF',
-        'visor_bright': '#C8FFFF',
-        'visor_main': '#38F0FF',
-        'visor_glow': '#00A8C8',
-        'reactor_glow': '#FFAA00',
-        'accent_dot': '#FFDD33',
-        'pad_screen': '#40FFFF',
-    },
-    'benjamin': {
-        'name': 'Benjamin (Red/Black Guardian)',
-        'armor_highlight': '#FFA0AC',
-        'armor_light': '#F04058',
-        'armor_main': '#C42036',
-        'armor_dark': '#841022',
-        'armor_deep': '#4E0814',
-        'chassis_light': '#525262',
-        'chassis_main': '#262630',
-        'chassis_dark': '#14141A',
-        'chassis_deep': '#08080C',
-        'visor_core': '#FFFFFF',
-        'visor_bright': '#FFA8B4',
-        'visor_main': '#FF2844',
-        'visor_glow': '#A8081C',
-        'reactor_glow': '#FFFFFF',
-        'accent_dot': '#FFA030',
-        'pad_screen': '#FF4466',
-    },
-}
+def remove_background_floodfill(img):
+    """
+    Remove the neutral light-grey parchment background using flood fill from edges.
+    """
+    img = img.convert('RGBA')
+    w, h = img.size
+    
+    def is_bg_pixel(r, g, b):
+        diff = max(r, g, b) - min(r, g, b)
+        return (r > 135 and g > 135 and b > 125 and diff < 32) or (r > 225 and g > 225 and b > 225)
+    
+    visited = [[False]*w for _ in range(h)]
+    is_bg_mask = [[False]*w for _ in range(h)]
+    queue = deque()
+    
+    for x in range(w):
+        for y in [0, h - 1]:
+            r, g, b, a = img.getpixel((x, y))
+            if is_bg_pixel(r, g, b):
+                queue.append((x, y))
+                visited[y][x] = True
+                is_bg_mask[y][x] = True
+    for y in range(h):
+        for x in [0, w - 1]:
+            if not visited[y][x]:
+                r, g, b, a = img.getpixel((x, y))
+                if is_bg_pixel(r, g, b):
+                    queue.append((x, y))
+                    visited[y][x] = True
+                    is_bg_mask[y][x] = True
+    
+    while queue:
+        cx, cy = queue.popleft()
+        for nx, ny in [(cx + 1, cy), (cx - 1, cy), (cx, cy + 1), (cx, cy - 1)]:
+            if 0 <= nx < w and 0 <= ny < h and not visited[ny][nx]:
+                visited[ny][nx] = True
+                r, g, b, a = img.getpixel((nx, ny))
+                if is_bg_pixel(r, g, b):
+                    is_bg_mask[ny][nx] = True
+                    queue.append((nx, ny))
+    
+    out = Image.new('RGBA', (w, h), (0, 0, 0, 0))
+    for y in range(h):
+        for x in range(w):
+            if not is_bg_mask[y][x]:
+                out.putpixel((x, y), img.getpixel((x, y)))
+    return out
 
-def generate_crew_sprite(char_key):
-    pal = PALETTES[char_key]
-    img = Image.new('RGBA', (112, 96), (0, 0, 0, 0))
-
-    ref_im = Image.open('webview-ui/public/assets/characters/char_0.png')
-
-    H_HI = hex_to_rgba(pal['armor_highlight'])
-    H_LT = hex_to_rgba(pal['armor_light'])
-    H_MD = hex_to_rgba(pal['armor_main'])
-    H_DK = hex_to_rgba(pal['armor_dark'])
-    H_DP = hex_to_rgba(pal['armor_deep'])
-
-    C_LT = hex_to_rgba(pal['chassis_light'])
-    C_MD = hex_to_rgba(pal['chassis_main'])
-    C_DK = hex_to_rgba(pal['chassis_dark'])
-    C_DP = hex_to_rgba(pal['chassis_deep'])
-
-    V_CR = hex_to_rgba(pal['visor_core'])
-    V_BR = hex_to_rgba(pal['visor_bright'])
-    V_MD = hex_to_rgba(pal['visor_main'])
-    V_GL = hex_to_rgba(pal['visor_glow'])
-
-    R_GL = hex_to_rgba(pal['reactor_glow'])
-    A_DT = hex_to_rgba(pal['accent_dot'])
-    P_SC = hex_to_rgba(pal['pad_screen'])
-
-    for dir_idx, dir_name in enumerate(['down', 'up', 'right']):
-        row_y = dir_idx * 32
-        for f_idx in range(7):
-            col_x = f_idx * 16
-            ref_frame = ref_im.crop((col_x, row_y, col_x + 16, row_y + 32))
-            frame_img = Image.new('RGBA', (16, 32), (0, 0, 0, 0))
-            
-            for y in range(32):
-                for x in range(16):
-                    r_ref, g_ref, b_ref, a_ref = ref_frame.getpixel((x, y))
-                    if a_ref < 30:
-                        continue
-
-                    # Armor generation logic
-                    if y <= 2:
-                        if x in (7, 8):
-                            frame_img.putpixel((x, y), H_HI)
-                        else:
-                            frame_img.putpixel((x, y), H_DP)
-                    elif 3 <= y <= 7:
-                        if y == 3:
-                            if x in (4, 11):
-                                frame_img.putpixel((x, y), H_DP)
-                            elif x in (5, 6, 7, 8, 9, 10):
-                                frame_img.putpixel((x, y), H_HI if (x in (6, 7) and dir_name != 'up') else H_LT)
-                            else:
-                                frame_img.putpixel((x, y), H_DP)
-                        elif y in (4, 5):
-                            if x in (2, 13) or (dir_name == 'right' and x in (2, 14)):
-                                frame_img.putpixel((x, y), H_DP)
-                            elif x in (3, 4):
-                                frame_img.putpixel((x, y), H_LT if dir_name != 'right' else H_HI)
-                            elif x in (5, 6, 7):
-                                frame_img.putpixel((x, y), H_HI if (dir_name != 'up') else H_LT)
-                            elif x in (8, 9, 10):
-                                frame_img.putpixel((x, y), H_LT if (dir_name != 'up') else H_MD)
-                            elif x in (11, 12):
-                                frame_img.putpixel((x, y), H_MD if (dir_name != 'up') else H_DK)
-                            else:
-                                frame_img.putpixel((x, y), H_DK)
-                        else:
-                            if dir_name == 'down':
-                                if x in (1, 14):
-                                    frame_img.putpixel((x, y), H_DP)
-                                elif x in (2, 13):
-                                    frame_img.putpixel((x, y), A_DT if y == 6 else H_DK)
-                                elif x in (3, 12):
-                                    frame_img.putpixel((x, y), H_DK)
-                                elif y == 6:
-                                    if x in (4, 5):
-                                        frame_img.putpixel((x, y), V_BR)
-                                    elif x in (6, 7, 8, 9):
-                                        frame_img.putpixel((x, y), V_CR)
-                                    else:
-                                        frame_img.putpixel((x, y), V_BR)
-                                elif y == 7:
-                                    if x in (4, 5):
-                                        frame_img.putpixel((x, y), V_MD)
-                                    elif x in (6, 7, 8, 9):
-                                        frame_img.putpixel((x, y), V_BR)
-                                    else:
-                                        frame_img.putpixel((x, y), V_MD)
-                            elif dir_name == 'right':
-                                if x in (2, 14):
-                                    frame_img.putpixel((x, y), H_DP)
-                                elif x in (3, 4):
-                                    frame_img.putpixel((x, y), H_DK)
-                                elif x in (5, 6):
-                                    frame_img.putpixel((x, y), H_MD)
-                                elif x in (7, 8):
-                                    frame_img.putpixel((x, y), A_DT if y == 6 else H_LT)
-                                elif x in (9, 10):
-                                    frame_img.putpixel((x, y), H_DK)
-                                elif x in (11, 12):
-                                    frame_img.putpixel((x, y), V_CR if y == 6 else V_BR)
-                                elif x in (13,):
-                                    frame_img.putpixel((x, y), V_BR if y == 6 else V_MD)
-                                else:
-                                    frame_img.putpixel((x, y), H_DP)
-                            else:
-                                if x in (1, 14):
-                                    frame_img.putpixel((x, y), H_DP)
-                                elif x in (2, 13):
-                                    frame_img.putpixel((x, y), H_DK)
-                                elif x in (7, 8):
-                                    frame_img.putpixel((x, y), H_HI if y == 6 else H_LT)
-                                elif x in (5, 6, 9, 10):
-                                    frame_img.putpixel((x, y), H_LT if y == 6 else H_MD)
-                                else:
-                                    frame_img.putpixel((x, y), H_DK)
-                    elif 8 <= y <= 15:
-                        if dir_name == 'down':
-                            if y in (8, 9):
-                                if x in (1, 14):
-                                    frame_img.putpixel((x, y), H_DP)
-                                elif x in (2, 13):
-                                    frame_img.putpixel((x, y), H_DK)
-                                elif x in (3, 12):
-                                    frame_img.putpixel((x, y), H_MD)
-                                elif x in (4, 11):
-                                    frame_img.putpixel((x, y), V_MD)
-                                else:
-                                    frame_img.putpixel((x, y), V_GL if y == 9 else V_MD)
-                            elif y in (10, 11, 12):
-                                if x in (1, 14):
-                                    frame_img.putpixel((x, y), H_DP)
-                                elif x in (2, 13):
-                                    frame_img.putpixel((x, y), H_DK)
-                                elif x in (6, 7, 8, 9):
-                                    frame_img.putpixel((x, y), H_HI if y == 10 else (C_MD if y == 11 else H_MD))
-                                else:
-                                    frame_img.putpixel((x, y), H_LT if x < 8 else H_MD)
-                            else:
-                                if x in (6, 7, 8, 9):
-                                    frame_img.putpixel((x, y), C_MD if y < 15 else H_HI)
-                                elif x in (4, 5, 10, 11):
-                                    frame_img.putpixel((x, y), C_DK)
-                                else:
-                                    frame_img.putpixel((x, y), H_DP)
-                        elif dir_name == 'right':
-                            if y in (8, 9):
-                                if x in (11, 12):
-                                    frame_img.putpixel((x, y), V_GL)
-                                elif x in (9, 10):
-                                    frame_img.putpixel((x, y), H_MD)
-                                elif x in (3, 4, 5):
-                                    frame_img.putpixel((x, y), H_DK)
-                                else:
-                                    frame_img.putpixel((x, y), H_LT)
-                            elif y in (10, 11, 12):
-                                if x in (10, 11):
-                                    frame_img.putpixel((x, y), H_HI if y == 10 else H_MD)
-                                elif x in (7, 8, 9):
-                                    frame_img.putpixel((x, y), C_MD)
-                                else:
-                                    frame_img.putpixel((x, y), H_DK)
-                            else:
-                                if x in (3, 4):
-                                    frame_img.putpixel((x, y), H_HI)
-                                elif x in (5, 6, 7):
-                                    frame_img.putpixel((x, y), C_DK)
-                                else:
-                                    frame_img.putpixel((x, y), H_MD)
-                        else:
-                            if y in (8, 9, 10):
-                                if x in (7, 8):
-                                    frame_img.putpixel((x, y), H_LT)
-                                elif x in (4, 5, 10, 11):
-                                    frame_img.putpixel((x, y), H_MD)
-                                else:
-                                    frame_img.putpixel((x, y), H_DK)
-                            else:
-                                if x in (5, 6, 9, 10):
-                                    frame_img.putpixel((x, y), H_HI if y == 15 else C_MD)
-                                else:
-                                    frame_img.putpixel((x, y), C_DK)
-                    elif 16 <= y <= 24:
-                        is_typing = (f_idx in (3, 4))
-                        is_reading = (f_idx in (5, 6))
-
-                        if dir_name == 'down':
-                            if (x <= 3 or x >= 12) and y <= 19:
-                                frame_img.putpixel((x, y), H_HI if (x in (2, 3) and y <= 17) else H_MD)
-                            elif y in (18, 19) and x in (7, 8):
-                                frame_img.putpixel((x, y), R_GL)
-                            elif y in (17, 20) and x in (7, 8):
-                                frame_img.putpixel((x, y), H_HI)
-                            elif y <= 20 and 4 <= x <= 11:
-                                if x in (4, 5, 6):
-                                    frame_img.putpixel((x, y), H_LT if y in (17, 18) else H_MD)
-                                else:
-                                    frame_img.putpixel((x, y), H_MD if y in (17, 18) else H_DK)
-                            elif y in (21, 22):
-                                if x in (7, 8):
-                                    frame_img.putpixel((x, y), A_DT)
-                                elif x in (4, 5, 10, 11):
-                                    frame_img.putpixel((x, y), C_MD)
-                                else:
-                                    frame_img.putpixel((x, y), C_DK)
-                            else:
-                                if x in (5, 6):
-                                    frame_img.putpixel((x, y), H_LT)
-                                elif x in (9, 10):
-                                    frame_img.putpixel((x, y), H_MD)
-                                else:
-                                    frame_img.putpixel((x, y), C_DK)
-
-                            if is_typing:
-                                if y in (20, 21):
-                                    if f_idx == 3 and x in (4, 5, 10, 11):
-                                        frame_img.putpixel((x, y), A_DT if x in (5, 10) else H_HI)
-                                    elif f_idx == 4 and x in (3, 4, 11, 12):
-                                        frame_img.putpixel((x, y), A_DT if x in (4, 11) else H_HI)
-                            elif is_reading:
-                                if y in (19, 20, 21, 22) and 5 <= x <= 10:
-                                    if y == 19 or y == 22 or x in (5, 10):
-                                        frame_img.putpixel((x, y), C_LT)
-                                    else:
-                                        frame_img.putpixel((x, y), P_SC if (f_idx == 5 or (x + y) % 2 == 0) else V_CR)
-
-                        elif dir_name == 'right':
-                            if x <= 5 and y <= 21:
-                                if y in (16, 17):
-                                    frame_img.putpixel((x, y), H_HI if x == 4 else H_MD)
-                                elif y in (18, 19):
-                                    frame_img.putpixel((x, y), R_GL if x == 3 else C_MD)
-                                else:
-                                    frame_img.putpixel((x, y), C_DK)
-                            elif x in (6, 7, 8, 9) and y <= 19:
-                                frame_img.putpixel((x, y), H_HI if y <= 17 and x in (7, 8) else H_MD)
-                            elif x >= 10 and y <= 20:
-                                if y in (18, 19) and x in (11, 12):
-                                    frame_img.putpixel((x, y), R_GL if x == 12 else H_LT)
-                                else:
-                                    frame_img.putpixel((x, y), H_MD)
-                            elif y in (21, 22):
-                                frame_img.putpixel((x, y), A_DT if x in (8, 9) else C_MD)
-                            else:
-                                frame_img.putpixel((x, y), H_DK)
-
-                            if is_typing:
-                                if y in (19, 20) and x in (12, 13, 14):
-                                    frame_img.putpixel((x, y), A_DT if x == 13 else H_HI)
-                            elif is_reading:
-                                if y in (18, 19, 20, 21) and x in (11, 12, 13, 14):
-                                    if x == 14 or y in (18, 21):
-                                        frame_img.putpixel((x, y), C_LT)
-                                    else:
-                                        frame_img.putpixel((x, y), P_SC)
-
-                        else:
-                            if 5 <= x <= 10 and 16 <= y <= 22:
-                                if y in (17, 18):
-                                    if x in (6, 9):
-                                        frame_img.putpixel((x, y), H_HI)
-                                    elif x in (7, 8):
-                                        frame_img.putpixel((x, y), C_LT)
-                                    else:
-                                        frame_img.putpixel((x, y), H_MD)
-                                elif y in (19, 20):
-                                    if x in (6, 9):
-                                        frame_img.putpixel((x, y), R_GL)
-                                    else:
-                                        frame_img.putpixel((x, y), C_MD)
-                                else:
-                                    frame_img.putpixel((x, y), C_DK)
-                            elif (x <= 4 or x >= 11) and y <= 19:
-                                frame_img.putpixel((x, y), H_MD if (x in (3, 12)) else H_DK)
-                            elif y in (21, 22):
-                                frame_img.putpixel((x, y), C_MD if x in (7, 8) else C_DK)
-                            else:
-                                frame_img.putpixel((x, y), H_DK)
-
-                            if is_typing:
-                                if y in (19, 20) and (x in (2, 3, 12, 13)):
-                                    frame_img.putpixel((x, y), H_HI if x in (3, 12) else H_MD)
-                            elif is_reading:
-                                if y in (18, 19) and (x in (3, 4, 11, 12)):
-                                    frame_img.putpixel((x, y), P_SC if x in (4, 11) else H_HI)
-
-                    elif y >= 25:
-                        if y <= 28:
-                            if x in (4, 5, 6):
-                                frame_img.putpixel((x, y), H_LT if dir_name != 'up' else H_MD)
-                            elif x in (9, 10, 11):
-                                frame_img.putpixel((x, y), H_MD if dir_name != 'up' else H_DK)
-                            else:
-                                frame_img.putpixel((x, y), C_DK)
-                        else:
-                            if y == 30:
-                                frame_img.putpixel((x, y), C_LT if (x in (5, 6, 9, 10)) else C_DK)
-                            else:
-                                frame_img.putpixel((x, y), H_DK if x in (4, 11) else C_MD)
-
-            img.paste(frame_img, (col_x, row_y), frame_img)
-
-    return img
+def process_frame(source_img, y0, y1, col_idx):
+    """
+    Extracts a cell, removes background, scales keeping aspect ratio, and centers into 16x32 frame.
+    """
+    cell = source_img.crop((col_idx * 80, y0, (col_idx + 1) * 80, y1))
+    cleaned = remove_background_floodfill(cell)
+    bbox = cleaned.getbbox()
+    if not bbox:
+        return Image.new('RGBA', (16, 32), (0, 0, 0, 0))
+    cropped = cleaned.crop(bbox)
+    
+    orig_w, orig_h = cropped.size
+    new_h = min(28, max(1, int(round(orig_h * (28.0 / 108.0)))))
+    new_w = min(14, max(1, int(round(orig_w * (28.0 / 108.0)))))
+    
+    scaled = cropped.resize((new_w, new_h), Image.Resampling.LANCZOS)
+    
+    # Crisp pixel art thresholding
+    crisp = Image.new('RGBA', (new_w, new_h), (0, 0, 0, 0))
+    for y in range(new_h):
+        for x in range(new_w):
+            r, g, b, a = scaled.getpixel((x, y))
+            if a > 70:
+                crisp.putpixel((x, y), (r, g, b, 255))
+    
+    # Place on 16x32 canvas (horizontally centered, bottom aligned at y=31)
+    canvas = Image.new('RGBA', (16, 32), (0, 0, 0, 0))
+    ox = (16 - new_w) // 2
+    oy = 31 - new_h
+    canvas.paste(crisp, (ox, oy), crisp)
+    return canvas
 
 def decode_image_to_sprite_data(img):
     """
@@ -426,25 +132,83 @@ def decode_image_to_sprite_data(img):
     return result
 
 def main():
+    # Source image search paths
+    candidates = [
+        '/home/bao/.ductor/workspace/telegram_files/2026-08-22/photo_AQADbBFrG51tSVR-.webp',
+        'webview-ui/public/assets/themes/ductor-space-lab/crew-sprites.webp',
+        'telegram_files/2026-08-22/photo_AQADbBFrG51tSVR-.webp',
+    ]
+    src_path = None
+    for p in candidates:
+        if os.path.exists(p):
+            src_path = p
+            break
+    if not src_path:
+        raise FileNotFoundError('Could not locate reference sprite sheet webp file')
+    
+    print(f'Loading reference sprite sheet from {src_path}')
+    im = Image.open(src_path)
+
     out_dir = 'webview-ui/public/assets/themes/ductor-space-lab'
+    frames_dir = os.path.join(out_dir, 'frames')
     os.makedirs(out_dir, exist_ok=True)
+    os.makedirs(frames_dir, exist_ok=True)
+
+    mappings = {
+        'benjamin': {
+            'r0': (0, 118),
+            'r1': (124, 236),
+            'down': [(0, 0), (0, 1), (0, 2), (1, 0), (1, 3), (1, 6), (1, 7)],
+            'up':   [(0, 8), (0, 9), (0, 10), (1, 8), (1, 9), (1, 10), (1, 11)],
+            'right':[(0, 4), (0, 5), (0, 6), (1, 1), (1, 2), (1, 12), (1, 13)],
+        },
+        'kevin': {
+            'r0': (245, 357),
+            'r1': (366, 478),
+            'down': [(0, 0), (0, 1), (0, 2), (1, 0), (1, 3), (1, 6), (1, 7)],
+            'up':   [(0, 8), (0, 10), (0, 11), (1, 8), (1, 9), (1, 10), (1, 11)],
+            'right':[(0, 4), (0, 5), (0, 6), (1, 1), (1, 2), (1, 4), (1, 5)],
+        },
+        'alec': {
+            'r0': (488, 598),
+            'r1': (608, 718),
+            'down': [(0, 0), (0, 1), (0, 2), (1, 0), (1, 3), (1, 6), (1, 7)],
+            'up':   [(0, 8), (0, 9), (0, 10), (1, 8), (1, 9), (1, 10), (1, 11)],
+            'right':[(0, 4), (0, 5), (0, 6), (1, 1), (1, 2), (1, 12), (1, 13)],
+        },
+    }
 
     json_data = {}
 
     for char_key in ['alec', 'kevin', 'benjamin']:
-        sprite = generate_crew_sprite(char_key)
+        cfg = mappings[char_key]
+        sheet = Image.new('RGBA', (112, 96), (0, 0, 0, 0))
+        
+        for dir_idx, dir_name in enumerate(['down', 'up', 'right']):
+            frames = cfg[dir_name]
+            for f_idx, (r_sel, col_idx) in enumerate(frames):
+                y_range = cfg['r0'] if r_sel == 0 else cfg['r1']
+                frame = process_frame(im, y_range[0], y_range[1], col_idx)
+                sheet.paste(frame, (f_idx * 16, dir_idx * 32), frame)
+                
+                # Save individual frame PNG
+                frame_path = os.path.join(frames_dir, f'{char_key}_{dir_name}_{f_idx}.png')
+                frame.save(frame_path, format='PNG')
         
         out_path = os.path.join(out_dir, f'crew-{char_key}.png')
-        sprite.save(out_path, format='PNG')
-        print(f'✓ Generated {out_path} ({sprite.size[0]}x{sprite.size[1]})')
+        sheet.save(out_path, format='PNG')
+        # Also alias without prefix
+        alias_path = os.path.join(out_dir, f'{char_key}.png')
+        sheet.save(alias_path, format='PNG')
+        print(f'✓ Generated {out_path} ({sheet.size[0]}x{sheet.size[1]})')
 
-        json_data[char_key] = decode_image_to_sprite_data(sprite)
+        json_data[char_key] = decode_image_to_sprite_data(sheet)
 
     # Save decoded JSON
     json_path = 'webview-ui/src/office/sprites/ductorCrewSprites.json'
     with open(json_path, 'w') as f:
         json.dump(json_data, f, indent=2)
-    print(f'✓ Saved decoded crew sprites to {json_path}')
+    print(f'✓ Saved decoded authentic crew sprites to {json_path}')
 
 if __name__ == '__main__':
     main()

@@ -20,14 +20,14 @@ export const DUCTOR_ROLE_PRESENTATION = {
     duty: 'Planner / Architect',
     color: DUCTOR_ALEC_COLOR,
     palette: 0,
-    hueShift: 50,
+    hueShift: 0,
     laneCenter: 3,
   },
   Kevin: {
     duty: 'Builder / Implementer',
     color: DUCTOR_KEVIN_COLOR,
     palette: 1,
-    hueShift: 180,
+    hueShift: 0,
     laneCenter: 10,
   },
   Benjamin: {

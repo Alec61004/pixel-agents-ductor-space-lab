@@ -122,7 +122,16 @@ if (ductorCrewSpritesData) {
   );
 }
 
-let loadedCharacters: LoadedCharacterData[] | null = null;
+const defaultCrewTemplates: LoadedCharacterData[] = ductorCrewSpritesData
+  ? [
+      ductorCrewSpritesData.alec as unknown as LoadedCharacterData,
+      ductorCrewSpritesData.kevin as unknown as LoadedCharacterData,
+      ductorCrewSpritesData.benjamin as unknown as LoadedCharacterData,
+    ]
+  : [];
+
+let loadedCharacters: LoadedCharacterData[] | null =
+  defaultCrewTemplates.length > 0 ? defaultCrewTemplates : null;
 
 /** Set pre-colored character sprites loaded from PNG assets. Call this when characterSpritesLoaded message arrives. */
 export function setCharacterTemplates(data: LoadedCharacterData[]): void {
