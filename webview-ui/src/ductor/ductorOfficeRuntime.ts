@@ -121,13 +121,19 @@ export function createDuctorSpaceLabLayout(): OfficeLayout {
   for (let row = 0; row < LAB_ROWS; row++) {
     for (let col = 0; col < LAB_COLS; col++) {
       const wall = row === 0 || row === LAB_ROWS - 1 || DIVIDER_COLS.has(col);
-      tiles.push(wall ? TileType.WALL : TileType.FLOOR_7);
-      tileColors.push(wall ? { h: 254, s: 52, b: -42, c: 20 } : { h: 240, s: 42, b: -38, c: 14 });
+      tiles.push(wall ? TileType.WALL : TileType.FLOOR_1);
+      tileColors.push(null);
       areaTiles.push(
         wall ? null : col < 7 ? 'ALEC // STRATEGY' : col < 14 ? 'KEVIN // BUILD' : 'BENJAMIN // QA',
       );
     }
   }
+
+  const windows: PlacedFurniture[] = [
+    { uid: 'alec-window', type: 'WINDOW_GALAXY', col: 1, row: 0 },
+    { uid: 'kevin-window', type: 'WINDOW_GALAXY', col: 8, row: 0 },
+    { uid: 'benjamin-window', type: 'WINDOW_GALAXY', col: 15, row: 0 },
+  ];
 
   return {
     version: 1,
@@ -135,7 +141,7 @@ export function createDuctorSpaceLabLayout(): OfficeLayout {
     rows: LAB_ROWS,
     tiles,
     tileColors,
-    furniture: ROLE_NAMES.flatMap(stationFurniture),
+    furniture: [...windows, ...ROLE_NAMES.flatMap(stationFurniture)],
     pets: [],
     areas: [
       { label: 'ALEC // STRATEGY', color: DUCTOR_ALEC_COLOR },

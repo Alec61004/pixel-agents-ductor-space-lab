@@ -61,7 +61,9 @@ export function getFloorPatternCount(): number {
  * then brightness/contrast adjustment.
  */
 export function getColorizedFloorSprite(patternIndex: number, color: ColorValue): SpriteData {
-  const key = `floor-${patternIndex}-${color.h}-${color.s}-${color.b}-${color.c}`;
+  const shouldColorize =
+    color.colorize ?? (color.h !== 0 || color.s !== 0 || color.b !== 0 || color.c !== 0);
+  const key = `floor-${patternIndex}-${color.h}-${color.s}-${color.b}-${color.c}-${shouldColorize ? 1 : 0}`;
 
   const base = getFloorSprite(patternIndex);
   if (!base) {
@@ -72,6 +74,5 @@ export function getColorizedFloorSprite(patternIndex: number, color: ColorValue)
     return err;
   }
 
-  // Floor tiles are always colorized (grayscale patterns need Photoshop-style Colorize)
-  return getColorizedSprite(key, base, { ...color, colorize: true });
+  return getColorizedSprite(key, base, { ...color, colorize: shouldColorize });
 }

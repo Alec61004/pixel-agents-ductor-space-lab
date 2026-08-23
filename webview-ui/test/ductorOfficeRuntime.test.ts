@@ -77,12 +77,25 @@ beforeAll(() => {
         isDesk: false,
         canPlaceOnWalls: true,
       },
+      {
+        id: 'WINDOW_GALAXY',
+        label: 'Observation Window Galaxy',
+        category: 'wall',
+        width: 96,
+        height: 32,
+        footprintW: 6,
+        footprintH: 2,
+        isDesk: false,
+        backgroundTiles: 2,
+        canPlaceOnWalls: true,
+      },
     ],
     sprites: {
       CUSHIONED_CHAIR_BACK: PIXEL,
       DESK_FRONT: PIXEL,
       PC_FRONT_OFF: PIXEL,
       DOUBLE_BOOKSHELF: PIXEL,
+      WINDOW_GALAXY: PIXEL,
     },
   });
 });

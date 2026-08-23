@@ -4,7 +4,6 @@ import { OfficeCanvas } from '../office/components/OfficeCanvas.js';
 import { EditorState } from '../office/editor/editorState.js';
 import { isE2E } from '../runtime.js';
 import type { DuctorStatusSnapshot } from './ductorLabModel.js';
-import { ductorAssetUrl } from './ductorLabModel.js';
 import { loadDuctorOfficeAssets } from './ductorOfficeAssets.js';
 import {
   createDuctorOfficeRuntime,
@@ -106,12 +105,6 @@ export function DuctorEngineSurface({
 
   return (
     <main className="ductor-lab" aria-label="Ductor Space Lab agent monitor">
-      <img
-        className="ductor-lab__scene"
-        src={ductorAssetUrl(import.meta.env.BASE_URL, 'themes/ductor-space-lab/space-lab.webp')}
-        alt=""
-        aria-hidden="true"
-      />
       <div className="ductor-lab__veil" aria-hidden="true" />
 
       <header className="ductor-lab__header">
