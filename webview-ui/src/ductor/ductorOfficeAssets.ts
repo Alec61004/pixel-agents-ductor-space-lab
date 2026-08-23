@@ -1,6 +1,7 @@
 import { loadBrowserOfficeAssets } from '../browserMock.js';
 import { setFloorSprites } from '../office/floorTiles.js';
 import { buildDynamicCatalog } from '../office/layout/furnitureCatalog.js';
+import { setCarpetSprites } from '../office/sprites/carpetTiles.js';
 import ductorCrewSpritesData from '../office/sprites/ductorCrewSprites.json';
 import ductorSpaceLabTilesData from '../office/sprites/ductorSpaceLabTiles.json';
 import type { LoadedCharacterData } from '../office/sprites/spriteData.js';

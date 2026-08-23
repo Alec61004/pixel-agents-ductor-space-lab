@@ -315,12 +315,12 @@ test('stale or offline snapshots fail closed with no tool or invented task behav
   }
 });
 
-test('layout exposes disjoint reachable role lanes and meaningful work/review stations', () => {
+test('layout exposes shared open space and meaningful work/review stations for all roles', () => {
   const runtime = createDuctorOfficeRuntime(snapshot());
   const layout = runtime.officeState.getLayout();
   const observations = runtime.observeAgents();
 
-  assert.equal(layout.areas?.length, 3);
+  assert.equal(layout.areas?.length ?? 0, 0);
   assert.ok(layout.furniture.some(({ type }) => type === 'CONSOLE_NEON'));
   assert.ok(layout.furniture.some(({ type }) => type === 'SPECIMEN_TANK'));
   assert.ok(layout.furniture.some(({ type }) => type === 'HOLO_TABLE'));
@@ -328,4 +328,16 @@ test('layout exposes disjoint reachable role lanes and meaningful work/review st
   assert.ok(layout.furniture.some(({ type }) => type === 'DOUBLE_BOOKSHELF'));
   assert.equal(new Set(observations.map(({ targetCol }) => targetCol)).size, 3);
   assert.ok(observations.every(({ pathLength }) => pathLength > 0));
+});
+
+test('idle agents wander in the shared open space without getting stuck', () => {
+  const runtime = createDuctorOfficeRuntime(snapshot(['idle', 'idle', 'idle']));
+  const initial = runtime.observeAgents();
+  assert.ok(initial.every((agent) => agent.behavior === 'idle'));
+
+  for (let i = 0; i < 50; i++) runtime.tick(0.2);
+
+  const updated = runtime.observeAgents();
+  assert.ok(updated.every((agent) => agent.behavior === 'idle'));
+  assert.equal(runtime.officeState.characters.size, 3);
 });

@@ -21,21 +21,18 @@ export const DUCTOR_ROLE_PRESENTATION = {
     color: DUCTOR_ALEC_COLOR,
     palette: 0,
     hueShift: 0,
-    laneCenter: 3,
   },
   Kevin: {
     duty: 'Builder / Implementer',
     color: DUCTOR_KEVIN_COLOR,
     palette: 1,
     hueShift: 0,
-    laneCenter: 10,
   },
   Benjamin: {
     duty: 'Independent QA / Reviewer',
     color: DUCTOR_BENJAMIN_COLOR,
     palette: 2,
     hueShift: 0,
-    laneCenter: 17,
   },
 } as const;
 
@@ -87,32 +84,34 @@ function roleKey(name: DuctorRoleName): string {
 
 function stationsFor(name: DuctorRoleName): RoleStations {
   const key = roleKey(name);
-  const col = DUCTOR_ROLE_PRESENTATION[name].laneCenter;
+  if (name === 'Alec') {
+    return {
+      spawnSeatId: `${key}-arrival-dock`,
+      workSeatId: `${key}-workstation`,
+      reviewSeatId: `${key}-review-station`,
+      waiting: { key: `${key}-waiting-point`, col: 3, row: 11 },
+      blocked: { key: `${key}-attention-point`, col: 5, row: 11 },
+      offline: { key: `${key}-offline-point`, col: 2, row: 14 },
+    };
+  }
+  if (name === 'Kevin') {
+    return {
+      spawnSeatId: `${key}-arrival-dock`,
+      workSeatId: `${key}-workstation`,
+      reviewSeatId: `${key}-review-station`,
+      waiting: { key: `${key}-waiting-point`, col: 9, row: 11 },
+      blocked: { key: `${key}-attention-point`, col: 12, row: 11 },
+      offline: { key: `${key}-offline-point`, col: 10, row: 14 },
+    };
+  }
   return {
     spawnSeatId: `${key}-arrival-dock`,
     workSeatId: `${key}-workstation`,
     reviewSeatId: `${key}-review-station`,
-    waiting: { key: `${key}-waiting-point`, col: col - 1, row: 11 },
-    blocked: { key: `${key}-attention-point`, col: col + 1, row: 11 },
-    offline: { key: `${key}-offline-point`, col: col + 1, row: 13 },
+    waiting: { key: `${key}-waiting-point`, col: 16, row: 11 },
+    blocked: { key: `${key}-attention-point`, col: 18, row: 11 },
+    offline: { key: `${key}-offline-point`, col: 18, row: 14 },
   };
-}
-
-function stationFurniture(name: DuctorRoleName): PlacedFurniture[] {
-  const key = roleKey(name);
-  const col = DUCTOR_ROLE_PRESENTATION[name].laneCenter;
-  const stations = stationsFor(name);
-  return [
-    { uid: `${key}-console`, type: 'CONSOLE_NEON', col: col - 1, row: 2 },
-    { uid: `${key}-terminal`, type: 'PC_FRONT_OFF', col, row: 2 },
-    { uid: `${key}-specimen-tank`, type: 'SPECIMEN_TANK', col: col + 2, row: 1 },
-    { uid: stations.workSeatId, type: 'CUSHIONED_CHAIR_BACK', col, row: 4 },
-    { uid: `${key}-weapon-rack`, type: 'WEAPON_RACK', col: col - 2, row: 5 },
-    { uid: `${key}-holo-table`, type: 'HOLO_TABLE', col: col + 1, row: 6 },
-    { uid: `${key}-archive`, type: 'DOUBLE_BOOKSHELF', col: col - 2, row: 7 },
-    { uid: stations.reviewSeatId, type: 'CUSHIONED_CHAIR_BACK', col, row: 9 },
-    { uid: stations.spawnSeatId, type: 'CUSHIONED_CHAIR_BACK', col, row: 13 },
-  ];
 }
 
 export function createDuctorSpaceLabLayout(): OfficeLayout {
@@ -125,16 +124,39 @@ export function createDuctorSpaceLabLayout(): OfficeLayout {
       const wall = row === 0 || row === LAB_ROWS - 1 || col === 0 || col === LAB_COLS - 1;
       tiles.push(wall ? TileType.WALL : TileType.FLOOR_1);
       tileColors.push(null);
-      areaTiles.push(
-        wall ? null : col < 8 ? 'ALEC // STRATEGY' : col < 15 ? 'KEVIN // BUILD' : 'BENJAMIN // QA',
-      );
+      areaTiles.push(null);
     }
   }
 
-  const windows: PlacedFurniture[] = [
-    { uid: 'alec-window', type: 'WINDOW_GALAXY', col: 1, row: 0 },
-    { uid: 'kevin-window', type: 'WINDOW_GALAXY', col: 8, row: 0 },
-    { uid: 'benjamin-window', type: 'WINDOW_GALAXY', col: 15, row: 0 },
+  const furniture: PlacedFurniture[] = [
+    // Shared space observation windows and decor
+    { uid: 'window-left', type: 'WINDOW_GALAXY', col: 2, row: 0 },
+    { uid: 'window-right', type: 'WINDOW_GALAXY', col: 14, row: 0 },
+    { uid: 'weapon-rack-left', type: 'WEAPON_RACK', col: 1, row: 0 },
+    { uid: 'specimen-tank-main', type: 'SPECIMEN_TANK', col: 8, row: 1 },
+    { uid: 'archive-main', type: 'DOUBLE_BOOKSHELF', col: 19, row: 0 },
+
+    // Alec: Strategy Desk Station (Left)
+    { uid: 'alec-console', type: 'CONSOLE_NEON', col: 3, row: 3 },
+    { uid: 'alec-terminal', type: 'PC_FRONT_OFF', col: 4, row: 3 },
+    { uid: 'alec-workstation', type: 'CUSHIONED_CHAIR_BACK', col: 4, row: 5 },
+    { uid: 'alec-holo-table', type: 'HOLO_TABLE', col: 2, row: 7 },
+    { uid: 'alec-review-station', type: 'CUSHIONED_CHAIR_BACK', col: 4, row: 8 },
+    { uid: 'alec-arrival-dock', type: 'CUSHIONED_CHAIR_BACK', col: 2, row: 13 },
+
+    // Kevin: Build Workbench Station (Center)
+    { uid: 'kevin-console', type: 'CONSOLE_NEON', col: 10, row: 4 },
+    { uid: 'kevin-terminal', type: 'PC_FRONT_OFF', col: 11, row: 4 },
+    { uid: 'kevin-workstation', type: 'CUSHIONED_CHAIR_BACK', col: 11, row: 6 },
+    { uid: 'kevin-review-station', type: 'CUSHIONED_CHAIR_BACK', col: 11, row: 9 },
+    { uid: 'kevin-arrival-dock', type: 'CUSHIONED_CHAIR_BACK', col: 10, row: 13 },
+
+    // Benjamin: QA & Verification Station (Right)
+    { uid: 'benjamin-console', type: 'CONSOLE_NEON', col: 16, row: 3 },
+    { uid: 'benjamin-terminal', type: 'PC_FRONT_OFF', col: 17, row: 3 },
+    { uid: 'benjamin-workstation', type: 'CUSHIONED_CHAIR_BACK', col: 17, row: 5 },
+    { uid: 'benjamin-review-station', type: 'CUSHIONED_CHAIR_BACK', col: 17, row: 8 },
+    { uid: 'benjamin-arrival-dock', type: 'CUSHIONED_CHAIR_BACK', col: 18, row: 13 },
   ];
 
   return {
@@ -143,13 +165,9 @@ export function createDuctorSpaceLabLayout(): OfficeLayout {
     rows: LAB_ROWS,
     tiles,
     tileColors,
-    furniture: [...windows, ...ROLE_NAMES.flatMap(stationFurniture)],
+    furniture,
     pets: [],
-    areas: [
-      { label: 'ALEC // STRATEGY', color: DUCTOR_ALEC_COLOR },
-      { label: 'KEVIN // BUILD', color: DUCTOR_KEVIN_COLOR },
-      { label: 'BENJAMIN // QA', color: DUCTOR_BENJAMIN_COLOR },
-    ],
+    areas: [],
     areaTiles,
   };
 }
