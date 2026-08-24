@@ -5,9 +5,19 @@ import { test } from 'vitest';
 
 import {
   applySnapshotToAgents,
+  ASSIGNED_WORKSTATIONS,
   ATTENTION_POINTS,
+  clampPointToPolygon,
   createInitialCrew,
+  DEPTH_SCALE_MAX,
+  DEPTH_SCALE_MIN,
+  drawFloorMarkers,
+  drawWorkstationLabels,
+  FLOOR_Y_MAX,
+  FLOOR_Y_MIN,
+  getDepthScale,
   IDLE_POINTS,
+  isPointInPolygon,
   OFFLINE_POINTS,
   pickStation,
   routeToPoint,
@@ -15,6 +25,7 @@ import {
   StarshipLab,
   STATE,
   updateAgent,
+  WALKABLE_POLYGON,
 } from '../src/ductor/StarshipLab.js';
 import type { DuctorStatusSnapshot } from '../src/ductor/ductorLabModel.js';
 
@@ -214,14 +225,78 @@ test('renders live status badges in roster matching snapshot roles', () => {
   assert.match(markup, /<div class="starship-badge badge review">\s*REVIEW\s*<\/div>/);
 });
 
-test('simulation 10-second run: every agent changes position at least 2 times and changes state at least 1 time (fails if agents stand still)', () => {
+test('defines 3 fixed workstations (Alec, Kevin, Benjamin) with correct labels and coordinates within walkable polygon', () => {
+  assert.ok(ASSIGNED_WORKSTATIONS.Alec);
+  assert.ok(ASSIGNED_WORKSTATIONS.Kevin);
+  assert.ok(ASSIGNED_WORKSTATIONS.Benjamin);
+
+  assert.equal(ASSIGNED_WORKSTATIONS.Alec.label, 'Alec — Strategy');
+  assert.equal(ASSIGNED_WORKSTATIONS.Kevin.label, 'Kevin — Build');
+  assert.equal(ASSIGNED_WORKSTATIONS.Benjamin.label, 'Benjamin — QA');
+
+  assert.equal(typeof drawWorkstationLabels, 'function');
+  assert.equal(typeof drawFloorMarkers, 'function');
+
+  // Standing points must be inside walkable polygon
+  assert.equal(
+    isPointInPolygon(
+      { x: ASSIGNED_WORKSTATIONS.Alec.standingX, y: ASSIGNED_WORKSTATIONS.Alec.standingY },
+      WALKABLE_POLYGON,
+    ),
+    true,
+  );
+  assert.equal(
+    isPointInPolygon(
+      { x: ASSIGNED_WORKSTATIONS.Kevin.standingX, y: ASSIGNED_WORKSTATIONS.Kevin.standingY },
+      WALKABLE_POLYGON,
+    ),
+    true,
+  );
+  assert.equal(
+    isPointInPolygon(
+      { x: ASSIGNED_WORKSTATIONS.Benjamin.standingX, y: ASSIGNED_WORKSTATIONS.Benjamin.standingY },
+      WALKABLE_POLYGON,
+    ),
+    true,
+  );
+});
+
+test('agent working state positions agent at their own assigned workstation and not others', () => {
   const crew = createInitialCrew(snapshot);
+  const alec = crew.find((a) => a.name === 'Alec')!;
+  const kevin = crew.find((a) => a.name === 'Kevin')!;
+  const benjamin = crew.find((a) => a.name === 'Benjamin')!;
+
+  // Alec must be at Alec's desk, not Kevin's or Benjamin's desk
+  assert.equal(alec.x, ASSIGNED_WORKSTATIONS.Alec.standingX);
+  assert.equal(alec.y, ASSIGNED_WORKSTATIONS.Alec.standingY);
+  assert.equal(alec.currentStation, 'Alec — Strategy');
+  assert.notEqual(alec.x, ASSIGNED_WORKSTATIONS.Kevin.standingX);
+  assert.notEqual(alec.x, ASSIGNED_WORKSTATIONS.Benjamin.standingX);
+
+  // Kevin must be at Kevin's desk, not Alec's or Benjamin's desk
+  assert.equal(kevin.x, ASSIGNED_WORKSTATIONS.Kevin.standingX);
+  assert.equal(kevin.y, ASSIGNED_WORKSTATIONS.Kevin.standingY);
+  assert.equal(kevin.currentStation, 'Kevin — Build');
+  assert.notEqual(kevin.x, ASSIGNED_WORKSTATIONS.Alec.standingX);
+  assert.notEqual(kevin.x, ASSIGNED_WORKSTATIONS.Benjamin.standingX);
+
+  // Benjamin must be at Benjamin's desk, not Alec's or Kevin's desk
+  assert.equal(benjamin.x, ASSIGNED_WORKSTATIONS.Benjamin.standingX);
+  assert.equal(benjamin.y, ASSIGNED_WORKSTATIONS.Benjamin.standingY);
+  assert.equal(benjamin.currentStation, 'Benjamin — QA');
+  assert.notEqual(benjamin.x, ASSIGNED_WORKSTATIONS.Alec.standingX);
+  assert.notEqual(benjamin.x, ASSIGNED_WORKSTATIONS.Kevin.standingX);
+});
+
+test('simulation 10-second run: idle/demo crew changes position at least 2 times and changes state at least 1 time (fails if agents stand still)', () => {
+  const demoCrew = createInitialCrew(undefined);
   const positionChangeCounts = new Map<string, number>();
   const stateChangeCounts = new Map<string, number>();
   const lastPositions = new Map<string, { x: number; y: number }>();
   const lastStates = new Map<string, string>();
 
-  for (const a of crew) {
+  for (const a of demoCrew) {
     positionChangeCounts.set(a.id, 0);
     stateChangeCounts.set(a.id, 0);
     lastPositions.set(a.id, { x: a.x, y: a.y });
@@ -232,8 +307,8 @@ test('simulation 10-second run: every agent changes position at least 2 times an
   const totalSteps = 10 / dt; // 200 steps = 10 seconds
 
   for (let step = 0; step < totalSteps; step++) {
-    for (const a of crew) {
-      updateAgent(a, dt, 1, crew);
+    for (const a of demoCrew) {
+      updateAgent(a, dt, 1, demoCrew);
 
       const lastPos = lastPositions.get(a.id)!;
       if (Math.abs(a.x - lastPos.x) > 0.1 || Math.abs(a.y - lastPos.y) > 0.1) {
@@ -249,7 +324,7 @@ test('simulation 10-second run: every agent changes position at least 2 times an
     }
   }
 
-  for (const a of crew) {
+  for (const a of demoCrew) {
     const posChanges = positionChangeCounts.get(a.id)!;
     const stateChanges = stateChangeCounts.get(a.id)!;
     console.log(`[MOTION TEST] ${a.name}: ${posChanges} position changes, ${stateChanges} state changes`);
@@ -263,4 +338,97 @@ test('simulation 10-second run: every agent changes position at least 2 times an
     );
   }
 });
+
+test('point-in-polygon correctly distinguishes walkable floor points from out-of-bound areas', () => {
+  // Points on the walkable floor
+  assert.equal(isPointInPolygon({ x: 800, y: 560 }, WALKABLE_POLYGON), true);
+  assert.equal(isPointInPolygon({ x: 430, y: 600 }, WALKABLE_POLYGON), true);
+  assert.equal(isPointInPolygon({ x: 210, y: 560 }, WALKABLE_POLYGON), true);
+  assert.equal(isPointInPolygon({ x: 1230, y: 600 }, WALKABLE_POLYGON), true);
+
+  // Points outside walkable floor (ceiling, upper wall, bottom out-of-bounds, sides)
+  assert.equal(isPointInPolygon({ x: 800, y: 100 }, WALKABLE_POLYGON), false); // ceiling
+  assert.equal(isPointInPolygon({ x: 500, y: 300 }, WALKABLE_POLYGON), false); // upper wall
+  assert.equal(isPointInPolygon({ x: 800, y: 800 }, WALKABLE_POLYGON), false); // bottom out-of-bounds
+  assert.equal(isPointInPolygon({ x: -50, y: 560 }, WALKABLE_POLYGON), false); // left out-of-bounds
+  assert.equal(isPointInPolygon({ x: 1800, y: 560 }, WALKABLE_POLYGON), false); // right out-of-bounds
+});
+
+test('clampPointToPolygon preserves interior points and projects outside points onto walkable polygon', () => {
+  // Interior point remains unchanged
+  const insidePt = { x: 700, y: 550 };
+  const clampedInside = clampPointToPolygon(insidePt, WALKABLE_POLYGON);
+  assert.equal(clampedInside.x, insidePt.x);
+  assert.equal(clampedInside.y, insidePt.y);
+
+  // Ceiling point clamped to top floor boundary
+  const ceilingPt = { x: 800, y: 100 };
+  const clampedCeiling = clampPointToPolygon(ceilingPt, WALKABLE_POLYGON);
+  assert.equal(isPointInPolygon(clampedCeiling, WALKABLE_POLYGON), true);
+  assert.ok(clampedCeiling.y >= 490 && clampedCeiling.y <= 500);
+
+  // Below floor point clamped to bottom floor boundary
+  const bottomPt = { x: 800, y: 900 };
+  const clampedBottom = clampPointToPolygon(bottomPt, WALKABLE_POLYGON);
+  assert.equal(isPointInPolygon(clampedBottom, WALKABLE_POLYGON), true);
+  assert.ok(clampedBottom.y >= 658 && clampedBottom.y <= 660.1);
+
+  // Far left point clamped to left floor boundary
+  const leftPt = { x: -200, y: 560 };
+  const clampedLeft = clampPointToPolygon(leftPt, WALKABLE_POLYGON);
+  assert.equal(isPointInPolygon(clampedLeft, WALKABLE_POLYGON), true);
+  assert.ok(clampedLeft.x >= 49.9 && clampedLeft.x <= 51);
+});
+
+test('getDepthScale calculates linear depth scaling between rear wall ~0.8 and front edge ~1.1', () => {
+  // Min Y (rear wall) -> 0.8
+  const rearScale = getDepthScale(FLOOR_Y_MIN);
+  assert.equal(rearScale, DEPTH_SCALE_MIN);
+  assert.equal(rearScale, 0.8);
+
+  // Below min Y clamped to 0.8
+  assert.equal(getDepthScale(FLOOR_Y_MIN - 100), DEPTH_SCALE_MIN);
+
+  // Max Y (front edge) -> 1.1
+  const frontScale = getDepthScale(FLOOR_Y_MAX);
+  assert.equal(frontScale, DEPTH_SCALE_MAX);
+  assert.equal(frontScale, 1.1);
+
+  // Above max Y clamped to 1.1
+  assert.equal(getDepthScale(FLOOR_Y_MAX + 100), DEPTH_SCALE_MAX);
+
+  // Midpoint -> 0.95
+  const midY = (FLOOR_Y_MIN + FLOOR_Y_MAX) / 2;
+  const midScale = getDepthScale(midY);
+  assert.ok(Math.abs(midScale - 0.95) < 1e-5);
+
+  // Monotonic increase as y increases from rear to front
+  assert.ok(getDepthScale(500) < getDepthScale(550));
+  assert.ok(getDepthScale(550) < getDepthScale(600));
+  assert.ok(getDepthScale(600) < getDepthScale(650));
+});
+
+test('agents stepping outside walkable floor are clamped to walkable polygon during movement', () => {
+  const crew = createInitialCrew(snapshot);
+  const agent = crew[0];
+
+  // Set agent target far outside in the ceiling
+  agent.x = 800;
+  agent.y = 520;
+  agent.targetX = 800;
+  agent.targetY = 50; // far in ceiling
+  agent.state = STATE.MOVING;
+
+  // Step agent forward 30 steps
+  for (let i = 0; i < 30; i++) {
+    updateAgent(agent, 0.05, 1, crew);
+    // Every step must stay inside the walkable floor
+    assert.equal(
+      isPointInPolygon({ x: agent.x, y: agent.y }, WALKABLE_POLYGON),
+      true,
+      `Agent ${agent.name} walked outside walkable floor at (${agent.x}, ${agent.y})`,
+    );
+  }
+});
+
 

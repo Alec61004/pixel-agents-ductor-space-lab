@@ -52,6 +52,54 @@ export const ATTENTION_POINTS: Record<DuctorRoleName, { x: number; y: number }> 
   Benjamin: { x: 1240, y: 510 },
 };
 
+export interface AssignedWorkstation {
+  agentName: DuctorRoleName;
+  label: string;
+  roleDescription: string;
+  tableX: number;
+  tableY: number;
+  standingX: number;
+  standingY: number;
+  facing: number;
+  stationIndex: number;
+}
+
+export const ASSIGNED_WORKSTATIONS: Record<DuctorRoleName, AssignedWorkstation> = {
+  Alec: {
+    agentName: 'Alec',
+    label: 'Alec — Strategy',
+    roleDescription: 'Strategy',
+    tableX: 480,
+    tableY: 550,
+    standingX: 480,
+    standingY: 505,
+    facing: 1,
+    stationIndex: 1,
+  },
+  Kevin: {
+    agentName: 'Kevin',
+    label: 'Kevin — Build',
+    roleDescription: 'Build',
+    tableX: 920,
+    tableY: 550,
+    standingX: 920,
+    standingY: 535,
+    facing: -1,
+    stationIndex: 4,
+  },
+  Benjamin: {
+    agentName: 'Benjamin',
+    label: 'Benjamin — QA',
+    roleDescription: 'QA',
+    tableX: 1240,
+    tableY: 530,
+    standingX: 1240,
+    standingY: 520,
+    facing: -1,
+    stationIndex: 5,
+  },
+};
+
 export const OFFLINE_POINTS: Record<DuctorRoleName, { x: number; y: number }> = {
   Alec: { x: 120, y: 620 },
   Kevin: { x: 740, y: 640 },
@@ -73,6 +121,114 @@ export const STATE = {
 } as const;
 
 export type StarshipAgentState = (typeof STATE)[keyof typeof STATE];
+
+export interface Point2D {
+  x: number;
+  y: number;
+}
+
+export const FLOOR_Y_MIN = 490;
+export const FLOOR_Y_MAX = 660;
+export const DEPTH_SCALE_MIN = 0.8;
+export const DEPTH_SCALE_MAX = 1.1;
+
+export const WALKABLE_POLYGON: Point2D[] = [
+  { x: 50, y: 510 },
+  { x: 260, y: 510 },
+  { x: 340, y: 490 },
+  { x: 600, y: 490 },
+  { x: 700, y: 490 },
+  { x: 920, y: 490 },
+  { x: 1040, y: 490 },
+  { x: 1300, y: 490 },
+  { x: 1420, y: 500 },
+  { x: 1570, y: 510 },
+  { x: 1570, y: 660 },
+  { x: 50, y: 660 },
+];
+
+export function getDepthScale(
+  y: number,
+  minY = FLOOR_Y_MIN,
+  maxY = FLOOR_Y_MAX,
+  minScale = DEPTH_SCALE_MIN,
+  maxScale = DEPTH_SCALE_MAX,
+): number {
+  if (maxY <= minY) return minScale;
+  const t = Math.max(0, Math.min(1, (y - minY) / (maxY - minY)));
+  return minScale + t * (maxScale - minScale);
+}
+
+export function isPointInPolygon(
+  p: Point2D,
+  polygon: Point2D[] = WALKABLE_POLYGON,
+): boolean {
+  let inside = false;
+  const n = polygon.length;
+  for (let i = 0, j = n - 1; i < n; j = i++) {
+    const xi = polygon[i].x;
+    const yi = polygon[i].y;
+    const xj = polygon[j].x;
+    const yj = polygon[j].y;
+    const intersect =
+      yi > p.y !== yj > p.y && p.x < ((xj - xi) * (p.y - yi)) / (yj - yi) + xi;
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+export function clampPointToPolygon(
+  p: Point2D,
+  polygon: Point2D[] = WALKABLE_POLYGON,
+): Point2D {
+  if (isPointInPolygon(p, polygon)) {
+    return { x: p.x, y: p.y };
+  }
+
+  let minSqDist = Infinity;
+  let closestX = p.x;
+  let closestY = p.y;
+
+  const n = polygon.length;
+  for (let i = 0; i < n; i++) {
+    const a = polygon[i];
+    const b = polygon[(i + 1) % n];
+
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const lenSq = dx * dx + dy * dy;
+
+    let t = 0;
+    if (lenSq > 0) {
+      t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / lenSq;
+      t = Math.max(0, Math.min(1, t));
+    }
+
+    const projX = a.x + t * dx;
+    const projY = a.y + t * dy;
+
+    const sqDist = (p.x - projX) * (p.x - projX) + (p.y - projY) * (p.y - projY);
+    if (sqDist < minSqDist) {
+      minSqDist = sqDist;
+      closestX = projX;
+      closestY = projY;
+    }
+  }
+
+  let cx = 0;
+  let cy = 0;
+  for (const pt of polygon) {
+    cx += pt.x;
+    cy += pt.y;
+  }
+  cx /= n;
+  cy /= n;
+
+  const clampedX = closestX + (cx - closestX) * 0.001;
+  const clampedY = closestY + (cy - closestY) * 0.001;
+
+  return { x: clampedX, y: clampedY };
+}
 
 export interface StarshipAgent {
   id: string;
@@ -127,6 +283,20 @@ export function pickStation(
 }
 
 export function pickNewTarget(agent: StarshipAgent, agents: StarshipAgent[]): void {
+  if (agent.reportedState === 'working' || agent.reportedState === 'review') {
+    const ws = ASSIGNED_WORKSTATIONS[agent.name];
+    if (ws) {
+      agent.stationIndex = ws.stationIndex;
+      agent.targetX = ws.standingX;
+      agent.targetY = ws.standingY;
+      agent.facing = ws.facing;
+      agent.currentStation = ws.label;
+      agent.state = STATE.MOVING;
+      return;
+    }
+  }
+
+  // Idle wander mode or demo mode: pick among stations
   const { stationIndex, slot } = pickStation(agents, agent.id);
   const st = STATIONS[stationIndex] ?? STATIONS[0];
   agent.stationIndex = stationIndex;
@@ -226,14 +396,25 @@ export function createInitialCrew(snapshot?: DuctorStatusSnapshot): StarshipAgen
       initialState = STATE.IDLE;
     } else {
       // working, review, or fallback without snapshot
-      const pick = pickStation(agents, null);
-      stationIndex = pick.stationIndex;
-      const station = STATIONS[stationIndex] ?? STATIONS[0];
-      x = station.x + pick.slot.dx;
-      y = station.y + pick.slot.dy;
-      currentStation = station.label;
+      const ws = ASSIGNED_WORKSTATIONS[spec.name];
+      if (ws) {
+        x = ws.standingX;
+        y = ws.standingY;
+        stationIndex = ws.stationIndex;
+        currentStation = ws.label;
+      } else {
+        const pick = pickStation(agents, null);
+        stationIndex = pick.stationIndex;
+        const station = STATIONS[stationIndex] ?? STATIONS[0];
+        x = station.x + pick.slot.dx;
+        y = station.y + pick.slot.dy;
+        currentStation = station.label;
+      }
       initialState = STATE.WORKING;
     }
+
+    const initialFacing =
+      ASSIGNED_WORKSTATIONS[spec.name]?.facing ?? (Math.random() < 0.5 ? -1 : 1);
 
     agents.push({
       id: spec.id,
@@ -247,7 +428,7 @@ export function createInitialCrew(snapshot?: DuctorStatusSnapshot): StarshipAgen
       targetX: x,
       targetY: y,
       speed: 46 + Math.random() * 22,
-      facing: Math.random() < 0.5 ? -1 : 1,
+      facing: initialFacing,
       state: initialState,
       stateTimer: 2 + Math.random() * 4,
       animFrame: 0,
@@ -297,10 +478,19 @@ export function applySnapshotToAgents(
     }
 
     if (effective === 'working' || effective === 'review') {
-      if (
-        a.stationIndex === null ||
-        (prevEffective !== 'working' && prevEffective !== 'review')
-      ) {
+      const ws = ASSIGNED_WORKSTATIONS[a.name];
+      if (ws) {
+        a.stationIndex = ws.stationIndex;
+        a.currentStation = ws.label;
+        a.targetX = ws.standingX;
+        a.targetY = ws.standingY;
+        a.facing = ws.facing;
+        a.state =
+          Math.hypot(a.x - ws.standingX, a.y - ws.standingY) < 3
+            ? STATE.WORKING
+            : STATE.MOVING;
+        if (pushLog) pushLog(`${a.name} dispatched to assigned desk [${ws.label}].`);
+      } else {
         pickNewTarget(a, agents);
         if (pushLog) pushLog(`${a.name} dispatched to ${a.currentStation} [${effective}].`);
       }
@@ -356,6 +546,10 @@ export function updateAgent(
       } else {
         a.state = STATE.WORKING;
         a.stateTimer = 2.5 + Math.random() * 3.5;
+        const ws = ASSIGNED_WORKSTATIONS[a.name];
+        if (ws && (a.reportedState === 'working' || a.reportedState === 'review')) {
+          a.facing = ws.facing;
+        }
       }
       a.animFrame = 0;
       if (pushLog) pushLog(`${a.name} arrived at ${a.currentStation}.`);
@@ -363,9 +557,10 @@ export function updateAgent(
       const step = a.speed * speedMult * dt;
       const nx = a.x + (dx / dist) * Math.min(step, dist);
       const ny = a.y + (dy / dist) * Math.min(step, dist);
+      const clamped = clampPointToPolygon({ x: nx, y: ny }, WALKABLE_POLYGON);
       a.facing = dx >= 0 ? 1 : -1;
-      a.x = nx;
-      a.y = ny;
+      a.x = clamped.x;
+      a.y = clamped.y;
       a.animTimer += dt;
       if (a.animTimer > 0.12) {
         a.animTimer = 0;
@@ -381,9 +576,18 @@ export function updateAgent(
       a.animFrame = (a.animFrame + 1) % 4; // idle turn cycle
     }
     if (a.stateTimer <= 0) {
-      a.state = STATE.IDLE;
-      a.stateTimer = 1.2 + Math.random() * 1.8;
-      a.animFrame = 0;
+      if (a.reportedState === 'working' || a.reportedState === 'review') {
+        // Working agent stays at their assigned desk
+        a.stateTimer = 3 + Math.random() * 3;
+        const ws = ASSIGNED_WORKSTATIONS[a.name];
+        if (ws) {
+          a.facing = ws.facing;
+        }
+      } else {
+        a.state = STATE.IDLE;
+        a.stateTimer = 1.2 + Math.random() * 1.8;
+        a.animFrame = 0;
+      }
     }
   } else if (a.state === STATE.IDLE) {
     a.stateTimer -= dt * speedMult;
@@ -393,7 +597,21 @@ export function updateAgent(
       a.animFrame = (a.animFrame + 1) % 4;
     }
     if (a.stateTimer <= 0) {
-      pickNewTarget(a, agents);
+      if (a.reportedState === 'working' || a.reportedState === 'review') {
+        const ws = ASSIGNED_WORKSTATIONS[a.name];
+        if (ws) {
+          a.targetX = ws.standingX;
+          a.targetY = ws.standingY;
+          a.stationIndex = ws.stationIndex;
+          a.currentStation = ws.label;
+          a.state = STATE.MOVING;
+        } else {
+          pickNewTarget(a, agents);
+        }
+      } else {
+        // Idle agents wander between stations
+        pickNewTarget(a, agents);
+      }
     }
   } else if (a.state === STATE.BLOCKED) {
     a.bob += dt * 3;
@@ -448,83 +666,124 @@ export function drawAgent(
 
   const sx = col * cw;
   const sy = row * ch;
-  const drawH = 92;
+
+  // Depth scale based on foot position a.y
+  const scale = getDepthScale(a.y);
+  const BASE_DRAW_H = 92;
+  const drawH = BASE_DRAW_H * scale;
   const drawW = drawH * (cw / ch);
   const bobY = a.state === STATE.WORKING ? Math.sin(a.bob) * 2 : 0;
 
-  // shadow
+  // Foot Anchor: Coordinates (a.x, a.y) = bottom center of character feet.
+
+  // Shadow: Soft ellipse under feet
   ctx.save();
   ctx.beginPath();
-  ctx.ellipse(a.x, a.y + 6, drawW * 0.32, 6, 0, 0, Math.PI * 2);
+  ctx.ellipse(a.x, a.y, drawW * 0.28, 6 * scale, 0, 0, Math.PI * 2);
   ctx.fillStyle = STARSHIP_AGENT_SHADOW;
   ctx.fill();
   ctx.restore();
 
-  // sprite
+  // Sprite: Drawn with feet anchor at (a.x, a.y)
   ctx.save();
-  ctx.translate(a.x, a.y - drawH * 0.86 + bobY);
+  ctx.translate(a.x, a.y + bobY);
   if (a.facing === 1) {
     ctx.scale(-1, 1);
   }
   ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(sheetImg, sx, sy, cw, ch, -drawW / 2, 0, drawW, drawH);
+  ctx.drawImage(sheetImg, sx, sy, cw, ch, -drawW / 2, -drawH, drawW, drawH);
   ctx.restore();
 
-  // roster-selection flash ring
+  // Roster-selection flash ring (scaled at feet)
   if (a.flash && a.flash > 0) {
     ctx.save();
     ctx.beginPath();
     ctx.ellipse(
       a.x,
-      a.y + 6,
-      30 + (1 - a.flash) * 14,
-      10 + (1 - a.flash) * 5,
+      a.y,
+      (30 + (1 - a.flash) * 14) * scale,
+      (10 + (1 - a.flash) * 5) * scale,
       0,
       0,
       Math.PI * 2,
     );
     ctx.strokeStyle = STARSHIP_AMBER;
     ctx.globalAlpha = (isOffline ? 0.35 : 1.0) * a.flash;
-    ctx.lineWidth = 2.5;
+    ctx.lineWidth = 2.5 * scale;
     ctx.stroke();
     ctx.restore();
   }
 
-  // status glow ring while working
+  // Status glow ring while working (scaled at feet)
   if (a.state === STATE.WORKING && !isOffline) {
     ctx.save();
     ctx.beginPath();
-    ctx.ellipse(a.x, a.y + 6, 20, 7, 0, 0, Math.PI * 2);
+    ctx.ellipse(a.x, a.y, 20 * scale, 7 * scale, 0, 0, Math.PI * 2);
     ctx.strokeStyle = a.skin.tint;
     ctx.globalAlpha = 0.55 + Math.sin(a.bob * 1.3) * 0.2;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2 * scale;
     ctx.stroke();
     ctx.restore();
   }
 
-  // attention glow ring when blocked
+  // Attention glow ring when blocked (scaled at feet)
   if (
     (a.state === STATE.BLOCKED || a.reportedState === 'blocked') &&
     !isOffline
   ) {
     ctx.save();
     ctx.beginPath();
-    ctx.ellipse(a.x, a.y + 6, 22, 8, 0, 0, Math.PI * 2);
+    ctx.ellipse(a.x, a.y, 22 * scale, 8 * scale, 0, 0, Math.PI * 2);
     ctx.strokeStyle = STARSHIP_CRIMSON_TINT;
     ctx.globalAlpha = 0.7 + Math.sin(a.bob * 2) * 0.25;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2 * scale;
     ctx.stroke();
     ctx.restore();
   }
 
-  // name tag
+  // Name tag above head
   ctx.save();
-  ctx.font = '9px monospace';
+  ctx.font = `${Math.max(8, Math.round(9 * scale))}px monospace`;
   ctx.textAlign = 'center';
   ctx.fillStyle = STARSHIP_NAME_TAG_FILL;
   ctx.fillText(a.name, a.x, a.y - drawH - 4 + bobY);
   ctx.restore();
 
+  ctx.restore();
+}
+
+export function drawWorkstationLabels(ctx: CanvasRenderingContext2D): void {
+  ctx.save();
+  for (const ws of Object.values(ASSIGNED_WORKSTATIONS)) {
+    const lx = ws.tableX;
+    const ly = ws.tableY - 75;
+
+    const text = ws.label;
+    ctx.font = "bold 9.5px 'JetBrains Mono', monospace";
+    const tw = ctx.measureText ? ctx.measureText(text).width : text.length * 6;
+    const padX = 8;
+    const boxW = tw + padX * 2;
+    const boxH = 18;
+    const boxX = lx - boxW / 2;
+    const boxY = ly - boxH / 2;
+
+    ctx.beginPath();
+    if (typeof ctx.roundRect === 'function') {
+      ctx.roundRect(boxX, boxY, boxW, boxH, 4);
+    } else {
+      ctx.rect(boxX, boxY, boxW, boxH);
+    }
+    ctx.fillStyle = 'rgba(15, 12, 28, 0.85)';
+    ctx.fill();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(110, 231, 255, 0.4)';
+    ctx.stroke();
+
+    ctx.fillStyle = '#d9d3f0';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, lx, ly);
+  }
   ctx.restore();
 }
 
@@ -552,6 +811,7 @@ export function drawStage(
   ctx.translate(offX, offY);
   ctx.scale(scale, scale);
 
+  drawWorkstationLabels(ctx);
   drawFloorMarkers(ctx, showStations);
 
   const sorted = [...agents].sort((a, b) => a.y - b.y);

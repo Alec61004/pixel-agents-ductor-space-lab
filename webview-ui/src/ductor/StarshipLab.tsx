@@ -4,15 +4,26 @@ import type { DuctorStatusSnapshot } from './ductorLabModel.js';
 import { ductorAssetUrl } from './ductorLabModel.js';
 import {
   applySnapshotToAgents,
+  ASSIGNED_WORKSTATIONS,
+  type AssignedWorkstation,
   ATTENTION_POINTS,
+  clampPointToPolygon,
   createInitialCrew,
+  DEPTH_SCALE_MAX,
+  DEPTH_SCALE_MIN,
   drawFloorMarkers,
   drawStage,
   drawStarsLayer,
+  drawWorkstationLabels,
+  FLOOR_Y_MAX,
+  FLOOR_Y_MIN,
+  getDepthScale,
   IDLE_POINTS,
+  isPointInPolygon,
   OFFLINE_POINTS,
   pickStation,
   pickNewTarget,
+  type Point2D,
   routeToPoint,
   seedStars,
   SHEET_COLS,
@@ -25,19 +36,31 @@ import {
   type StarshipAgent,
   type StarshipAgentState,
   updateAgent,
+  WALKABLE_POLYGON,
 } from './starshipSimulation.js';
 
 export {
   applySnapshotToAgents,
+  ASSIGNED_WORKSTATIONS,
+  type AssignedWorkstation,
   ATTENTION_POINTS,
+  clampPointToPolygon,
   createInitialCrew,
+  DEPTH_SCALE_MAX,
+  DEPTH_SCALE_MIN,
   drawFloorMarkers,
   drawStage,
   drawStarsLayer,
+  drawWorkstationLabels,
+  FLOOR_Y_MAX,
+  FLOOR_Y_MIN,
+  getDepthScale,
   IDLE_POINTS,
+  isPointInPolygon,
   OFFLINE_POINTS,
   pickStation,
   pickNewTarget,
+  type Point2D,
   routeToPoint,
   seedStars,
   SHEET_COLS,
@@ -50,6 +73,7 @@ export {
   type StarshipAgent,
   type StarshipAgentState,
   updateAgent,
+  WALKABLE_POLYGON,
 };
 
 export interface StarshipLabProps {
@@ -137,7 +161,8 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
     const { scale, offX, offY } = lastTransformRef.current;
     const px = (mx - offX) / (scale || 1);
     const py = (my - offY) / (scale || 1);
-    routeToPoint(agentsRef.current, px, py, pushLog);
+    const clamped = clampPointToPolygon({ x: px, y: py }, WALKABLE_POLYGON);
+    routeToPoint(agentsRef.current, clamped.x, clamped.y, pushLog);
   };
 
   const handleSpeedToggle = () => {
