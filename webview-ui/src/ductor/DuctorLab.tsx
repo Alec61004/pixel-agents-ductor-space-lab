@@ -12,6 +12,7 @@ import {
   type DuctorAgentObservation,
   DuctorOfficeRuntime,
 } from './ductorOfficeRuntime.js';
+import { StarshipLab } from './StarshipLab.js';
 
 export interface DuctorLabProps {
   snapshot: DuctorStatusSnapshot;
@@ -38,7 +39,7 @@ function formatSignalTime(timestamp: string): string {
   }).format(new Date(timestamp));
 }
 
-function DuctorCrewHud({ snapshot }: { snapshot: DuctorStatusSnapshot }) {
+export function DuctorCrewHud({ snapshot }: { snapshot: DuctorStatusSnapshot }) {
   return (
     <section className="ductor-crew-hud" aria-label="Ductor crew status" role="list">
       {snapshot.roles.map((role) => {
@@ -159,42 +160,8 @@ export function DuctorEngineSurface({
   );
 }
 
-export function DuctorLab({ snapshot, initialRuntime }: DuctorLabProps) {
-  const latestSnapshot = useRef(snapshot);
-  const [runtime, setRuntime] = useState<DuctorOfficeRuntime | null>(initialRuntime ?? null);
-  const [failed, setFailed] = useState(false);
-  latestSnapshot.current = snapshot;
-
-  useEffect(() => {
-    if (runtime) return;
-    let disposed = false;
-    void loadDuctorOfficeAssets()
-      .then(() => {
-        if (!disposed) setRuntime(createDuctorOfficeRuntime(latestSnapshot.current));
-      })
-      .catch(() => {
-        if (!disposed) setFailed(true);
-      });
-    return () => {
-      disposed = true;
-    };
-  }, [runtime]);
-
-  if (failed) {
-    return (
-      <main className="ductor-lab ductor-lab--unavailable" role="status">
-        Ductor Space Lab assets unavailable. No activity is being inferred.
-      </main>
-    );
-  }
-  if (!runtime) {
-    return (
-      <main className="ductor-lab ductor-lab--loading" role="status">
-        Initializing Ductor Space Lab engine…
-      </main>
-    );
-  }
-  return <DuctorEngineSurface runtime={runtime} snapshot={snapshot} />;
+export function DuctorLab({ snapshot }: DuctorLabProps) {
+  return <StarshipLab snapshot={snapshot} />;
 }
 
-export { DUCTOR_AGENT_IDS };
+export { DUCTOR_AGENT_IDS, StarshipLab };

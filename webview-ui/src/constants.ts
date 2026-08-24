@@ -317,3 +317,25 @@ export const PET_THUMB_SCALE_MARGIN = 0.85;
 export const EMPTY_SPRITE_THUMBNAIL_BG = '#333';
 /** Maximum string length for a PlacedPet.id (defends against pathologically-long layout entries). */
 export const MAX_PET_ID_LENGTH = 128;
+
+// ── Starship Space Lab ──────────────────────────────────────
+export const STARSHIP_CYAN = '#6ee7ff';
+export const STARSHIP_VIOLET = '#b98bff';
+export const STARSHIP_MAGENTA = '#ff6ec7';
+export const STARSHIP_AMBER = '#ffcf6e';
+export const STARSHIP_TEXT = '#d9d3f0';
+export const STARSHIP_DIM = '#7a72a3';
+export const STARSHIP_VOID = '#0b0a17';
+export const STARSHIP_HULL = '#171226';
+export const STARSHIP_PANEL = '#1c1533';
+export const STARSHIP_LINE = '#332a52';
+
+export const STARSHIP_CRIMSON_TINT = '#ff5c5c';
+export const STARSHIP_VOID_TINT = '#5ce1ff';
+export const STARSHIP_NEBULA_TINT = '#c98bff';
+export const STARSHIP_SHADOW_TINT = '#6fae7a';
+
+export const STARSHIP_FLOOR_MARKER_STROKE = 'rgba(110,231,255,0.55)';
+export const STARSHIP_FLOOR_MARKER_FILL = 'rgba(110,231,255,0.85)';
+export const STARSHIP_AGENT_SHADOW = 'rgba(0,0,0,0.45)';
+export const STARSHIP_NAME_TAG_FILL = 'rgba(217,211,240,0.9)';
