@@ -213,3 +213,54 @@ test('renders live status badges in roster matching snapshot roles', () => {
   assert.match(markup, /<div class="starship-badge badge working">\s*WORKING\s*<\/div>/);
   assert.match(markup, /<div class="starship-badge badge review">\s*REVIEW\s*<\/div>/);
 });
+
+test('simulation 10-second run: every agent changes position at least 2 times and changes state at least 1 time (fails if agents stand still)', () => {
+  const crew = createInitialCrew(snapshot);
+  const positionChangeCounts = new Map<string, number>();
+  const stateChangeCounts = new Map<string, number>();
+  const lastPositions = new Map<string, { x: number; y: number }>();
+  const lastStates = new Map<string, string>();
+
+  for (const a of crew) {
+    positionChangeCounts.set(a.id, 0);
+    stateChangeCounts.set(a.id, 0);
+    lastPositions.set(a.id, { x: a.x, y: a.y });
+    lastStates.set(a.id, a.state);
+  }
+
+  const dt = 0.05;
+  const totalSteps = 10 / dt; // 200 steps = 10 seconds
+
+  for (let step = 0; step < totalSteps; step++) {
+    for (const a of crew) {
+      updateAgent(a, dt, 1, crew);
+
+      const lastPos = lastPositions.get(a.id)!;
+      if (Math.abs(a.x - lastPos.x) > 0.1 || Math.abs(a.y - lastPos.y) > 0.1) {
+        positionChangeCounts.set(a.id, positionChangeCounts.get(a.id)! + 1);
+        lastPositions.set(a.id, { x: a.x, y: a.y });
+      }
+
+      const lastState = lastStates.get(a.id)!;
+      if (a.state !== lastState) {
+        stateChangeCounts.set(a.id, stateChangeCounts.get(a.id)! + 1);
+        lastStates.set(a.id, a.state);
+      }
+    }
+  }
+
+  for (const a of crew) {
+    const posChanges = positionChangeCounts.get(a.id)!;
+    const stateChanges = stateChangeCounts.get(a.id)!;
+    console.log(`[MOTION TEST] ${a.name}: ${posChanges} position changes, ${stateChanges} state changes`);
+    assert.ok(
+      posChanges >= 2,
+      `Agent ${a.name} should have changed position at least 2 times, but only changed ${posChanges} times (agent was stationary)`,
+    );
+    assert.ok(
+      stateChanges >= 1,
+      `Agent ${a.name} should have changed state at least 1 time, but only changed ${stateChanges} times`,
+    );
+  }
+});
+

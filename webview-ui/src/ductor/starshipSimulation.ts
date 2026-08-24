@@ -352,9 +352,10 @@ export function updateAgent(
         a.state = STATE.BLOCKED;
       } else if (a.reportedState === 'idle' || a.reportedState === 'waiting') {
         a.state = STATE.IDLE;
+        a.stateTimer = 2 + Math.random() * 3;
       } else {
         a.state = STATE.WORKING;
-        a.stateTimer = 3 + Math.random() * 5;
+        a.stateTimer = 2.5 + Math.random() * 3.5;
       }
       a.animFrame = 0;
       if (pushLog) pushLog(`${a.name} arrived at ${a.currentStation}.`);
@@ -372,30 +373,27 @@ export function updateAgent(
       }
     }
   } else if (a.state === STATE.WORKING) {
+    a.stateTimer -= dt * speedMult;
     a.bob += dt * 4;
     a.animTimer += dt;
     if (a.animTimer > 0.5) {
       a.animTimer = 0;
       a.animFrame = (a.animFrame + 1) % 4; // idle turn cycle
     }
-    // Only auto-pick random new target in fallback mode when no live status
-    if (!a.reportedState) {
-      a.stateTimer -= dt * speedMult;
-      if (a.stateTimer <= 0) {
-        pickNewTarget(a, agents);
-      }
+    if (a.stateTimer <= 0) {
+      a.state = STATE.IDLE;
+      a.stateTimer = 1.2 + Math.random() * 1.8;
+      a.animFrame = 0;
     }
   } else if (a.state === STATE.IDLE) {
+    a.stateTimer -= dt * speedMult;
     a.animTimer += dt;
     if (a.animTimer > 0.8) {
       a.animTimer = 0;
       a.animFrame = (a.animFrame + 1) % 4;
     }
-    if (!a.reportedState) {
-      a.stateTimer -= dt * speedMult;
-      if (a.stateTimer <= 0) {
-        pickNewTarget(a, agents);
-      }
+    if (a.stateTimer <= 0) {
+      pickNewTarget(a, agents);
     }
   } else if (a.state === STATE.BLOCKED) {
     a.bob += dt * 3;
@@ -493,12 +491,7 @@ export function drawAgent(
   }
 
   // status glow ring while working
-  if (
-    (a.state === STATE.WORKING ||
-      a.reportedState === 'working' ||
-      a.reportedState === 'review') &&
-    !isOffline
-  ) {
+  if (a.state === STATE.WORKING && !isOffline) {
     ctx.save();
     ctx.beginPath();
     ctx.ellipse(a.x, a.y + 6, 20, 7, 0, 0, Math.PI * 2);
