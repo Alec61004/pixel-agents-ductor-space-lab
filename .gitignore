@@ -53,3 +53,4 @@ tasks/
 
 # Local Ductor Space Lab heartbeat (operator/agent-reported runtime state)
 /.ductor-space-lab/
+.vercel

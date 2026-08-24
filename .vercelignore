@@ -1,0 +1,11 @@
+allure-results
+allure-report
+dist
+e2e
+docs
+scripts
+server
+.github
+.ductor-space-lab
+*.env
+*.env.local
