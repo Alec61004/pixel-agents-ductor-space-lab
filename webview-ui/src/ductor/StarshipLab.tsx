@@ -98,6 +98,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
   const [loaded, setLoaded] = useState(false);
   const [speedMult, setSpeedMult] = useState(1);
   const [showStations, setShowStations] = useState(false);
+  const [rosterCollapsed, setRosterCollapsed] = useState(false);
   const [logText, setLogText] = useState('Bridge systems online. Crew dispersed to stations.');
 
   const speedMultRef = useRef(speedMult);
@@ -323,8 +324,8 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
         .starship-subtitle { font-size: 11px; color: var(--dim); margin-top: 4px; letter-spacing: .5px; }
         .starship-stat { font-size: 10px; color: var(--dim); text-align: right; line-height: 1.6; }
         .starship-stat b { color: var(--cyan); font-weight: 600; }
-        .starship-main { flex: 1 1 auto; display: flex; min-height: 0; }
-        .starship-stage-wrap { flex: 1 1 auto; position: relative; min-width: 0; background: #000; }
+        .starship-main { flex: 1 1 auto; position: relative; display: flex; min-height: 0; width: 100%; height: 100%; overflow: hidden; }
+        .starship-stage-wrap { flex: 1 1 auto; position: relative; width: 100%; height: 100%; min-width: 0; background: #000; }
         .starship-stage {
           display: block; width: 100%; height: 100%;
           image-rendering: pixelated; cursor: crosshair;
@@ -353,18 +354,37 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
         .starship-ltext { font-size: 10px; color: var(--dim); letter-spacing: 1px; }
         .starship-log-banner {
           position: absolute; left: 14px; bottom: 14px; font-size: 10.5px; color: var(--cyan);
-          background: rgba(11,10,23,0.72); border: 1px solid var(--line); padding: 6px 10px;
-          max-width: 60%; letter-spacing: .3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+          background: rgba(11,10,23,0.78); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+          border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+          padding: 6px 12px; max-width: 60%; letter-spacing: .3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+          z-index: 8; pointer-events: auto;
         }
         .starship-log-tag { color: var(--amber); margin-right: 6px; }
         .starship-aside {
-          flex: 0 0 300px; max-width: 300px; border-left: 1px solid var(--line);
-          background: linear-gradient(180deg, rgba(28,21,51,0.85), rgba(11,10,23,0.9));
-          display: flex; flex-direction: column; overflow: hidden;
+          position: absolute; top: 14px; right: 14px; width: 300px; max-height: calc(100% - 28px);
+          background: rgba(20,15,38,0.82); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+          border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.55), 0 0 0 1px rgba(110,231,255,0.08);
+          display: flex; flex-direction: column; overflow: hidden; z-index: 10;
+          transition: max-height .25s ease, width .25s ease, opacity .2s ease;
+        }
+        .starship-aside.collapsed {
+          width: auto; min-width: 140px; max-height: 42px;
         }
         .starship-roster-head {
-          padding: 14px 16px 10px; border-bottom: 1px solid var(--line); font-size: 10px;
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 10px;
           letter-spacing: 1.5px; color: var(--dim); text-transform: uppercase;
+          cursor: pointer; user-select: none;
+        }
+        .starship-aside.collapsed .starship-roster-head { border-bottom: none; }
+        .starship-roster-toggle {
+          background: rgba(255,255,255,0.04); border: 1px solid var(--line); color: var(--cyan);
+          border-radius: 4px; font-size: 10px; padding: 2px 6px; cursor: pointer;
+          display: inline-flex; align-items: center; justify-content: center; line-height: 1;
+          transition: background .2s, border-color .2s;
+        }
+        .starship-roster-toggle:hover {
+          background: rgba(110,231,255,0.15); border-color: var(--cyan);
         }
         .starship-roster { flex: 1 1 auto; overflow-y: auto; padding: 8px; }
         .starship-card {
@@ -410,7 +430,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
         .starship-btn:hover { border-color: var(--cyan); color: #fff; }
         .starship-btn.active { border-color: var(--magenta); color: var(--magenta); }
         @media (max-width: 760px) {
-          .starship-aside { display: none; }
+          .starship-aside { top: 8px; right: 8px; max-width: calc(100vw - 16px); }
           .starship-header h1 { font-size: 10px; }
         }
       `}</style>
@@ -463,81 +483,109 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
           </div>
         </div>
 
-        <aside className="starship-aside">
-          <div className="starship-roster-head">Crew Roster</div>
-          <div id="roster" className="starship-roster" role="list" aria-label="Ductor crew roster">
-            {agentsList.map((a) => {
-              const displayState = a.reportedState ?? a.state;
-              const badgeState = a.reportedState ?? a.state;
-              const isWorking =
-                a.reportedState === 'working' ||
-                a.reportedState === 'review' ||
-                (a.reportedState === undefined && a.state === STATE.WORKING);
-              const isBlocked =
-                a.reportedState === 'blocked' ||
-                (a.reportedState === undefined && a.state === STATE.BLOCKED);
-              const isOffline =
-                a.reportedState === 'offline' ||
-                (a.reportedState === undefined && a.state === STATE.OFFLINE);
-              const badgeText = (
-                a.reportedState ??
-                (a.state === STATE.MOVING
-                  ? 'MOVING'
-                  : a.state === STATE.WORKING
-                    ? 'WORKING'
-                    : a.state === STATE.BLOCKED
-                      ? 'BLOCKED'
-                      : a.state === STATE.OFFLINE
-                        ? 'OFFLINE'
-                        : 'IDLE')
-              ).toUpperCase();
+        <aside className={`starship-aside ${rosterCollapsed ? 'collapsed' : ''}`}>
+          <div
+            className="starship-roster-head"
+            onClick={() => setRosterCollapsed((c) => !c)}
+            role="button"
+            tabIndex={0}
+            aria-expanded={!rosterCollapsed}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                setRosterCollapsed((c) => !c);
+              }
+            }}
+          >
+            <span>Crew Roster</span>
+            <button
+              type="button"
+              className="starship-roster-toggle"
+              aria-label={rosterCollapsed ? 'Expand crew roster' : 'Collapse crew roster'}
+              onClick={(e) => {
+                e.stopPropagation();
+                setRosterCollapsed((c) => !c);
+              }}
+            >
+              {rosterCollapsed ? '▼' : '▲'}
+            </button>
+          </div>
+          {!rosterCollapsed && (
+            <>
+              <div id="roster" className="starship-roster" role="list" aria-label="Ductor crew roster">
+                {agentsList.map((a) => {
+                  const displayState = a.reportedState ?? a.state;
+                  const badgeState = a.reportedState ?? a.state;
+                  const isWorking =
+                    a.reportedState === 'working' ||
+                    a.reportedState === 'review' ||
+                    (a.reportedState === undefined && a.state === STATE.WORKING);
+                  const isBlocked =
+                    a.reportedState === 'blocked' ||
+                    (a.reportedState === undefined && a.state === STATE.BLOCKED);
+                  const isOffline =
+                    a.reportedState === 'offline' ||
+                    (a.reportedState === undefined && a.state === STATE.OFFLINE);
+                  const badgeText = (
+                    a.reportedState ??
+                    (a.state === STATE.MOVING
+                      ? 'MOVING'
+                      : a.state === STATE.WORKING
+                        ? 'WORKING'
+                        : a.state === STATE.BLOCKED
+                          ? 'BLOCKED'
+                          : a.state === STATE.OFFLINE
+                            ? 'OFFLINE'
+                            : 'IDLE')
+                  ).toUpperCase();
 
-              return (
-                <article
-                  key={a.id}
-                  className={`starship-card card ${isWorking ? 'active' : ''} ${isBlocked ? 'blocked' : ''} ${isOffline ? 'offline' : ''}`}
-                  data-id={a.id}
-                  data-ductor-agent={a.name}
-                  data-state={displayState}
-                  role="listitem"
-                  aria-label={`${a.name}, ${a.role}, ${displayState}`}
-                  onClick={() => handleAgentClick(a.id)}
-                >
-                  <div
-                    className="starship-swatch swatch"
-                    style={{
-                      borderLeft: `3px solid ${a.skin.tint}`,
-                    }}
-                  >
-                    <span
-                      style={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: '50%',
-                        backgroundColor: a.skin.tint,
-                        boxShadow: `0 0 6px ${a.skin.tint}`,
-                      }}
-                    />
-                  </div>
-                  <div className="starship-meta meta">
-                    <div className="starship-name name">{a.name}</div>
-                    <div className="starship-role role">
-                      {a.role} · {a.skin.name}
-                      {a.provenance ? ` · ${a.provenance.replaceAll('-', ' ')}` : ''}
-                    </div>
-                  </div>
-                  <div className={`starship-badge badge ${badgeState.toLowerCase()}`}>
-                    {badgeText}
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-          <div className="starship-roster-foot">
-            Click a station on the deck to <b>summon</b> the nearest free agent.
-            <br />
-            Signals marked derived are presence-based; no message, prompt, or token is read.
-          </div>
+                  return (
+                    <article
+                      key={a.id}
+                      className={`starship-card card ${isWorking ? 'active' : ''} ${isBlocked ? 'blocked' : ''} ${isOffline ? 'offline' : ''}`}
+                      data-id={a.id}
+                      data-ductor-agent={a.name}
+                      data-state={displayState}
+                      role="listitem"
+                      aria-label={`${a.name}, ${a.role}, ${displayState}`}
+                      onClick={() => handleAgentClick(a.id)}
+                    >
+                      <div
+                        className="starship-swatch swatch"
+                        style={{
+                          borderLeft: `3px solid ${a.skin.tint}`,
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: '50%',
+                            backgroundColor: a.skin.tint,
+                            boxShadow: `0 0 6px ${a.skin.tint}`,
+                          }}
+                        />
+                      </div>
+                      <div className="starship-meta meta">
+                        <div className="starship-name name">{a.name}</div>
+                        <div className="starship-role role">
+                          {a.role} · {a.skin.name}
+                          {a.provenance ? ` · ${a.provenance.replaceAll('-', ' ')}` : ''}
+                        </div>
+                      </div>
+                      <div className={`starship-badge badge ${badgeState.toLowerCase()}`}>
+                        {badgeText}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+              <div className="starship-roster-foot">
+                Click a station on the deck to <b>summon</b> the nearest free agent.
+                <br />
+                Signals marked derived are presence-based; no message, prompt, or token is read.
+              </div>
+            </>
+          )}
         </aside>
       </main>
 
