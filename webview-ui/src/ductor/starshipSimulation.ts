@@ -274,6 +274,12 @@ export interface Star {
   speed: number;
 }
 
+export const ROLE_IDLE_SLOT_OFFSETS: Record<DuctorRoleName, { dx: number; dy: number }> = {
+  Alec: { dx: -28, dy: -10 },
+  Kevin: { dx: 0, dy: 14 },
+  Benjamin: { dx: 28, dy: -10 },
+};
+
 export function pickStation(
   agents: StarshipAgent[],
   excludeId: string | null,
@@ -281,7 +287,7 @@ export function pickStation(
   const counts = new Array(STATIONS.length).fill(0);
   for (const a of agents) {
     if (a.id === excludeId) continue;
-    if (a.stationIndex != null && a.state !== STATE.IDLE && a.state !== STATE.OFFLINE) {
+    if (a.stationIndex != null && a.state !== STATE.OFFLINE) {
       counts[a.stationIndex]++;
     }
   }
@@ -309,12 +315,13 @@ export function pickNewTarget(agent: StarshipAgent, agents: StarshipAgent[]): vo
     }
   }
 
-  // Idle wander mode or demo mode: pick among stations
+  // Idle wander mode or demo mode: pick among stations with distinct role slot offsets to prevent overlap
   const { stationIndex, slot } = pickStation(agents, agent.id);
+  const roleOffset = ROLE_IDLE_SLOT_OFFSETS[agent.name] ?? { dx: 0, dy: 0 };
   const st = STATIONS[stationIndex] ?? STATIONS[0];
   agent.stationIndex = stationIndex;
-  agent.targetX = st.x + slot.dx + (Math.random() * 10 - 5);
-  agent.targetY = st.y + slot.dy + (Math.random() * 6 - 3);
+  agent.targetX = st.x + slot.dx + roleOffset.dx;
+  agent.targetY = st.y + slot.dy + roleOffset.dy;
   agent.currentStation = st.label;
   agent.state = STATE.MOVING;
 }
@@ -780,6 +787,8 @@ export function getAgentStatusBubble(agent: StarshipAgent): {
   };
 }
 
+export const applyCloudStatus = applySnapshotToAgents;
+
 export function drawAgentStatusBubble(
   ctx: CanvasRenderingContext2D,
   a: StarshipAgent,
@@ -788,8 +797,13 @@ export function drawAgentStatusBubble(
 ): void {
   const bubble = getAgentStatusBubble(a);
   const bubbleY = a.y - drawH - 12 + bobY;
+  const isOffline = a.reportedState === 'offline' || a.state === STATE.OFFLINE;
 
   ctx.save();
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = isOffline ? 0.6 : 1.0;
+  ctx.shadowBlur = 0;
+  ctx.shadowColor = 'transparent';
   ctx.font = "10px 'JetBrains Mono', monospace";
   const tw = ctx.measureText ? ctx.measureText(bubble.text).width : bubble.text.length * 6.2;
   const padX = 7;
@@ -820,6 +834,7 @@ export function drawAgentStatusBubble(
 export function drawWorkParticles(ctx: CanvasRenderingContext2D, a: StarshipAgent): void {
   if (!a.particles || a.particles.length === 0) return;
   ctx.save();
+  ctx.globalCompositeOperation = 'source-over';
   ctx.font = "bold 11px 'JetBrains Mono', monospace";
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';

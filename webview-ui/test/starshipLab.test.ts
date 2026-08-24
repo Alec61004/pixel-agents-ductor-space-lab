@@ -697,6 +697,35 @@ test('drawAgentStatusBubble and drawWorkParticles execute without errors on 2D c
   assert.ok(operations.filter((op) => op === 'fillText').length >= 2);
 });
 
+test('render snapshot contains status text bubbles in markup', () => {
+  const markup = renderToStaticMarkup(createElement(StarshipLab, { snapshot }));
 
+  // Markup must include status text bubbles for agents
+  assert.match(markup, /Alec đang làm việc/);
+  assert.match(markup, /Kevin đang làm việc/);
+  assert.match(markup, /Benjamin đang làm việc/);
+});
 
+test('2 working agents do not share coordinates with distance > 20px', () => {
+  const crew = createInitialCrew(snapshot);
+  const workingAgents = crew.filter(
+    (a) =>
+      a.state === STATE.WORKING ||
+      a.reportedState === 'working' ||
+      a.reportedState === 'review',
+  );
 
+  assert.ok(workingAgents.length >= 2, 'Must have at least 2 working agents');
+
+  for (let i = 0; i < workingAgents.length; i++) {
+    for (let j = i + 1; j < workingAgents.length; j++) {
+      const a1 = workingAgents[i]!;
+      const a2 = workingAgents[j]!;
+      const dist = Math.hypot(a1.x - a2.x, a1.y - a2.y);
+      assert.ok(
+        dist > 20,
+        `Distance between ${a1.name} (${a1.x}, ${a1.y}) and ${a2.name} (${a2.x}, ${a2.y}) is ${dist.toFixed(1)}px, which must be > 20px`,
+      );
+    }
+  }
+});

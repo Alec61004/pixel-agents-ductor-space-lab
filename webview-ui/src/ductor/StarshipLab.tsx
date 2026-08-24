@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { DuctorStatusSnapshot } from './ductorLabModel.js';
 import { ductorAssetUrl } from './ductorLabModel.js';
 import {
+  applyCloudStatus,
   applySnapshotToAgents,
   ASSIGNED_WORKSTATIONS,
   type AssignedWorkstation,
@@ -30,6 +31,7 @@ import {
   pickNewTarget,
   type Point2D,
   ROLE_GLOW_COLORS,
+  ROLE_IDLE_SLOT_OFFSETS,
   ROLE_PARTICLE_ICONS,
   routeToPoint,
   seedStars,
@@ -48,6 +50,7 @@ import {
 } from './starshipSimulation.js';
 
 export {
+  applyCloudStatus,
   applySnapshotToAgents,
   ASSIGNED_WORKSTATIONS,
   type AssignedWorkstation,
@@ -75,6 +78,7 @@ export {
   pickNewTarget,
   type Point2D,
   ROLE_GLOW_COLORS,
+  ROLE_IDLE_SLOT_OFFSETS,
   ROLE_PARTICLE_ICONS,
   routeToPoint,
   seedStars,
@@ -514,6 +518,24 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
           <canvas id="stars" ref={starsCanvasRef} className="starship-starfield" />
           <div className="starship-scanline" />
           <div className="starship-vignette" />
+          <div className="starship-bubbles-layer" aria-hidden="true" style={{ display: 'none' }}>
+            {agentsList.map((a) => {
+              const bubble = getAgentStatusBubble(a);
+              return (
+                <div
+                  key={a.id}
+                  className="starship-agent-bubble"
+                  data-agent-bubble={a.name}
+                  style={{
+                    borderColor: bubble.borderColor,
+                    color: bubble.color,
+                  }}
+                >
+                  {bubble.text}
+                </div>
+              );
+            })}
+          </div>
           <div id="log-banner" className="starship-log-banner">
             <span className="starship-log-tag">LOG</span>
             <span id="log-text">{logText}</span>
