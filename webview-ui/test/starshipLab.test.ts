@@ -5,10 +5,8 @@ import { test } from 'vitest';
 
 import {
   createInitialCrew,
-  pickNewTarget,
   pickStation,
   routeToPoint,
-  SKINS,
   STATIONS,
   StarshipLab,
   STATE,
@@ -92,7 +90,7 @@ test('state machine transitions MOVING -> WORKING on arrival and handles routeTo
   const agent = crew[0];
 
   // Test manual reroute
-  routeToPoint(crew, 500, 400);
+  routeToPoint([agent], 500, 400);
   assert.equal(agent.state, STATE.MOVING);
   assert.equal(agent.targetX, 500);
   assert.equal(agent.targetY, 400);

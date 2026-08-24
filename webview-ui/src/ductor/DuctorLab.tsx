@@ -4,9 +4,7 @@ import { OfficeCanvas } from '../office/components/OfficeCanvas.js';
 import { EditorState } from '../office/editor/editorState.js';
 import { isE2E } from '../runtime.js';
 import type { DuctorStatusSnapshot } from './ductorLabModel.js';
-import { loadDuctorOfficeAssets } from './ductorOfficeAssets.js';
 import {
-  createDuctorOfficeRuntime,
   DUCTOR_AGENT_IDS,
   DUCTOR_ROLE_PRESENTATION,
   type DuctorAgentObservation,
