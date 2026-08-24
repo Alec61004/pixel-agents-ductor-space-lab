@@ -230,6 +230,17 @@ export function clampPointToPolygon(
   return { x: clampedX, y: clampedY };
 }
 
+export interface WorkParticle {
+  x: number;
+  y: number;
+  vy: number;
+  alpha: number;
+  life: number;
+  maxLife: number;
+  icon: string;
+  color: string;
+}
+
 export interface StarshipAgent {
   id: string;
   name: DuctorRoleName;
@@ -251,6 +262,8 @@ export interface StarshipAgent {
   stationIndex: number | null;
   currentStation: string;
   flash?: number;
+  particleTimer?: number;
+  particles?: WorkParticle[];
 }
 
 export interface Star {
@@ -329,6 +342,61 @@ export function routeToPoint(
     best.state = STATE.MOVING;
     if (pushLog) pushLog(`${best.name} rerouted on manual order.`);
   }
+}
+
+export const ROLE_GLOW_COLORS: Record<string, string> = {
+  Alec: '#c98bff',
+  Kevin: '#5ce1ff',
+  Benjamin: '#ff5c5c',
+};
+
+export const ROLE_PARTICLE_ICONS: Record<string, string> = {
+  Alec: '⌨',
+  Kevin: '</>',
+  Benjamin: '✓',
+};
+
+export function makeAgent(spec: {
+  id: string;
+  name: DuctorRoleName;
+  role: string;
+  skin: (typeof SKINS)[number];
+  reportedState?: string;
+  provenance?: string;
+  x: number;
+  y: number;
+  facing?: number;
+  state?: StarshipAgentState;
+  stationIndex?: number | null;
+  currentStation?: string;
+  flash?: number;
+  particleTimer?: number;
+  particles?: WorkParticle[];
+}): StarshipAgent {
+  return {
+    id: spec.id,
+    name: spec.name,
+    role: spec.role,
+    reportedState: spec.reportedState,
+    provenance: spec.provenance,
+    skin: spec.skin,
+    x: spec.x,
+    y: spec.y,
+    targetX: spec.x,
+    targetY: spec.y,
+    speed: 46 + Math.random() * 22,
+    facing: spec.facing ?? 1,
+    state: spec.state ?? STATE.WORKING,
+    stateTimer: 2 + Math.random() * 4,
+    animFrame: 0,
+    animTimer: 0,
+    bob: Math.random() * Math.PI * 2,
+    stationIndex: spec.stationIndex ?? null,
+    currentStation: spec.currentStation ?? '',
+    flash: spec.flash !== undefined ? spec.flash : 1,
+    particleTimer: spec.particleTimer ?? 0,
+    particles: spec.particles ?? [],
+  };
 }
 
 export function createInitialCrew(snapshot?: DuctorStatusSnapshot): StarshipAgent[] {
@@ -416,27 +484,23 @@ export function createInitialCrew(snapshot?: DuctorStatusSnapshot): StarshipAgen
     const initialFacing =
       ASSIGNED_WORKSTATIONS[spec.name]?.facing ?? (Math.random() < 0.5 ? -1 : 1);
 
-    agents.push({
-      id: spec.id,
-      name: spec.name,
-      role: spec.role,
-      reportedState: roleSnapshot?.state,
-      provenance: roleSnapshot?.provenance,
-      skin: spec.skin,
-      x,
-      y,
-      targetX: x,
-      targetY: y,
-      speed: 46 + Math.random() * 22,
-      facing: initialFacing,
-      state: initialState,
-      stateTimer: 2 + Math.random() * 4,
-      animFrame: 0,
-      animTimer: 0,
-      bob: Math.random() * Math.PI * 2,
-      stationIndex,
-      currentStation,
-    });
+    agents.push(
+      makeAgent({
+        id: spec.id,
+        name: spec.name,
+        role: spec.role,
+        reportedState: roleSnapshot?.state,
+        provenance: roleSnapshot?.provenance,
+        skin: spec.skin,
+        x,
+        y,
+        facing: initialFacing,
+        state: initialState,
+        stationIndex,
+        currentStation,
+        flash: 1,
+      }),
+    );
   }
   return agents;
 }
@@ -547,8 +611,11 @@ export function updateAgent(
         a.state = STATE.WORKING;
         a.stateTimer = 2.5 + Math.random() * 3.5;
         const ws = ASSIGNED_WORKSTATIONS[a.name];
-        if (ws && (a.reportedState === 'working' || a.reportedState === 'review')) {
+        if (ws) {
           a.facing = ws.facing;
+        } else if (a.stationIndex != null && STATIONS[a.stationIndex]) {
+          const st = STATIONS[a.stationIndex];
+          a.facing = st.x >= a.x ? 1 : -1;
         }
       }
       a.animFrame = 0;
@@ -568,6 +635,10 @@ export function updateAgent(
       }
     }
   } else if (a.state === STATE.WORKING) {
+    const ws = ASSIGNED_WORKSTATIONS[a.name];
+    if (ws) {
+      a.facing = ws.facing;
+    }
     a.stateTimer -= dt * speedMult;
     a.bob += dt * 4;
     a.animTimer += dt;
@@ -579,7 +650,6 @@ export function updateAgent(
       if (a.reportedState === 'working' || a.reportedState === 'review') {
         // Working agent stays at their assigned desk
         a.stateTimer = 3 + Math.random() * 3;
-        const ws = ASSIGNED_WORKSTATIONS[a.name];
         if (ws) {
           a.facing = ws.facing;
         }
@@ -624,10 +694,145 @@ export function updateAgent(
     a.animFrame = 0;
   }
 
-  if (a.flash && a.flash > 0) {
-    a.flash -= dt * 1.6;
-    if (a.flash < 0) a.flash = 0;
+  const isOffline = a.reportedState === 'offline' || a.state === STATE.OFFLINE;
+
+  // Work particles: spawn every ~0.9s when working
+  if (a.state === STATE.WORKING && !isOffline) {
+    a.particleTimer = (a.particleTimer ?? 0) + dt * speedMult;
+    if (a.particleTimer >= 0.9) {
+      a.particleTimer = 0;
+      if (!a.particles) a.particles = [];
+      const icon = ROLE_PARTICLE_ICONS[a.name] ?? '⚙';
+      const color = ROLE_GLOW_COLORS[a.name] ?? a.skin.tint ?? '#5ce1ff';
+      const scale = getDepthScale(a.y);
+      const drawH = 92 * scale;
+      a.particles.push({
+        x: a.x + (Math.random() * 16 - 8),
+        y: a.y - drawH * 0.7,
+        vy: -26 * scale,
+        alpha: 1,
+        life: 0,
+        maxLife: 1.2,
+        icon,
+        color,
+      });
+    }
   }
+
+  if (a.particles && a.particles.length > 0) {
+    for (const p of a.particles) {
+      p.life += dt * speedMult;
+      p.y += p.vy * dt * speedMult;
+      p.alpha = Math.max(0, 1 - p.life / p.maxLife);
+    }
+    a.particles = a.particles.filter((p) => p.life < p.maxLife);
+  }
+
+  if (a.flash === undefined || a.flash < 1) {
+    a.flash = 1;
+  } else if (a.flash > 1) {
+    a.flash -= dt * 1.6;
+    if (a.flash < 1) a.flash = 1;
+  }
+}
+
+export function getAgentStatusBubble(agent: StarshipAgent): {
+  text: string;
+  color: string;
+  borderColor: string;
+} {
+  const roleColor = ROLE_GLOW_COLORS[agent.name] ?? agent.skin.tint ?? '#5ce1ff';
+  const isOffline = agent.reportedState === 'offline' || agent.state === STATE.OFFLINE;
+
+  if (isOffline) {
+    return {
+      text: '⚫ offline',
+      color: '#8e92a4',
+      borderColor: 'rgba(142, 146, 164, 0.4)',
+    };
+  }
+
+  const isWorking =
+    agent.state === STATE.WORKING ||
+    agent.reportedState === 'working' ||
+    agent.reportedState === 'review';
+
+  if (isWorking) {
+    return {
+      text: `⚙ ${agent.name} đang làm việc`,
+      color: roleColor,
+      borderColor: roleColor,
+    };
+  }
+
+  if (agent.state === STATE.BLOCKED || agent.reportedState === 'blocked') {
+    return {
+      text: '⚠️ blocked',
+      color: STARSHIP_CRIMSON_TINT,
+      borderColor: STARSHIP_CRIMSON_TINT,
+    };
+  }
+
+  return {
+    text: '💤 idle',
+    color: '#a5b4fc',
+    borderColor: 'rgba(165, 180, 252, 0.5)',
+  };
+}
+
+export function drawAgentStatusBubble(
+  ctx: CanvasRenderingContext2D,
+  a: StarshipAgent,
+  drawH: number,
+  bobY: number,
+): void {
+  const bubble = getAgentStatusBubble(a);
+  const bubbleY = a.y - drawH - 12 + bobY;
+
+  ctx.save();
+  ctx.font = "10px 'JetBrains Mono', monospace";
+  const tw = ctx.measureText ? ctx.measureText(bubble.text).width : bubble.text.length * 6.2;
+  const padX = 7;
+  const boxW = tw + padX * 2;
+  const boxH = 16;
+  const boxX = a.x - boxW / 2;
+  const boxY = bubbleY - boxH / 2;
+
+  ctx.beginPath();
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(boxX, boxY, boxW, boxH, 8);
+  } else if (typeof ctx.rect === 'function') {
+    ctx.rect(boxX, boxY, boxW, boxH);
+  }
+  ctx.fillStyle = 'rgba(15, 12, 28, 0.85)';
+  ctx.fill();
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = bubble.borderColor;
+  ctx.stroke();
+
+  ctx.fillStyle = bubble.color;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(bubble.text, a.x, bubbleY);
+  ctx.restore();
+}
+
+export function drawWorkParticles(ctx: CanvasRenderingContext2D, a: StarshipAgent): void {
+  if (!a.particles || a.particles.length === 0) return;
+  ctx.save();
+  ctx.font = "bold 11px 'JetBrains Mono', monospace";
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (const p of a.particles) {
+    ctx.save();
+    ctx.globalAlpha = p.alpha;
+    ctx.fillStyle = p.color;
+    ctx.shadowColor = p.color;
+    ctx.shadowBlur = 4;
+    ctx.fillText(p.icon, p.x, p.y);
+    ctx.restore();
+  }
+  ctx.restore();
 }
 
 export function drawFloorMarkers(ctx: CanvasRenderingContext2D, showStations: boolean): void {
@@ -690,25 +895,39 @@ export function drawAgent(
   if (a.facing === 1) {
     ctx.scale(-1, 1);
   }
+  // (1) Pixel art crispness
   ctx.imageSmoothingEnabled = false;
+
+  // (2) Rim glow around agent matching role color
+  const roleGlow = ROLE_GLOW_COLORS[a.name] ?? a.skin.tint ?? '#5ce1ff';
+  ctx.shadowColor = roleGlow;
+  ctx.shadowBlur = 8;
+  ctx.drawImage(sheetImg, sx, sy, cw, ch, -drawW / 2, -drawH, drawW, drawH);
+
+  // (3) Second pass with 'lighter' composite mode to boost sprite brightness
+  ctx.shadowBlur = 0;
+  ctx.shadowColor = 'transparent';
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = isOffline ? 0.35 * 0.22 : 0.22;
   ctx.drawImage(sheetImg, sx, sy, cw, ch, -drawW / 2, -drawH, drawW, drawH);
   ctx.restore();
 
   // Roster-selection flash ring (scaled at feet)
-  if (a.flash && a.flash > 0) {
+  if (a.flash && a.flash > 1) {
+    const flashProgress = a.flash - 1;
     ctx.save();
     ctx.beginPath();
     ctx.ellipse(
       a.x,
       a.y,
-      (30 + (1 - a.flash) * 14) * scale,
-      (10 + (1 - a.flash) * 5) * scale,
+      (30 + (1 - flashProgress) * 14) * scale,
+      (10 + (1 - flashProgress) * 5) * scale,
       0,
       0,
       Math.PI * 2,
     );
     ctx.strokeStyle = STARSHIP_AMBER;
-    ctx.globalAlpha = (isOffline ? 0.35 : 1.0) * a.flash;
+    ctx.globalAlpha = (isOffline ? 0.35 : 1.0) * flashProgress;
     ctx.lineWidth = 2.5 * scale;
     ctx.stroke();
     ctx.restore();
@@ -741,13 +960,11 @@ export function drawAgent(
     ctx.restore();
   }
 
-  // Name tag above head
-  ctx.save();
-  ctx.font = `${Math.max(8, Math.round(9 * scale))}px monospace`;
-  ctx.textAlign = 'center';
-  ctx.fillStyle = STARSHIP_NAME_TAG_FILL;
-  ctx.fillText(a.name, a.x, a.y - drawH - 4 + bobY);
-  ctx.restore();
+  // Status bubble above head (always visible)
+  drawAgentStatusBubble(ctx, a, drawH, bobY);
+
+  // Work particles floating above agent
+  drawWorkParticles(ctx, a);
 
   ctx.restore();
 }

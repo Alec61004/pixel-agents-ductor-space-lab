@@ -11,19 +11,26 @@ import {
   createInitialCrew,
   DEPTH_SCALE_MAX,
   DEPTH_SCALE_MIN,
+  drawAgent,
+  drawAgentStatusBubble,
   drawFloorMarkers,
   drawStage,
   drawStarsLayer,
+  drawWorkParticles,
   drawWorkstationLabels,
   FLOOR_Y_MAX,
   FLOOR_Y_MIN,
+  getAgentStatusBubble,
   getDepthScale,
   IDLE_POINTS,
   isPointInPolygon,
+  makeAgent,
   OFFLINE_POINTS,
   pickStation,
   pickNewTarget,
   type Point2D,
+  ROLE_GLOW_COLORS,
+  ROLE_PARTICLE_ICONS,
   routeToPoint,
   seedStars,
   SHEET_COLS,
@@ -37,6 +44,7 @@ import {
   type StarshipAgentState,
   updateAgent,
   WALKABLE_POLYGON,
+  type WorkParticle,
 } from './starshipSimulation.js';
 
 export {
@@ -48,19 +56,26 @@ export {
   createInitialCrew,
   DEPTH_SCALE_MAX,
   DEPTH_SCALE_MIN,
+  drawAgent,
+  drawAgentStatusBubble,
   drawFloorMarkers,
   drawStage,
   drawStarsLayer,
+  drawWorkParticles,
   drawWorkstationLabels,
   FLOOR_Y_MAX,
   FLOOR_Y_MIN,
+  getAgentStatusBubble,
   getDepthScale,
   IDLE_POINTS,
   isPointInPolygon,
+  makeAgent,
   OFFLINE_POINTS,
   pickStation,
   pickNewTarget,
   type Point2D,
+  ROLE_GLOW_COLORS,
+  ROLE_PARTICLE_ICONS,
   routeToPoint,
   seedStars,
   SHEET_COLS,
@@ -74,6 +89,7 @@ export {
   type StarshipAgentState,
   updateAgent,
   WALKABLE_POLYGON,
+  type WorkParticle,
 };
 
 export interface StarshipLabProps {
@@ -148,7 +164,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
   const handleAgentClick = (agentId: string) => {
     const a = agentsRef.current.find((ag) => ag.id === agentId);
     if (a) {
-      a.flash = 1.0;
+      a.flash = 2.0;
     }
   };
 

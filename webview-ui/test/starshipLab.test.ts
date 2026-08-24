@@ -11,16 +11,24 @@ import {
   createInitialCrew,
   DEPTH_SCALE_MAX,
   DEPTH_SCALE_MIN,
+  drawAgent,
+  drawAgentStatusBubble,
   drawFloorMarkers,
+  drawWorkParticles,
   drawWorkstationLabels,
   FLOOR_Y_MAX,
   FLOOR_Y_MIN,
+  getAgentStatusBubble,
   getDepthScale,
   IDLE_POINTS,
   isPointInPolygon,
+  makeAgent,
   OFFLINE_POINTS,
   pickStation,
+  ROLE_GLOW_COLORS,
+  ROLE_PARTICLE_ICONS,
   routeToPoint,
+  SKINS,
   STATIONS,
   StarshipLab,
   STATE,
@@ -430,5 +438,265 @@ test('agents stepping outside walkable floor are clamped to walkable polygon dur
     );
   }
 });
+
+test('defines role glow colors for Alec (#c98bff), Kevin (#5ce1ff), and Benjamin (#ff5c5c)', () => {
+  assert.equal(ROLE_GLOW_COLORS.Alec, '#c98bff');
+  assert.equal(ROLE_GLOW_COLORS.Kevin, '#5ce1ff');
+  assert.equal(ROLE_GLOW_COLORS.Benjamin, '#ff5c5c');
+});
+
+test('makeAgent defaults flash to 1 when undefined and updateAgent never drops flash below 1', () => {
+  const agent = makeAgent({
+    id: 'Kevin',
+    name: 'Kevin',
+    role: 'Builder',
+    skin: SKINS[2],
+    x: 500,
+    y: 500,
+  });
+
+  assert.equal(agent.flash, 1);
+
+  // Update over multiple frames with dt=1.0: flash must not decay below 1
+  updateAgent(agent, 1.0, 1, [agent]);
+  assert.equal(agent.flash, 1);
+
+  updateAgent(agent, 5.0, 1, [agent]);
+  assert.equal(agent.flash, 1);
+
+  // If flash was elevated (e.g. 2.0 on click), it decays to 1 and halts at 1
+  agent.flash = 2.0;
+  updateAgent(agent, 0.1, 1, [agent]);
+  assert.ok(agent.flash < 2.0 && agent.flash >= 1.0);
+
+  updateAgent(agent, 5.0, 1, [agent]);
+  assert.equal(agent.flash, 1.0);
+});
+
+test('drawAgent disables imageSmoothingEnabled, sets role shadowColor rim glow, and executes lighter boost pass', () => {
+  const crew = createInitialCrew(snapshot);
+  const kevin = crew.find((a) => a.name === 'Kevin')!;
+
+  const drawCalls: any[] = [];
+  const operations: string[] = [];
+
+  const mockCtx = {
+    save: () => operations.push('save'),
+    restore: () => operations.push('restore'),
+    translate: () => operations.push('translate'),
+    scale: () => operations.push('scale'),
+    beginPath: () => operations.push('beginPath'),
+    roundRect: () => operations.push('roundRect'),
+    rect: () => operations.push('rect'),
+    ellipse: () => operations.push('ellipse'),
+    fill: () => operations.push('fill'),
+    stroke: () => operations.push('stroke'),
+    fillText: () => operations.push('fillText'),
+    drawImage: (...args: any[]) => {
+      drawCalls.push({
+        args,
+        imageSmoothingEnabled: mockCtx.imageSmoothingEnabled,
+        shadowColor: mockCtx.shadowColor,
+        shadowBlur: mockCtx.shadowBlur,
+        globalCompositeOperation: mockCtx.globalCompositeOperation,
+        globalAlpha: mockCtx.globalAlpha,
+      });
+      operations.push('drawImage');
+    },
+    imageSmoothingEnabled: true,
+    shadowColor: '',
+    shadowBlur: 0,
+    globalCompositeOperation: 'source-over',
+    globalAlpha: 1.0,
+    font: '',
+    textAlign: '',
+    fillStyle: '',
+    strokeStyle: '',
+    lineWidth: 1,
+  } as unknown as CanvasRenderingContext2D;
+
+  const mockImg = { width: 512, height: 256 } as HTMLImageElement;
+
+  drawAgent(mockCtx, kevin, mockImg);
+
+  // Must have executed at least 2 drawImage passes (base + lighter brightness boost)
+  assert.ok(drawCalls.length >= 2);
+
+  // First sprite draw: pixel smoothing disabled, rim glow with role color, shadowBlur = 8
+  const basePass = drawCalls[0];
+  assert.equal(basePass.imageSmoothingEnabled, false);
+  assert.equal(basePass.shadowColor, '#5ce1ff');
+  assert.equal(basePass.shadowBlur, 8);
+
+  // Second sprite draw: lighter composite mode with alpha 0.22 to boost sprite brightness
+  const boostPass = drawCalls[1];
+  assert.equal(boostPass.globalCompositeOperation, 'lighter');
+  assert.equal(boostPass.globalAlpha, 0.22);
+});
+
+test('getAgentStatusBubble generates correct text and role colors for working, idle, blocked, and offline states', () => {
+  const alec = makeAgent({
+    id: 'Alec',
+    name: 'Alec',
+    role: 'Planner',
+    skin: SKINS[4],
+    x: 480,
+    y: 505,
+    state: STATE.WORKING,
+  });
+  const kevin = makeAgent({
+    id: 'Kevin',
+    name: 'Kevin',
+    role: 'Builder',
+    skin: SKINS[2],
+    x: 920,
+    y: 535,
+    state: STATE.WORKING,
+  });
+  const benjamin = makeAgent({
+    id: 'Benjamin',
+    name: 'Benjamin',
+    role: 'QA',
+    skin: SKINS[0],
+    x: 1240,
+    y: 520,
+    state: STATE.WORKING,
+  });
+
+  // Working state
+  const alecBubble = getAgentStatusBubble(alec);
+  assert.equal(alecBubble.text, '⚙ Alec đang làm việc');
+  assert.equal(alecBubble.color, '#c98bff');
+  assert.equal(alecBubble.borderColor, '#c98bff');
+
+  const kevinBubble = getAgentStatusBubble(kevin);
+  assert.equal(kevinBubble.text, '⚙ Kevin đang làm việc');
+  assert.equal(kevinBubble.color, '#5ce1ff');
+  assert.equal(kevinBubble.borderColor, '#5ce1ff');
+
+  const benjaminBubble = getAgentStatusBubble(benjamin);
+  assert.equal(benjaminBubble.text, '⚙ Benjamin đang làm việc');
+  assert.equal(benjaminBubble.color, '#ff5c5c');
+  assert.equal(benjaminBubble.borderColor, '#ff5c5c');
+
+  // Idle state
+  alec.state = STATE.IDLE;
+  alec.reportedState = 'idle';
+  const idleBubble = getAgentStatusBubble(alec);
+  assert.equal(idleBubble.text, '💤 idle');
+
+  // Offline state
+  kevin.state = STATE.OFFLINE;
+  kevin.reportedState = 'offline';
+  const offlineBubble = getAgentStatusBubble(kevin);
+  assert.equal(offlineBubble.text, '⚫ offline');
+
+  // Blocked state
+  benjamin.state = STATE.BLOCKED;
+  benjamin.reportedState = 'blocked';
+  const blockedBubble = getAgentStatusBubble(benjamin);
+  assert.equal(blockedBubble.text, '⚠️ blocked');
+});
+
+test('work particles spawn every ~0.9s for working agents with role-specific icons and float upward', () => {
+  const crew = createInitialCrew(snapshot);
+  const alec = crew.find((a) => a.name === 'Alec')!;
+  const kevin = crew.find((a) => a.name === 'Kevin')!;
+  const benjamin = crew.find((a) => a.name === 'Benjamin')!;
+
+  assert.equal(ROLE_PARTICLE_ICONS.Alec, '⌨');
+  assert.equal(ROLE_PARTICLE_ICONS.Kevin, '</>');
+  assert.equal(ROLE_PARTICLE_ICONS.Benjamin, '✓');
+
+  // Initial state: no particles
+  assert.equal(alec.particles?.length ?? 0, 0);
+
+  // Advance 0.5s: not yet spawned (timer < 0.9s)
+  updateAgent(alec, 0.5, 1, crew);
+  assert.equal(alec.particles?.length ?? 0, 0);
+
+  // Advance another 0.5s (total 1.0s >= 0.9s): particle spawns
+  updateAgent(alec, 0.5, 1, crew);
+  assert.equal(alec.particles?.length, 1);
+  const p1 = alec.particles![0]!;
+  assert.equal(p1.icon, '⌨');
+  assert.equal(p1.color, '#c98bff');
+  assert.ok(p1.vy < 0); // upward velocity
+
+  // Test Kevin code particle
+  updateAgent(kevin, 1.0, 1, crew);
+  assert.equal(kevin.particles?.length, 1);
+  const kp = kevin.particles![0]!;
+  assert.equal(kp.icon, '</>');
+  assert.equal(kp.color, '#5ce1ff');
+
+  // Test Benjamin check particle
+  updateAgent(benjamin, 1.0, 1, crew);
+  assert.equal(benjamin.particles?.length, 1);
+  const bp = benjamin.particles![0]!;
+  assert.equal(bp.icon, '✓');
+  assert.equal(bp.color, '#ff5c5c');
+
+  // Particles float upward and decay over time
+  const initialY = p1.y;
+  updateAgent(alec, 0.3, 1, crew);
+  assert.ok(p1.y < initialY, 'Particle must move upwards (y decreases)');
+  assert.ok(p1.alpha < 1, 'Particle alpha must decay');
+});
+
+test('working agent faces into desk/station according to assigned workstation config', () => {
+  const crew = createInitialCrew(snapshot);
+  const alec = crew.find((a) => a.name === 'Alec')!;
+  const kevin = crew.find((a) => a.name === 'Kevin')!;
+  const benjamin = crew.find((a) => a.name === 'Benjamin')!;
+
+  assert.equal(alec.facing, ASSIGNED_WORKSTATIONS.Alec.facing);
+  assert.equal(kevin.facing, ASSIGNED_WORKSTATIONS.Kevin.facing);
+  assert.equal(benjamin.facing, ASSIGNED_WORKSTATIONS.Benjamin.facing);
+
+  // Even after simulation tick in working state, facing stays locked to workstation
+  alec.facing = -1; // artificially flip
+  updateAgent(alec, 0.1, 1, crew);
+  assert.equal(alec.facing, ASSIGNED_WORKSTATIONS.Alec.facing);
+});
+
+test('drawAgentStatusBubble and drawWorkParticles execute without errors on 2D context', () => {
+  const crew = createInitialCrew(snapshot);
+  const kevin = crew.find((a) => a.name === 'Kevin')!;
+
+  // Spawn a particle
+  updateAgent(kevin, 1.0, 1, crew);
+
+  const operations: string[] = [];
+  const mockCtx = {
+    save: () => operations.push('save'),
+    restore: () => operations.push('restore'),
+    beginPath: () => operations.push('beginPath'),
+    roundRect: () => operations.push('roundRect'),
+    rect: () => operations.push('rect'),
+    fill: () => operations.push('fill'),
+    stroke: () => operations.push('stroke'),
+    fillText: () => operations.push('fillText'),
+    measureText: (txt: string) => ({ width: txt.length * 6 }),
+    font: '',
+    textAlign: '',
+    textBaseline: '',
+    fillStyle: '',
+    strokeStyle: '',
+    lineWidth: 1,
+    shadowColor: '',
+    shadowBlur: 0,
+    globalAlpha: 1,
+  } as unknown as CanvasRenderingContext2D;
+
+  drawAgentStatusBubble(mockCtx, kevin, 80, 0);
+  assert.ok(operations.includes('fillText'));
+  assert.ok(operations.includes('stroke'));
+
+  drawWorkParticles(mockCtx, kevin);
+  assert.ok(operations.filter((op) => op === 'fillText').length >= 2);
+});
+
+
 
 
