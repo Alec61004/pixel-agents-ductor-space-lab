@@ -9,7 +9,7 @@ import {
   STARSHIP_SHADOW_TINT,
   STARSHIP_VOID_TINT,
 } from '../constants.js';
-import type { DuctorStatusSnapshot } from './ductorLabModel.js';
+import type { DuctorRoleName, DuctorStatusSnapshot } from './ductorLabModel.js';
 
 export const SHEET_COLS = 16;
 export const SHEET_ROWS = 8;
@@ -46,17 +46,37 @@ export const STATION_SLOTS = [
   { dx: 16, dy: -14 },
 ] as const;
 
+export const ATTENTION_POINTS: Record<DuctorRoleName, { x: number; y: number }> = {
+  Alec: { x: 360, y: 510 },
+  Kevin: { x: 800, y: 510 },
+  Benjamin: { x: 1240, y: 510 },
+};
+
+export const OFFLINE_POINTS: Record<DuctorRoleName, { x: number; y: number }> = {
+  Alec: { x: 120, y: 620 },
+  Kevin: { x: 740, y: 640 },
+  Benjamin: { x: 1480, y: 640 },
+};
+
+export const IDLE_POINTS: Record<DuctorRoleName, { x: number; y: number }> = {
+  Alec: { x: 500, y: 550 },
+  Kevin: { x: 800, y: 560 },
+  Benjamin: { x: 1120, y: 550 },
+};
+
 export const STATE = {
   MOVING: 'moving',
   WORKING: 'working',
   IDLE: 'idle',
+  BLOCKED: 'blocked',
+  OFFLINE: 'offline',
 } as const;
 
 export type StarshipAgentState = (typeof STATE)[keyof typeof STATE];
 
 export interface StarshipAgent {
   id: string;
-  name: string;
+  name: DuctorRoleName;
   role: string;
   reportedState?: string;
   provenance?: string;
@@ -92,7 +112,7 @@ export function pickStation(
   const counts = new Array(STATIONS.length).fill(0);
   for (const a of agents) {
     if (a.id === excludeId) continue;
-    if (a.stationIndex != null && a.state !== STATE.IDLE) {
+    if (a.stationIndex != null && a.state !== STATE.IDLE && a.state !== STATE.OFFLINE) {
       counts[a.stationIndex]++;
     }
   }
@@ -142,7 +162,12 @@ export function routeToPoint(
 }
 
 export function createInitialCrew(snapshot?: DuctorStatusSnapshot): StarshipAgent[] {
-  const crewSpecs = [
+  const crewSpecs: Array<{
+    id: string;
+    name: DuctorRoleName;
+    role: string;
+    skin: (typeof SKINS)[number];
+  }> = [
     {
       id: 'Alec',
       name: 'Alec',
@@ -166,10 +191,50 @@ export function createInitialCrew(snapshot?: DuctorStatusSnapshot): StarshipAgen
   const agents: StarshipAgent[] = [];
   for (const spec of crewSpecs) {
     const roleSnapshot = snapshot?.roles?.find((r) => r.name === spec.name);
-    const { stationIndex, slot } = pickStation(agents, null);
-    const station = STATIONS[stationIndex] ?? STATIONS[0];
-    const x = station.x + slot.dx;
-    const y = station.y + slot.dy;
+    const isOffline =
+      Boolean(snapshot?.stale) ||
+      roleSnapshot?.presence === 'offline' ||
+      roleSnapshot?.state === 'offline';
+    const effective = isOffline ? 'offline' : roleSnapshot?.state;
+
+    let x = 0;
+    let y = 0;
+    let stationIndex: number | null = null;
+    let currentStation = '';
+    let initialState: StarshipAgentState = STATE.WORKING;
+
+    if (effective === 'offline') {
+      const pt = OFFLINE_POINTS[spec.name] ?? { x: 120, y: 620 };
+      x = pt.x;
+      y = pt.y;
+      stationIndex = null;
+      currentStation = 'Offline Berth';
+      initialState = STATE.OFFLINE;
+    } else if (effective === 'blocked') {
+      const pt = ATTENTION_POINTS[spec.name] ?? { x: 800, y: 510 };
+      x = pt.x;
+      y = pt.y;
+      stationIndex = null;
+      currentStation = 'Attention Point';
+      initialState = STATE.BLOCKED;
+    } else if (effective === 'idle') {
+      const pt = IDLE_POINTS[spec.name] ?? { x: 800, y: 560 };
+      x = pt.x;
+      y = pt.y;
+      stationIndex = null;
+      currentStation = 'Bridge Floor';
+      initialState = STATE.IDLE;
+    } else {
+      // working, review, or fallback without snapshot
+      const pick = pickStation(agents, null);
+      stationIndex = pick.stationIndex;
+      const station = STATIONS[stationIndex] ?? STATIONS[0];
+      x = station.x + pick.slot.dx;
+      y = station.y + pick.slot.dy;
+      currentStation = station.label;
+      initialState = STATE.WORKING;
+    }
+
     agents.push({
       id: spec.id,
       name: spec.name,
@@ -183,16 +248,88 @@ export function createInitialCrew(snapshot?: DuctorStatusSnapshot): StarshipAgen
       targetY: y,
       speed: 46 + Math.random() * 22,
       facing: Math.random() < 0.5 ? -1 : 1,
-      state: STATE.WORKING,
+      state: initialState,
       stateTimer: 2 + Math.random() * 4,
       animFrame: 0,
       animTimer: 0,
       bob: Math.random() * Math.PI * 2,
       stationIndex,
-      currentStation: station.label,
+      currentStation,
     });
   }
   return agents;
+}
+
+export function applySnapshotToAgents(
+  agents: StarshipAgent[],
+  snapshot?: DuctorStatusSnapshot | null,
+  pushLog?: (msg: string) => void,
+): void {
+  if (!snapshot || !snapshot.roles || snapshot.roles.length === 0) {
+    // Fallback mode: clear reportedState so agents resume random behavior
+    for (const a of agents) {
+      const wasControlled = Boolean(a.reportedState);
+      a.reportedState = undefined;
+      a.provenance = undefined;
+      if (wasControlled && (a.state === STATE.OFFLINE || a.state === STATE.BLOCKED)) {
+        pickNewTarget(a, agents);
+      }
+    }
+    return;
+  }
+
+  for (const a of agents) {
+    const role = snapshot.roles.find((r) => r.name === a.name);
+    if (!role) continue;
+    const isOffline =
+      Boolean(snapshot.stale) || role.presence === 'offline' || role.state === 'offline';
+    const effective = isOffline ? 'offline' : role.state;
+    const prevEffective =
+      a.reportedState === 'offline' || (snapshot.stale && a.reportedState)
+        ? 'offline'
+        : a.reportedState;
+
+    a.reportedState = role.state;
+    a.provenance = role.provenance;
+
+    if (effective === prevEffective && a.state !== STATE.MOVING) {
+      continue;
+    }
+
+    if (effective === 'working' || effective === 'review') {
+      if (
+        a.stationIndex === null ||
+        (prevEffective !== 'working' && prevEffective !== 'review')
+      ) {
+        pickNewTarget(a, agents);
+        if (pushLog) pushLog(`${a.name} dispatched to ${a.currentStation} [${effective}].`);
+      }
+    } else if (effective === 'blocked') {
+      const pt = ATTENTION_POINTS[a.name] ?? ATTENTION_POINTS.Kevin;
+      a.stationIndex = null;
+      a.currentStation = 'Attention Point';
+      a.targetX = pt.x;
+      a.targetY = pt.y;
+      a.state = Math.hypot(a.x - pt.x, a.y - pt.y) < 3 ? STATE.BLOCKED : STATE.MOVING;
+      if (pushLog) pushLog(`${a.name} attention requested at bridge center.`);
+    } else if (effective === 'offline') {
+      const pt = OFFLINE_POINTS[a.name] ?? OFFLINE_POINTS.Kevin;
+      a.stationIndex = null;
+      a.currentStation = 'Offline Berth';
+      a.targetX = pt.x;
+      a.targetY = pt.y;
+      a.state = Math.hypot(a.x - pt.x, a.y - pt.y) < 3 ? STATE.OFFLINE : STATE.MOVING;
+      if (pushLog) pushLog(`${a.name} went offline, holding in berth.`);
+    } else if (effective === 'idle') {
+      const pt = IDLE_POINTS[a.name] ?? IDLE_POINTS.Kevin;
+      a.stationIndex = null;
+      a.currentStation = 'Bridge Floor';
+      a.targetX = pt.x;
+      a.targetY = pt.y;
+      a.state = Math.hypot(a.x - pt.x, a.y - pt.y) < 3 ? STATE.IDLE : STATE.MOVING;
+      if (pushLog) pushLog(`${a.name} on standby.`);
+    }
+  }
 }
 
 export function updateAgent(
@@ -207,8 +344,18 @@ export function updateAgent(
     const dy = a.targetY - a.y;
     const dist = Math.hypot(dx, dy);
     if (dist < 3) {
-      a.state = STATE.WORKING;
-      a.stateTimer = 3 + Math.random() * 5;
+      a.x = a.targetX;
+      a.y = a.targetY;
+      if (a.reportedState === 'offline') {
+        a.state = STATE.OFFLINE;
+      } else if (a.reportedState === 'blocked') {
+        a.state = STATE.BLOCKED;
+      } else if (a.reportedState === 'idle' || a.reportedState === 'waiting') {
+        a.state = STATE.IDLE;
+      } else {
+        a.state = STATE.WORKING;
+        a.stateTimer = 3 + Math.random() * 5;
+      }
       a.animFrame = 0;
       if (pushLog) pushLog(`${a.name} arrived at ${a.currentStation}.`);
     } else {
@@ -221,21 +368,46 @@ export function updateAgent(
       a.animTimer += dt;
       if (a.animTimer > 0.12) {
         a.animTimer = 0;
-        a.animFrame = (a.animFrame + 1) % 4;
+        a.animFrame = (a.animFrame + 1) % 4; // 4-frame walk cycle
       }
     }
   } else if (a.state === STATE.WORKING) {
-    a.stateTimer -= dt * speedMult;
     a.bob += dt * 4;
     a.animTimer += dt;
     if (a.animTimer > 0.5) {
       a.animTimer = 0;
+      a.animFrame = (a.animFrame + 1) % 4; // idle turn cycle
+    }
+    // Only auto-pick random new target in fallback mode when no live status
+    if (!a.reportedState) {
+      a.stateTimer -= dt * speedMult;
+      if (a.stateTimer <= 0) {
+        pickNewTarget(a, agents);
+      }
+    }
+  } else if (a.state === STATE.IDLE) {
+    a.animTimer += dt;
+    if (a.animTimer > 0.8) {
+      a.animTimer = 0;
       a.animFrame = (a.animFrame + 1) % 4;
     }
-    if (a.stateTimer <= 0) {
-      pickNewTarget(a, agents);
+    if (!a.reportedState) {
+      a.stateTimer -= dt * speedMult;
+      if (a.stateTimer <= 0) {
+        pickNewTarget(a, agents);
+      }
     }
+  } else if (a.state === STATE.BLOCKED) {
+    a.bob += dt * 3;
+    a.animTimer += dt;
+    if (a.animTimer > 0.6) {
+      a.animTimer = 0;
+      a.animFrame = (a.animFrame + 1) % 4;
+    }
+  } else if (a.state === STATE.OFFLINE) {
+    a.animFrame = 0;
   }
+
   if (a.flash && a.flash > 0) {
     a.flash -= dt * 1.6;
     if (a.flash < 0) a.flash = 0;
@@ -264,6 +436,13 @@ export function drawAgent(
   a: StarshipAgent,
   sheetImg: HTMLImageElement,
 ): void {
+  const isOffline = a.reportedState === 'offline' || a.state === STATE.OFFLINE;
+
+  ctx.save();
+  if (isOffline) {
+    ctx.globalAlpha = 0.35;
+  }
+
   const cw = sheetImg.width / SHEET_COLS;
   const ch = sheetImg.height / SHEET_ROWS;
   const row = a.skin.row;
@@ -297,21 +476,49 @@ export function drawAgent(
   if (a.flash && a.flash > 0) {
     ctx.save();
     ctx.beginPath();
-    ctx.ellipse(a.x, a.y + 6, 30 + (1 - a.flash) * 14, 10 + (1 - a.flash) * 5, 0, 0, Math.PI * 2);
+    ctx.ellipse(
+      a.x,
+      a.y + 6,
+      30 + (1 - a.flash) * 14,
+      10 + (1 - a.flash) * 5,
+      0,
+      0,
+      Math.PI * 2,
+    );
     ctx.strokeStyle = STARSHIP_AMBER;
-    ctx.globalAlpha = a.flash;
+    ctx.globalAlpha = (isOffline ? 0.35 : 1.0) * a.flash;
     ctx.lineWidth = 2.5;
     ctx.stroke();
     ctx.restore();
   }
 
   // status glow ring while working
-  if (a.state === STATE.WORKING) {
+  if (
+    (a.state === STATE.WORKING ||
+      a.reportedState === 'working' ||
+      a.reportedState === 'review') &&
+    !isOffline
+  ) {
     ctx.save();
     ctx.beginPath();
     ctx.ellipse(a.x, a.y + 6, 20, 7, 0, 0, Math.PI * 2);
     ctx.strokeStyle = a.skin.tint;
     ctx.globalAlpha = 0.55 + Math.sin(a.bob * 1.3) * 0.2;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // attention glow ring when blocked
+  if (
+    (a.state === STATE.BLOCKED || a.reportedState === 'blocked') &&
+    !isOffline
+  ) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(a.x, a.y + 6, 22, 8, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = STARSHIP_CRIMSON_TINT;
+    ctx.globalAlpha = 0.7 + Math.sin(a.bob * 2) * 0.25;
     ctx.lineWidth = 2;
     ctx.stroke();
     ctx.restore();
@@ -323,6 +530,8 @@ export function drawAgent(
   ctx.textAlign = 'center';
   ctx.fillStyle = STARSHIP_NAME_TAG_FILL;
   ctx.fillText(a.name, a.x, a.y - drawH - 4 + bobY);
+  ctx.restore();
+
   ctx.restore();
 }
 
