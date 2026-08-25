@@ -13,7 +13,9 @@ import {
   DEPTH_SCALE_MIN,
   drawAgent,
   drawAgentStatusBubble,
+  drawDeskCutouts,
   drawFloorMarkers,
+  drawHologramTopGlow,
   drawWorkParticles,
   drawWorkstationLabels,
   drawWorkstationScreens,
@@ -240,24 +242,29 @@ test('defines 3 fixed workstations (Alec, Kevin, Benjamin) with correct labels a
   assert.ok(WORKSTATIONS.Kevin);
   assert.ok(WORKSTATIONS.Benjamin);
 
-  // Exact data from specification V1.7
-  assert.deepEqual(WORKSTATIONS.Alec.walkPoint, { x: 430, y: 645 });
-  assert.equal(WORKSTATIONS.Alec.facing, 'back');
-  assert.deepEqual(WORKSTATIONS.Alec.screenRect, { x: 330, y: 545, w: 190, h: 75 });
+  // Exact data from specification V1.8
+  assert.deepEqual(WORKSTATIONS.Alec.walkPoint, { x: 560, y: 645 });
+  assert.equal(WORKSTATIONS.Alec.facing, 'front');
+  assert.deepEqual(WORKSTATIONS.Alec.screenRect, { x: 312, y: 537, w: 225, h: 94 });
+  assert.deepEqual(WORKSTATIONS.Alec.deskCutout, { x: 312, y: 537, w: 225, h: 94 });
   assert.equal(WORKSTATIONS.Alec.label, 'Alec — Strategy');
 
-  assert.deepEqual(WORKSTATIONS.Kevin.walkPoint, { x: 500, y: 520 });
+  assert.deepEqual(WORKSTATIONS.Kevin.walkPoint, { x: 480, y: 495 });
   assert.equal(WORKSTATIONS.Kevin.facing, 'back');
-  assert.deepEqual(WORKSTATIONS.Kevin.screenRect, { x: 480, y: 415, w: 140, h: 65 });
+  assert.deepEqual(WORKSTATIONS.Kevin.screenRect, { x: 412, y: 412, w: 140, h: 82 });
+  assert.deepEqual(WORKSTATIONS.Kevin.deskCutout, { x: 250, y: 450, w: 450, h: 80 });
   assert.equal(WORKSTATIONS.Kevin.label, 'Kevin — Build');
 
-  assert.deepEqual(WORKSTATIONS.Benjamin.walkPoint, { x: 1090, y: 640 });
+  assert.deepEqual(WORKSTATIONS.Benjamin.walkPoint, { x: 1000, y: 640 });
   assert.equal(WORKSTATIONS.Benjamin.facing, 'back');
-  assert.deepEqual(WORKSTATIONS.Benjamin.screenRect, { x: 1030, y: 555, w: 130, h: 65 });
+  assert.deepEqual(WORKSTATIONS.Benjamin.screenRect, { x: 987, y: 556, w: 213, h: 63 });
+  assert.deepEqual(WORKSTATIONS.Benjamin.deskCutout, { x: 987, y: 556, w: 213, h: 80 });
   assert.equal(WORKSTATIONS.Benjamin.label, 'Benjamin — QA');
 
   assert.equal(typeof drawWorkstationLabels, 'function');
   assert.equal(typeof drawWorkstationScreens, 'function');
+  assert.equal(typeof drawDeskCutouts, 'function');
+  assert.equal(typeof drawHologramTopGlow, 'function');
   assert.equal(typeof drawFloorMarkers, 'function');
 
   // Walk points must be inside walkable polygon
@@ -275,21 +282,21 @@ test('defines 3 fixed workstations (Alec, Kevin, Benjamin) with correct labels a
   );
 });
 
-test('agent working state positions agent at their own assigned workstation walkPoint and facing is back', () => {
+test('agent working state positions agent at their own assigned workstation walkPoint and facing matches workstation config', () => {
   const crew = createInitialCrew(snapshot);
   const alec = crew.find((a) => a.name === 'Alec')!;
   const kevin = crew.find((a) => a.name === 'Kevin')!;
   const benjamin = crew.find((a) => a.name === 'Benjamin')!;
 
-  // Alec must be at Alec's desk walkPoint
+  // Alec must be at Alec's desk walkPoint facing front
   assert.equal(alec.x, WORKSTATIONS.Alec.walkPoint.x);
   assert.equal(alec.y, WORKSTATIONS.Alec.walkPoint.y);
-  assert.equal(alec.facing, 'back');
+  assert.equal(alec.facing, 'front');
   assert.equal(alec.currentStation, 'Alec — Strategy');
   assert.notEqual(alec.x, WORKSTATIONS.Kevin.walkPoint.x);
   assert.notEqual(alec.x, WORKSTATIONS.Benjamin.walkPoint.x);
 
-  // Kevin must be at Kevin's desk walkPoint
+  // Kevin must be at Kevin's desk walkPoint facing back
   assert.equal(kevin.x, WORKSTATIONS.Kevin.walkPoint.x);
   assert.equal(kevin.y, WORKSTATIONS.Kevin.walkPoint.y);
   assert.equal(kevin.facing, 'back');
@@ -297,7 +304,7 @@ test('agent working state positions agent at their own assigned workstation walk
   assert.notEqual(kevin.x, WORKSTATIONS.Alec.walkPoint.x);
   assert.notEqual(kevin.x, WORKSTATIONS.Benjamin.walkPoint.x);
 
-  // Benjamin must be at Benjamin's desk walkPoint
+  // Benjamin must be at Benjamin's desk walkPoint facing back
   assert.equal(benjamin.x, WORKSTATIONS.Benjamin.walkPoint.x);
   assert.equal(benjamin.y, WORKSTATIONS.Benjamin.walkPoint.y);
   assert.equal(benjamin.facing, 'back');
@@ -739,9 +746,11 @@ test('2 working agents do not share coordinates with distance > 20px', () => {
   }
 });
 
-test('drawAgent selects back-idle frames (col 8..11, columns 9-12) and applies ±1px 8Hz typing bob when working', () => {
+test('drawAgent selects front-idle frames for Alec (facing front) and back-idle frames for Kevin/Benjamin (facing back) with 8Hz typing bob', () => {
   const crew = createInitialCrew(snapshot);
+  const alec = crew.find((a) => a.name === 'Alec')!;
   const kevin = crew.find((a) => a.name === 'Kevin')!;
+  assert.equal(alec.state, STATE.WORKING);
   assert.equal(kevin.state, STATE.WORKING);
 
   const drawCalls: any[] = [];
@@ -779,20 +788,29 @@ test('drawAgent selects back-idle frames (col 8..11, columns 9-12) and applies �
   const mockImg = { width: 512, height: 256 } as HTMLImageElement;
   const cw = 512 / 16; // 32
 
-  // Frame 0 of back-idle: col = 8 (sx = 8 * 32 = 256)
+  // Alec facing front: col = 0..3 (sx = 0 * 32 = 0)
+  alec.animFrame = 0;
+  drawAgent(mockCtx, alec, mockImg);
+  const alecCalls = drawCalls.filter((c) => c.type === 'drawImage');
+  assert.ok(alecCalls.length >= 1);
+  const sxAlec = alecCalls[0].args[1];
+  assert.equal(sxAlec, 0 * cw); // column index 0 = front-facing
+
+  // Kevin facing back: col = 8..11 (sx = 8 * 32 = 256)
+  drawCalls.length = 0;
   kevin.animFrame = 0;
   drawAgent(mockCtx, kevin, mockImg);
-  const imgCalls = drawCalls.filter((c) => c.type === 'drawImage');
-  assert.ok(imgCalls.length >= 1);
-  const sx0 = imgCalls[0].args[1];
-  assert.equal(sx0, 8 * cw); // column index 8 = column 9
+  const kevinCalls = drawCalls.filter((c) => c.type === 'drawImage');
+  assert.ok(kevinCalls.length >= 1);
+  const sxKevin = kevinCalls[0].args[1];
+  assert.equal(sxKevin, 8 * cw); // column index 8 = back-facing
 
-  // Frame 3 of back-idle: col = 11 (sx = 11 * 32 = 352)
+  // Frame 3 of back-idle for Kevin: col = 11 (sx = 11 * 32 = 352)
   drawCalls.length = 0;
   kevin.animFrame = 3;
   drawAgent(mockCtx, kevin, mockImg);
   const imgCalls3 = drawCalls.filter((c) => c.type === 'drawImage');
-  assert.equal(imgCalls3[0].args[1], 11 * cw); // column index 11 = column 12
+  assert.equal(imgCalls3[0].args[1], 11 * cw);
 
   // Typing bob at 8Hz (bob amplitude in [-1, 1])
   kevin.bob = 0;
@@ -810,6 +828,10 @@ test('drawWorkstationScreens draws screen glow rect with pulse alpha 0.15-0.35 i
   const mockCtx = {
     save: () => {},
     restore: () => {},
+    beginPath: () => {},
+    ellipse: () => {},
+    fill: () => {},
+    stroke: () => {},
     fillRect: (x: number, y: number, w: number, h: number) => {
       fillRectCalls.push({
         x,
@@ -836,24 +858,8 @@ test('drawWorkstationScreens draws screen glow rect with pulse alpha 0.15-0.35 i
     lineWidth: 1,
   } as unknown as CanvasRenderingContext2D;
 
-  // Working crew: all 3 screens should be drawn at respective screenRects
+  // Working crew: screens should be drawn
   drawWorkstationScreens(mockCtx, crew, 0);
-
-  // Each working agent has 1 screenRect fill + 4 simulated code lines = 5 fillRects
-  assert.ok(fillRectCalls.length >= 3 * 5);
-  assert.equal(strokeRectCalls.length, 3);
-
-  // Verify Alec screenRect
-  const alecFill = fillRectCalls.find(
-    (c) =>
-      c.x === WORKSTATIONS.Alec.screenRect.x &&
-      c.y === WORKSTATIONS.Alec.screenRect.y &&
-      c.w === WORKSTATIONS.Alec.screenRect.w &&
-      c.h === WORKSTATIONS.Alec.screenRect.h,
-  );
-  assert.ok(alecFill);
-  assert.equal(alecFill.fillStyle, ROLE_GLOW_COLORS.Alec);
-  assert.ok(alecFill.globalAlpha >= 0.15 && alecFill.globalAlpha <= 0.35);
 
   // Verify Kevin screenRect
   const kevinFill = fillRectCalls.find(
@@ -882,17 +888,123 @@ test('drawWorkstationScreens draws screen glow rect with pulse alpha 0.15-0.35 i
   // Test idle state: screen turns off (no rect drawn for idle agent)
   fillRectCalls.length = 0;
   strokeRectCalls.length = 0;
+  const kevin = crew.find((a) => a.name === 'Kevin')!;
+  kevin.state = STATE.IDLE;
+  kevin.reportedState = 'idle';
+
+  drawWorkstationScreens(mockCtx, crew, 0);
+
+  // Kevin's screenRect must NOT be drawn when idle
+  const kevinIdleFill = fillRectCalls.find(
+    (c) =>
+      c.x === WORKSTATIONS.Kevin.screenRect.x &&
+      c.y === WORKSTATIONS.Kevin.screenRect.y,
+  );
+  assert.equal(kevinIdleFill, undefined);
+});
+
+test('drawDeskCutouts renders desk cutout slices from bgImg to occlude agent lower bodies when working at desk', () => {
+  const crew = createInitialCrew(snapshot);
+  const drawImageCalls: any[] = [];
+
+  const mockCtx = {
+    save: () => {},
+    restore: () => {},
+    drawImage: (...args: any[]) => {
+      drawImageCalls.push(args);
+    },
+    imageSmoothingEnabled: true,
+  } as unknown as CanvasRenderingContext2D;
+
+  const mockBgImg = { width: 1600, height: 678 } as HTMLImageElement;
+
+  drawDeskCutouts(mockCtx, mockBgImg, crew);
+
+  // All 3 working agents must have their desk cutouts drawn
+  assert.equal(drawImageCalls.length, 3);
+
+  // Alec desk cutout
+  const alecCutout = drawImageCalls.find(
+    (c) => c[1] === WORKSTATIONS.Alec.deskCutout.x && c[2] === WORKSTATIONS.Alec.deskCutout.y,
+  );
+  assert.ok(alecCutout);
+  assert.equal(alecCutout[3], WORKSTATIONS.Alec.deskCutout.w);
+  assert.equal(alecCutout[4], WORKSTATIONS.Alec.deskCutout.h);
+
+  // Kevin desk cutout
+  const kevinCutout = drawImageCalls.find(
+    (c) => c[1] === WORKSTATIONS.Kevin.deskCutout.x && c[2] === WORKSTATIONS.Kevin.deskCutout.y,
+  );
+  assert.ok(kevinCutout);
+  assert.equal(kevinCutout[3], WORKSTATIONS.Kevin.deskCutout.w);
+  assert.equal(kevinCutout[4], WORKSTATIONS.Kevin.deskCutout.h);
+
+  // Benjamin desk cutout
+  const benjaminCutout = drawImageCalls.find(
+    (c) => c[1] === WORKSTATIONS.Benjamin.deskCutout.x && c[2] === WORKSTATIONS.Benjamin.deskCutout.y,
+  );
+  assert.ok(benjaminCutout);
+  assert.equal(benjaminCutout[3], WORKSTATIONS.Benjamin.deskCutout.w);
+  assert.equal(benjaminCutout[4], WORKSTATIONS.Benjamin.deskCutout.h);
+
+  // When agent is idle, their desk cutout is not drawn
+  drawImageCalls.length = 0;
   const alec = crew.find((a) => a.name === 'Alec')!;
   alec.state = STATE.IDLE;
   alec.reportedState = 'idle';
 
-  drawWorkstationScreens(mockCtx, crew, 0);
-
-  // Alec's screenRect must NOT be drawn when idle
-  const alecIdleFill = fillRectCalls.find(
-    (c) =>
-      c.x === WORKSTATIONS.Alec.screenRect.x &&
-      c.y === WORKSTATIONS.Alec.screenRect.y,
+  drawDeskCutouts(mockCtx, mockBgImg, crew);
+  assert.equal(drawImageCalls.length, 2);
+  const alecIdleCutout = drawImageCalls.find(
+    (c) => c[1] === WORKSTATIONS.Alec.deskCutout.x && c[2] === WORKSTATIONS.Alec.deskCutout.y,
   );
-  assert.equal(alecIdleFill, undefined);
+  assert.equal(alecIdleCutout, undefined);
+});
+
+test('drawHologramTopGlow renders pulsing violet hologram ellipse, starmap rings, and star nodes for Alec when working', () => {
+  const crew = createInitialCrew(snapshot);
+  const ellipseCalls: any[] = [];
+  const arcCalls: any[] = [];
+
+  const mockCtx = {
+    save: () => {},
+    restore: () => {},
+    beginPath: () => {},
+    ellipse: (...args: any[]) => {
+      ellipseCalls.push(args);
+    },
+    arc: (...args: any[]) => {
+      arcCalls.push(args);
+    },
+    fill: () => {},
+    stroke: () => {},
+    fillStyle: '',
+    strokeStyle: '',
+    globalAlpha: 1.0,
+    lineWidth: 1,
+  } as unknown as CanvasRenderingContext2D;
+
+  drawHologramTopGlow(mockCtx, crew, 0);
+
+  // Must render at least 2 hologram ellipses (table surface + concentric ring) and multiple star nodes
+  assert.ok(ellipseCalls.length >= 2);
+  assert.ok(arcCalls.length >= 4);
+
+  // Ellipse center must be at Alec table center
+  const r = WORKSTATIONS.Alec.screenRect;
+  const expectedCx = r.x + r.w / 2;
+  const expectedCy = r.y + r.h / 2;
+  assert.equal(ellipseCalls[0][0], expectedCx);
+  assert.equal(ellipseCalls[0][1], expectedCy);
+
+  // Turns off when Alec is idle
+  ellipseCalls.length = 0;
+  arcCalls.length = 0;
+  const alec = crew.find((a) => a.name === 'Alec')!;
+  alec.state = STATE.IDLE;
+  alec.reportedState = 'idle';
+
+  drawHologramTopGlow(mockCtx, crew, 0);
+  assert.equal(ellipseCalls.length, 0);
+  assert.equal(arcCalls.length, 0);
 });

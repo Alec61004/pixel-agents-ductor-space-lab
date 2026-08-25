@@ -52,6 +52,13 @@ export const ATTENTION_POINTS: Record<DuctorRoleName, { x: number; y: number }> 
   Benjamin: { x: 1240, y: 510 },
 };
 
+export interface WorkstationCutout {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 export interface WorkstationScreenRect {
   x: number;
   y: number;
@@ -64,12 +71,14 @@ export interface WorkstationConfig {
   label: string;
   roleDescription: string;
   walkPoint: { x: number; y: number };
+  seatPoint: { x: number; y: number };
   tableX: number;
   tableY: number;
   standingX: number;
   standingY: number;
-  facing: 'back';
+  facing: 'back' | 'front' | number;
   screenRect: WorkstationScreenRect;
+  deskCutout: WorkstationCutout;
   stationIndex: number;
 }
 
@@ -80,39 +89,45 @@ export const WORKSTATIONS: Record<DuctorRoleName, WorkstationConfig> = {
     agentName: 'Alec',
     label: 'Alec — Strategy',
     roleDescription: 'Strategy',
-    walkPoint: { x: 430, y: 645 },
-    tableX: 430,
+    walkPoint: { x: 560, y: 645 },
+    seatPoint: { x: 560, y: 645 },
+    tableX: 560,
     tableY: 645,
-    standingX: 430,
+    standingX: 560,
     standingY: 645,
-    facing: 'back',
-    screenRect: { x: 330, y: 545, w: 190, h: 75 },
+    facing: 'front',
+    screenRect: { x: 312, y: 537, w: 225, h: 94 },
+    deskCutout: { x: 312, y: 537, w: 225, h: 94 },
     stationIndex: 1,
   },
   Kevin: {
     agentName: 'Kevin',
     label: 'Kevin — Build',
     roleDescription: 'Build',
-    walkPoint: { x: 500, y: 520 },
-    tableX: 500,
-    tableY: 520,
-    standingX: 500,
-    standingY: 520,
+    walkPoint: { x: 480, y: 495 },
+    seatPoint: { x: 480, y: 495 },
+    tableX: 480,
+    tableY: 495,
+    standingX: 480,
+    standingY: 495,
     facing: 'back',
-    screenRect: { x: 480, y: 415, w: 140, h: 65 },
+    screenRect: { x: 412, y: 412, w: 140, h: 82 },
+    deskCutout: { x: 250, y: 450, w: 450, h: 80 },
     stationIndex: 4,
   },
   Benjamin: {
     agentName: 'Benjamin',
     label: 'Benjamin — QA',
     roleDescription: 'QA',
-    walkPoint: { x: 1090, y: 640 },
-    tableX: 1090,
+    walkPoint: { x: 1000, y: 640 },
+    seatPoint: { x: 1000, y: 640 },
+    tableX: 1000,
     tableY: 640,
-    standingX: 1090,
+    standingX: 1000,
     standingY: 640,
     facing: 'back',
-    screenRect: { x: 1030, y: 555, w: 130, h: 65 },
+    screenRect: { x: 987, y: 556, w: 213, h: 63 },
+    deskCutout: { x: 987, y: 556, w: 213, h: 80 },
     stationIndex: 5,
   },
 };
@@ -272,7 +287,7 @@ export interface StarshipAgent {
   targetX: number;
   targetY: number;
   speed: number;
-  facing: number | 'back';
+  facing: number | 'back' | 'front';
   state: StarshipAgentState;
   stateTimer: number;
   animFrame: number;
@@ -391,7 +406,7 @@ export function makeAgent(spec: {
   provenance?: string;
   x: number;
   y: number;
-  facing?: number | 'back';
+  facing?: number | 'back' | 'front';
   state?: StarshipAgentState;
   stationIndex?: number | null;
   currentStation?: string;
@@ -762,47 +777,68 @@ export function updateAgent(
   }
 }
 
-export function getAgentStatusBubble(agent: StarshipAgent): {
+export interface AgentStatusBubble {
   text: string;
+  lines: string[];
   color: string;
   borderColor: string;
-} {
-  const roleColor = ROLE_GLOW_COLORS[agent.name] ?? agent.skin.tint ?? '#5ce1ff';
+}
+
+export function isAgentAtStation(a: StarshipAgent): boolean {
+  const ws = WORKSTATIONS[a.name];
+  if (!ws) return false;
+
+  if (
+    a.stationIndex !== null &&
+    (a.stationIndex === ws.stationIndex || a.currentStation === ws.label)
+  ) {
+    return true;
+  }
+
+  const distWalk = Math.hypot(a.x - ws.walkPoint.x, a.y - ws.walkPoint.y);
+  const distStanding = Math.hypot(a.x - ws.standingX, a.y - ws.standingY);
+  if (distWalk < 35 || distStanding < 35) {
+    return true;
+  }
+
+  return false;
+}
+
+export function getAgentStatusBubble(agent: StarshipAgent): AgentStatusBubble {
+  const roleColor = ROLE_GLOW_COLORS[agent.name] ?? agent.skin?.tint ?? '#5ce1ff';
   const isOffline = agent.reportedState === 'offline' || agent.state === STATE.OFFLINE;
 
-  if (isOffline) {
-    return {
-      text: '⚫ offline',
-      color: '#8e92a4',
-      borderColor: 'rgba(142, 146, 164, 0.4)',
-    };
-  }
+  let statusText = '💤 idle';
+  let color = '#a5b4fc';
+  let borderColor = 'rgba(165, 180, 252, 0.5)';
 
-  const isWorking =
+  if (isOffline) {
+    statusText = '⚫ offline';
+    color = '#8e92a4';
+    borderColor = 'rgba(142, 146, 164, 0.4)';
+  } else if (
     agent.state === STATE.WORKING ||
     agent.reportedState === 'working' ||
-    agent.reportedState === 'review';
-
-  if (isWorking) {
-    return {
-      text: `⚙ ${agent.name} đang làm việc`,
-      color: roleColor,
-      borderColor: roleColor,
-    };
+    agent.reportedState === 'review'
+  ) {
+    statusText = `⚙ ${agent.name} đang làm việc`;
+    color = roleColor;
+    borderColor = roleColor;
+  } else if (agent.state === STATE.BLOCKED || agent.reportedState === 'blocked') {
+    statusText = '⚠️ blocked';
+    color = STARSHIP_CRIMSON_TINT;
+    borderColor = STARSHIP_CRIMSON_TINT;
   }
 
-  if (agent.state === STATE.BLOCKED || agent.reportedState === 'blocked') {
-    return {
-      text: '⚠️ blocked',
-      color: STARSHIP_CRIMSON_TINT,
-      borderColor: STARSHIP_CRIMSON_TINT,
-    };
-  }
+  const atStation = isAgentAtStation(agent);
+  const ws = WORKSTATIONS[agent.name];
+  const lines = atStation && ws ? [ws.label, statusText] : [statusText];
 
   return {
-    text: '💤 idle',
-    color: '#a5b4fc',
-    borderColor: 'rgba(165, 180, 252, 0.5)',
+    text: lines.join('\n'),
+    lines,
+    color,
+    borderColor,
   };
 }
 
@@ -813,9 +849,10 @@ export function drawAgentStatusBubble(
   a: StarshipAgent,
   drawH: number,
   bobY: number,
+  canvasW: number = CW,
 ): void {
   const bubble = getAgentStatusBubble(a);
-  const bubbleY = a.y - drawH - 12 + bobY;
+  const isTwoLines = bubble.lines.length >= 2;
   const isOffline = a.reportedState === 'offline' || a.state === STATE.OFFLINE;
 
   ctx.save();
@@ -823,30 +860,58 @@ export function drawAgentStatusBubble(
   ctx.globalAlpha = isOffline ? 0.6 : 1.0;
   ctx.shadowBlur = 0;
   ctx.shadowColor = 'transparent';
-  ctx.font = "10px 'JetBrains Mono', monospace";
-  const tw = ctx.measureText ? ctx.measureText(bubble.text).width : bubble.text.length * 6.2;
-  const padX = 7;
-  const boxW = tw + padX * 2;
-  const boxH = 16;
-  const boxX = a.x - boxW / 2;
+
+  // Measure widest line
+  ctx.font = "bold 9.5px 'JetBrains Mono', monospace";
+  let maxTw = 0;
+  for (const line of bubble.lines) {
+    const tw = ctx.measureText ? ctx.measureText(line).width : line.length * 6.2;
+    if (tw > maxTw) maxTw = tw;
+  }
+
+  const padX = 8;
+  const boxW = maxTw + padX * 2;
+  const boxH = isTwoLines ? 28 : 16;
+  const bubbleY = a.y - drawH - (isTwoLines ? 16 : 12) + bobY;
+
+  let boxX = a.x - boxW / 2;
+  // Always clamp in canvas boundaries: boxX = clamp(boxX, 8, canvasW - boxW - 8)
+  boxX = Math.max(8, Math.min(canvasW - boxW - 8, boxX));
   const boxY = bubbleY - boxH / 2;
+  const centerX = boxX + boxW / 2;
 
   ctx.beginPath();
   if (typeof ctx.roundRect === 'function') {
-    ctx.roundRect(boxX, boxY, boxW, boxH, 8);
+    ctx.roundRect(boxX, boxY, boxW, boxH, isTwoLines ? 6 : 8);
   } else if (typeof ctx.rect === 'function') {
     ctx.rect(boxX, boxY, boxW, boxH);
   }
-  ctx.fillStyle = 'rgba(15, 12, 28, 0.85)';
+  ctx.fillStyle = 'rgba(15, 12, 28, 0.88)';
   ctx.fill();
   ctx.lineWidth = 1;
   ctx.strokeStyle = bubble.borderColor;
   ctx.stroke();
 
-  ctx.fillStyle = bubble.color;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(bubble.text, a.x, bubbleY);
+
+  if (isTwoLines) {
+    // Line 1: Station / Role Label
+    ctx.font = "bold 9px 'JetBrains Mono', monospace";
+    ctx.fillStyle = '#d9d3f0';
+    ctx.fillText(bubble.lines[0], centerX, boxY + 8);
+
+    // Line 2: Status
+    ctx.font = "9.5px 'JetBrains Mono', monospace";
+    ctx.fillStyle = bubble.color;
+    ctx.fillText(bubble.lines[1], centerX, boxY + 20);
+  } else {
+    // Single line
+    ctx.font = "10px 'JetBrains Mono', monospace";
+    ctx.fillStyle = bubble.color;
+    ctx.fillText(bubble.lines[0], centerX, bubbleY);
+  }
+
   ctx.restore();
 }
 
@@ -904,7 +969,7 @@ export function drawAgent(
   const col =
     a.state === STATE.MOVING
       ? 4 + (a.animFrame % 4)
-      : a.state === STATE.WORKING || a.facing === 'back'
+      : a.facing === 'back'
         ? 8 + (a.animFrame % 4)
         : 0 + (a.animFrame % 4);
 
@@ -1008,6 +1073,96 @@ export function drawAgent(
   ctx.restore();
 }
 
+export function drawDeskCutouts(
+  ctx: CanvasRenderingContext2D,
+  bgImg: HTMLImageElement,
+  agents: StarshipAgent[],
+): void {
+  for (const agent of agents) {
+    const ws = WORKSTATIONS[agent.name];
+    if (!ws || !ws.deskCutout) continue;
+
+    const isOffline = agent.reportedState === 'offline' || agent.state === STATE.OFFLINE;
+    const isWorking =
+      !isOffline &&
+      (agent.state === STATE.WORKING ||
+        agent.reportedState === 'working' ||
+        agent.reportedState === 'review');
+
+    if (isWorking && isAgentAtStation(agent)) {
+      const c = ws.deskCutout;
+      ctx.save();
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(bgImg, c.x, c.y, c.w, c.h, c.x, c.y, c.w, c.h);
+      ctx.restore();
+    }
+  }
+}
+
+export function drawHologramTopGlow(
+  ctx: CanvasRenderingContext2D,
+  agents: StarshipAgent[],
+  timeSec: number = Date.now() / 1000,
+): void {
+  const alec = agents.find((a) => a.name === 'Alec');
+  if (!alec) return;
+  const isOffline = alec.reportedState === 'offline' || alec.state === STATE.OFFLINE;
+  const isWorking =
+    !isOffline &&
+    (alec.state === STATE.WORKING ||
+      alec.reportedState === 'working' ||
+      alec.reportedState === 'review');
+
+  if (!isWorking || !isAgentAtStation(alec)) return;
+
+  const ws = WORKSTATIONS.Alec;
+  const r = ws.screenRect;
+  const color = ROLE_GLOW_COLORS.Alec ?? '#c98bff';
+  const pulse = 0.25 + 0.12 * Math.sin(timeSec * 3.5 + (alec.bob ?? 0));
+
+  ctx.save();
+  // Glowing hologram ellipse on table surface
+  ctx.beginPath();
+  const cx = r.x + r.w / 2;
+  const cy = r.y + r.h / 2;
+  ctx.ellipse(cx, cy, r.w * 0.42, r.h * 0.38, 0, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.globalAlpha = Math.max(0.12, Math.min(0.40, pulse));
+  ctx.fill();
+  ctx.strokeStyle = '#e9d5ff';
+  ctx.lineWidth = 1.5;
+  ctx.globalAlpha = Math.max(0.25, Math.min(0.65, pulse * 1.5));
+  ctx.stroke();
+
+  // Starmap concentric rings
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, r.w * 0.25, r.h * 0.22, 0, 0, Math.PI * 2);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1;
+  ctx.globalAlpha = Math.max(0.2, Math.min(0.5, pulse));
+  ctx.stroke();
+
+  // Floating star points / starmap nodes
+  const starOffsets = [
+    { dx: -45, dy: -10, speed: 1.2, phase: 0 },
+    { dx: 35, dy: -15, speed: 1.6, phase: 1.5 },
+    { dx: -15, dy: 10, speed: 1.0, phase: 3.0 },
+    { dx: 40, dy: 12, speed: 1.4, phase: 4.2 },
+    { dx: 0, dy: -5, speed: 2.0, phase: 2.1 },
+  ];
+  ctx.fillStyle = '#ffffff';
+  for (const s of starOffsets) {
+    const floatY = Math.sin(timeSec * s.speed + s.phase) * 6;
+    const starAlpha = 0.4 + 0.5 * Math.sin(timeSec * 2 + s.phase);
+    ctx.globalAlpha = Math.max(0.2, Math.min(0.9, starAlpha));
+    ctx.beginPath();
+    ctx.arc(cx + s.dx, cy + s.dy + floatY, 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
 export function drawWorkstationScreens(
   ctx: CanvasRenderingContext2D,
   agents: StarshipAgent[],
@@ -1027,6 +1182,9 @@ export function drawWorkstationScreens(
 
     // Screen is OFF when idle / offline / blocked / not working
     if (!isWorking) continue;
+
+    // Alec workstation is a hologram table rendered with drawHologramTopGlow
+    if (agent.name === 'Alec') continue;
 
     const rect = ws.screenRect;
     const roleColor = ROLE_GLOW_COLORS[agent.name] ?? agent.skin?.tint ?? '#5ce1ff';
@@ -1069,9 +1227,20 @@ export function drawWorkstationScreens(
   ctx.restore();
 }
 
-export function drawWorkstationLabels(ctx: CanvasRenderingContext2D): void {
+export function drawWorkstationLabels(
+  ctx: CanvasRenderingContext2D,
+  agents?: StarshipAgent[],
+): void {
   ctx.save();
   for (const ws of Object.values(WORKSTATIONS)) {
+    if (agents && agents.length > 0) {
+      const agent = agents.find((a) => a.name === ws.agentName);
+      if (agent && isAgentAtStation(agent)) {
+        // Agent is currently at their workstation; label is shown in the agent's 2-line bubble
+        continue;
+      }
+    }
+
     const lx = ws.screenRect ? ws.screenRect.x + ws.screenRect.w / 2 : ws.tableX;
     const ly = ws.screenRect ? ws.screenRect.y - 12 : ws.tableY - 75;
 
@@ -1081,8 +1250,10 @@ export function drawWorkstationLabels(ctx: CanvasRenderingContext2D): void {
     const padX = 8;
     const boxW = tw + padX * 2;
     const boxH = 18;
-    const boxX = lx - boxW / 2;
+    let boxX = lx - boxW / 2;
+    boxX = Math.max(8, Math.min(CW - boxW - 8, boxX));
     const boxY = ly - boxH / 2;
+    const centerX = boxX + boxW / 2;
 
     ctx.beginPath();
     if (typeof ctx.roundRect === 'function') {
@@ -1099,7 +1270,7 @@ export function drawWorkstationLabels(ctx: CanvasRenderingContext2D): void {
     ctx.fillStyle = '#d9d3f0';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(text, lx, ly);
+    ctx.fillText(text, centerX, ly);
   }
   ctx.restore();
 }
@@ -1130,13 +1301,20 @@ export function drawStage(
   ctx.scale(scale, scale);
 
   drawWorkstationScreens(ctx, agents, timeSec);
-  drawWorkstationLabels(ctx);
   drawFloorMarkers(ctx, showStations);
 
   const sorted = [...agents].sort((a, b) => a.y - b.y);
   for (const a of sorted) {
     drawAgent(ctx, a, sheetImg);
   }
+
+  // Draw desk occlusion cutouts over sitting/standing agents' lower bodies
+  drawDeskCutouts(ctx, bgImg, agents);
+
+  // Redraw hologram effect on top of desk cutout for Alec
+  drawHologramTopGlow(ctx, agents, timeSec);
+
+  drawWorkstationLabels(ctx, agents);
 
   ctx.restore();
 
