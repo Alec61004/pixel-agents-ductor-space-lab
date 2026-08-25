@@ -52,53 +52,72 @@ export const ATTENTION_POINTS: Record<DuctorRoleName, { x: number; y: number }> 
   Benjamin: { x: 1240, y: 510 },
 };
 
-export interface AssignedWorkstation {
+export interface WorkstationScreenRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export interface WorkstationConfig {
   agentName: DuctorRoleName;
   label: string;
   roleDescription: string;
+  walkPoint: { x: number; y: number };
   tableX: number;
   tableY: number;
   standingX: number;
   standingY: number;
-  facing: number;
+  facing: 'back';
+  screenRect: WorkstationScreenRect;
   stationIndex: number;
 }
 
-export const ASSIGNED_WORKSTATIONS: Record<DuctorRoleName, AssignedWorkstation> = {
+export type AssignedWorkstation = WorkstationConfig;
+
+export const WORKSTATIONS: Record<DuctorRoleName, WorkstationConfig> = {
   Alec: {
     agentName: 'Alec',
     label: 'Alec — Strategy',
     roleDescription: 'Strategy',
-    tableX: 480,
-    tableY: 550,
-    standingX: 480,
-    standingY: 505,
-    facing: 1,
+    walkPoint: { x: 430, y: 645 },
+    tableX: 430,
+    tableY: 645,
+    standingX: 430,
+    standingY: 645,
+    facing: 'back',
+    screenRect: { x: 330, y: 545, w: 190, h: 75 },
     stationIndex: 1,
   },
   Kevin: {
     agentName: 'Kevin',
     label: 'Kevin — Build',
     roleDescription: 'Build',
-    tableX: 920,
-    tableY: 550,
-    standingX: 920,
-    standingY: 535,
-    facing: -1,
+    walkPoint: { x: 500, y: 520 },
+    tableX: 500,
+    tableY: 520,
+    standingX: 500,
+    standingY: 520,
+    facing: 'back',
+    screenRect: { x: 480, y: 415, w: 140, h: 65 },
     stationIndex: 4,
   },
   Benjamin: {
     agentName: 'Benjamin',
     label: 'Benjamin — QA',
     roleDescription: 'QA',
-    tableX: 1240,
-    tableY: 530,
-    standingX: 1240,
-    standingY: 520,
-    facing: -1,
+    walkPoint: { x: 1090, y: 640 },
+    tableX: 1090,
+    tableY: 640,
+    standingX: 1090,
+    standingY: 640,
+    facing: 'back',
+    screenRect: { x: 1030, y: 555, w: 130, h: 65 },
     stationIndex: 5,
   },
 };
+
+export const ASSIGNED_WORKSTATIONS = WORKSTATIONS;
 
 export const OFFLINE_POINTS: Record<DuctorRoleName, { x: number; y: number }> = {
   Alec: { x: 120, y: 620 },
@@ -253,7 +272,7 @@ export interface StarshipAgent {
   targetX: number;
   targetY: number;
   speed: number;
-  facing: number;
+  facing: number | 'back';
   state: StarshipAgentState;
   stateTimer: number;
   animFrame: number;
@@ -372,7 +391,7 @@ export function makeAgent(spec: {
   provenance?: string;
   x: number;
   y: number;
-  facing?: number;
+  facing?: number | 'back';
   state?: StarshipAgentState;
   stationIndex?: number | null;
   currentStation?: string;
@@ -647,7 +666,7 @@ export function updateAgent(
       a.facing = ws.facing;
     }
     a.stateTimer -= dt * speedMult;
-    a.bob += dt * 4;
+    a.bob += dt * 16 * Math.PI; // 8Hz typing bob oscillation
     a.animTimer += dt;
     if (a.animTimer > 0.5) {
       a.animTimer = 0;
@@ -882,7 +901,12 @@ export function drawAgent(
   const cw = sheetImg.width / SHEET_COLS;
   const ch = sheetImg.height / SHEET_ROWS;
   const row = a.skin.row;
-  const col = a.state === STATE.MOVING ? 4 + a.animFrame : 0 + a.animFrame;
+  const col =
+    a.state === STATE.MOVING
+      ? 4 + (a.animFrame % 4)
+      : a.state === STATE.WORKING || a.facing === 'back'
+        ? 8 + (a.animFrame % 4)
+        : 0 + (a.animFrame % 4);
 
   const sx = col * cw;
   const sy = row * ch;
@@ -892,7 +916,7 @@ export function drawAgent(
   const BASE_DRAW_H = 92;
   const drawH = BASE_DRAW_H * scale;
   const drawW = drawH * (cw / ch);
-  const bobY = a.state === STATE.WORKING ? Math.sin(a.bob) * 2 : 0;
+  const bobY = a.state === STATE.WORKING ? Math.sin(a.bob) * 1 : 0;
 
   // Foot Anchor: Coordinates (a.x, a.y) = bottom center of character feet.
 
@@ -984,11 +1008,72 @@ export function drawAgent(
   ctx.restore();
 }
 
+export function drawWorkstationScreens(
+  ctx: CanvasRenderingContext2D,
+  agents: StarshipAgent[],
+  timeSec: number = Date.now() / 1000,
+): void {
+  ctx.save();
+  for (const agent of agents) {
+    const ws = WORKSTATIONS[agent.name];
+    if (!ws) continue;
+
+    const isOffline = agent.reportedState === 'offline' || agent.state === STATE.OFFLINE;
+    const isWorking =
+      !isOffline &&
+      (agent.state === STATE.WORKING ||
+        agent.reportedState === 'working' ||
+        agent.reportedState === 'review');
+
+    // Screen is OFF when idle / offline / blocked / not working
+    if (!isWorking) continue;
+
+    const rect = ws.screenRect;
+    const roleColor = ROLE_GLOW_COLORS[agent.name] ?? agent.skin?.tint ?? '#5ce1ff';
+
+    // Pulse alpha between 0.15 and 0.35
+    const pulseAlpha = 0.25 + 0.10 * Math.sin(timeSec * 3 + (agent.bob ?? 0));
+    const clampedAlpha = Math.max(0.15, Math.min(0.35, pulseAlpha));
+
+    ctx.save();
+    // Screen glow fill
+    ctx.fillStyle = roleColor;
+    ctx.globalAlpha = clampedAlpha;
+    ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+
+    // Screen glow border
+    ctx.strokeStyle = roleColor;
+    ctx.lineWidth = 1.5;
+    ctx.globalAlpha = Math.max(0.2, Math.min(0.5, clampedAlpha * 1.3));
+    ctx.strokeRect(rect.x, rect.y, rect.w, rect.h);
+
+    // 3-4 simulated text / code lines inside screen
+    const lineCount = 4;
+    const padX = rect.w * 0.08;
+    const padY = rect.h * 0.18;
+    const availH = rect.h - padY * 2;
+    const lineStep = availH / (lineCount - 1);
+    const lineFractions = [0.72, 0.48, 0.84, 0.58];
+
+    ctx.fillStyle = roleColor;
+    for (let i = 0; i < lineCount; i++) {
+      const ly = rect.y + padY + i * lineStep;
+      const lw = (rect.w - padX * 2) * lineFractions[i];
+      const textAlpha = (0.35 + 0.12 * Math.sin(timeSec * 6 + i * 1.5)) * (clampedAlpha / 0.25);
+      ctx.globalAlpha = Math.max(0.2, Math.min(0.65, textAlpha));
+      ctx.fillRect(rect.x + padX, ly, lw, 3);
+    }
+
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
 export function drawWorkstationLabels(ctx: CanvasRenderingContext2D): void {
   ctx.save();
-  for (const ws of Object.values(ASSIGNED_WORKSTATIONS)) {
-    const lx = ws.tableX;
-    const ly = ws.tableY - 75;
+  for (const ws of Object.values(WORKSTATIONS)) {
+    const lx = ws.screenRect ? ws.screenRect.x + ws.screenRect.w / 2 : ws.tableX;
+    const ly = ws.screenRect ? ws.screenRect.y - 12 : ws.tableY - 75;
 
     const text = ws.label;
     ctx.font = "bold 9.5px 'JetBrains Mono', monospace";
@@ -1027,6 +1112,7 @@ export function drawStage(
   showStations: boolean,
   rect: { width: number; height: number },
   dpr: number,
+  timeSec: number = Date.now() / 1000,
 ): { scale: number; offX: number; offY: number } {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, rect.width, rect.height);
@@ -1043,6 +1129,7 @@ export function drawStage(
   ctx.translate(offX, offY);
   ctx.scale(scale, scale);
 
+  drawWorkstationScreens(ctx, agents, timeSec);
   drawWorkstationLabels(ctx);
   drawFloorMarkers(ctx, showStations);
 

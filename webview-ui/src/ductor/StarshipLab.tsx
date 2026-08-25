@@ -19,6 +19,7 @@ import {
   drawStarsLayer,
   drawWorkParticles,
   drawWorkstationLabels,
+  drawWorkstationScreens,
   FLOOR_Y_MAX,
   FLOOR_Y_MIN,
   getAgentStatusBubble,
@@ -47,6 +48,9 @@ import {
   updateAgent,
   WALKABLE_POLYGON,
   type WorkParticle,
+  WORKSTATIONS,
+  type WorkstationConfig,
+  type WorkstationScreenRect,
 } from './starshipSimulation.js';
 
 export {
@@ -66,6 +70,7 @@ export {
   drawStarsLayer,
   drawWorkParticles,
   drawWorkstationLabels,
+  drawWorkstationScreens,
   FLOOR_Y_MAX,
   FLOOR_Y_MIN,
   getAgentStatusBubble,
@@ -94,6 +99,9 @@ export {
   updateAgent,
   WALKABLE_POLYGON,
   type WorkParticle,
+  WORKSTATIONS,
+  type WorkstationConfig,
+  type WorkstationScreenRect,
 };
 
 export interface StarshipLabProps {
@@ -280,6 +288,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
             showStationsRef.current,
             rect,
             dpr,
+            now / 1000,
           );
         }
       }
