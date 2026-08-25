@@ -503,7 +503,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
         <div>
           <div className="starship-brand">
             <div className="starship-dot" />
-            <h1>STARSHIP AGENTS — v1.8</h1>
+            <h1>STARSHIP AGENTS — v1.9a</h1>
           </div>
           <div className="starship-subtitle">live crew deck · Ductor Space Lab</div>
         </div>

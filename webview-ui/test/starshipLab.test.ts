@@ -1008,3 +1008,88 @@ test('drawHologramTopGlow renders pulsing violet hologram ellipse, starmap rings
   assert.equal(ellipseCalls.length, 0);
   assert.equal(arcCalls.length, 0);
 });
+
+test('V1.9a typing effects: drawAgent renders 2 typing arms (4x3px) in role color oscillating in opposite phase with sin(t*10)', () => {
+  const crew = createInitialCrew(snapshot);
+  const kevin = crew.find((a) => a.name === 'Kevin')!;
+  assert.equal(kevin.state, STATE.WORKING);
+
+  const fillRectCalls: Array<{ x: number; y: number; w: number; h: number; fillStyle: string }> = [];
+  const mockCtx = {
+    save: () => {},
+    restore: () => {},
+    translate: () => {},
+    scale: () => {},
+    beginPath: () => {},
+    rect: () => {},
+    ellipse: () => {},
+    fill: () => {},
+    stroke: () => {},
+    fillText: () => {},
+    drawImage: () => {},
+    fillRect: (x: number, y: number, w: number, h: number) => {
+      fillRectCalls.push({ x, y, w, h, fillStyle: mockCtx.fillStyle as string });
+    },
+    imageSmoothingEnabled: true,
+    shadowColor: '',
+    shadowBlur: 0,
+    globalCompositeOperation: 'source-over',
+    globalAlpha: 1.0,
+    fillStyle: '',
+  } as unknown as CanvasRenderingContext2D;
+
+  const mockImg = { width: 512, height: 256 } as HTMLImageElement;
+
+  // At time t = 0
+  drawAgent(mockCtx, kevin, mockImg, 0);
+  assert.equal(fillRectCalls.length, 2, 'Must render exactly 2 typing arm rects for working agent');
+  const leftArm = fillRectCalls[0]!;
+  const rightArm = fillRectCalls[1]!;
+
+  assert.equal(leftArm.fillStyle, ROLE_GLOW_COLORS.Kevin);
+  assert.equal(rightArm.fillStyle, ROLE_GLOW_COLORS.Kevin);
+  // Dimensions roughly 4x3px (scaled with depthScale ~0.8-1.1)
+  assert.ok(leftArm.w >= 3 && leftArm.w <= 5);
+  assert.ok(leftArm.h >= 2 && leftArm.h <= 4);
+  assert.ok(rightArm.w >= 3 && rightArm.w <= 5);
+  assert.ok(rightArm.h >= 2 && rightArm.h <= 4);
+
+  // At time t = Math.PI / 20 (quarter cycle of sin(t*10)): arms move in opposite directions
+  fillRectCalls.length = 0;
+  drawAgent(mockCtx, kevin, mockImg, Math.PI / 20);
+  const leftArmQ = fillRectCalls[0]!;
+  const rightArmQ = fillRectCalls[1]!;
+  assert.ok(leftArmQ.y > leftArm.y, 'Left arm moves down at peak phase');
+  assert.ok(rightArmQ.y < rightArm.y, 'Right arm moves up (opposite phase)');
+});
+
+test('V1.9a typing effects: drawAgentStatusBubble renders yellow pulsating border for working agents', () => {
+  const crew = createInitialCrew(snapshot);
+  const kevin = crew.find((a) => a.name === 'Kevin')!;
+  assert.equal(kevin.state, STATE.WORKING);
+
+  const strokes: string[] = [];
+  const mockCtx = {
+    save: () => {},
+    restore: () => {},
+    beginPath: () => {},
+    roundRect: () => {},
+    rect: () => {},
+    fill: () => {},
+    stroke: () => {
+      strokes.push(mockCtx.strokeStyle as string);
+    },
+    fillText: () => {},
+    measureText: () => ({ width: 50 }),
+    strokeStyle: '',
+    fillStyle: '',
+    globalAlpha: 1.0,
+    globalCompositeOperation: 'source-over',
+  } as unknown as CanvasRenderingContext2D;
+
+  // With a.bob at peak phase -> stroke is STARSHIP_AMBER (#ffcf6e)
+  kevin.bob = Math.PI / 3;
+  drawAgentStatusBubble(mockCtx, kevin, 80, 0);
+  assert.ok(strokes.length >= 1);
+  assert.equal(strokes[0], '#ffcf6e');
+});

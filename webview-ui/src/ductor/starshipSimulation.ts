@@ -889,7 +889,19 @@ export function drawAgentStatusBubble(
   ctx.fillStyle = 'rgba(15, 12, 28, 0.88)';
   ctx.fill();
   ctx.lineWidth = 1;
-  ctx.strokeStyle = bubble.borderColor;
+
+  const isWorking =
+    !isOffline &&
+    (a.state === STATE.WORKING ||
+      a.reportedState === 'working' ||
+      a.reportedState === 'review');
+
+  if (isWorking) {
+    const pulse = 0.5 + 0.5 * Math.sin((a.bob ?? 0) * 1.5);
+    ctx.strokeStyle = pulse > 0.45 ? STARSHIP_AMBER : bubble.borderColor;
+  } else {
+    ctx.strokeStyle = bubble.borderColor;
+  }
   ctx.stroke();
 
   ctx.textAlign = 'center';
@@ -955,8 +967,14 @@ export function drawAgent(
   ctx: CanvasRenderingContext2D,
   a: StarshipAgent,
   sheetImg: HTMLImageElement,
+  timeSec: number = Date.now() / 1000,
 ): void {
   const isOffline = a.reportedState === 'offline' || a.state === STATE.OFFLINE;
+  const isWorking =
+    !isOffline &&
+    (a.state === STATE.WORKING ||
+      a.reportedState === 'working' ||
+      a.reportedState === 'review');
 
   ctx.save();
   if (isOffline) {
@@ -969,7 +987,7 @@ export function drawAgent(
   const col =
     a.state === STATE.MOVING
       ? 4 + (a.animFrame % 4)
-      : a.facing === 'back'
+      : a.facing === 'back' || (a.state === STATE.WORKING && a.facing !== 'front')
         ? 8 + (a.animFrame % 4)
         : 0 + (a.animFrame % 4);
 
@@ -981,7 +999,8 @@ export function drawAgent(
   const BASE_DRAW_H = 92;
   const drawH = BASE_DRAW_H * scale;
   const drawW = drawH * (cw / ch);
-  const bobY = a.state === STATE.WORKING ? Math.sin(a.bob) * 1 : 0;
+  const bobY = isWorking ? Math.sin(a.bob) * 1 : 0;
+  const leanY = isWorking ? -1 : 0;
 
   // Foot Anchor: Coordinates (a.x, a.y) = bottom center of character feet.
 
@@ -995,7 +1014,7 @@ export function drawAgent(
 
   // Sprite: Drawn with feet anchor at (a.x, a.y)
   ctx.save();
-  ctx.translate(a.x, a.y + bobY);
+  ctx.translate(a.x, a.y + bobY + leanY);
   if (a.facing === 1) {
     ctx.scale(-1, 1);
   }
@@ -1014,6 +1033,35 @@ export function drawAgent(
   ctx.globalCompositeOperation = 'lighter';
   ctx.globalAlpha = isOffline ? 0.35 * 0.22 : 0.22;
   ctx.drawImage(sheetImg, sx, sy, cw, ch, -drawW / 2, -drawH, drawW, drawH);
+
+  // (4) 2 typing arms rects (4x3px) in role color in front of chest, oscillating in opposite phase with sin(t*10)
+  if (isWorking) {
+    const armW = 4 * scale;
+    const armH = 3 * scale;
+    const chestY = -drawH * 0.38;
+    const tArm = timeSec * 10 || (a.bob ? a.bob * (10 / (16 * Math.PI)) * 10 : 0);
+    const armOff1 = Math.sin(tArm) * 1.5 * scale;
+    const armOff2 = -Math.sin(tArm) * 1.5 * scale;
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = isOffline ? 0.35 : 0.95;
+    ctx.fillStyle = roleGlow;
+    ctx.shadowColor = roleGlow;
+    ctx.shadowBlur = 4;
+    // Left arm
+    if (typeof ctx.fillRect === 'function') {
+      ctx.fillRect(-drawW * 0.16, chestY + armOff1, armW, armH);
+      ctx.fillRect(drawW * 0.08, chestY + armOff2, armW, armH);
+    } else if (typeof ctx.rect === 'function') {
+      ctx.beginPath();
+      ctx.rect(-drawW * 0.16, chestY + armOff1, armW, armH);
+      ctx.rect(drawW * 0.08, chestY + armOff2, armW, armH);
+      if (typeof ctx.fill === 'function') ctx.fill();
+    }
+    ctx.restore();
+  }
+
   ctx.restore();
 
   // Roster-selection flash ring (scaled at feet)
@@ -1189,8 +1237,8 @@ export function drawWorkstationScreens(
     const rect = ws.screenRect;
     const roleColor = ROLE_GLOW_COLORS[agent.name] ?? agent.skin?.tint ?? '#5ce1ff';
 
-    // Pulse alpha between 0.15 and 0.35
-    const pulseAlpha = 0.25 + 0.10 * Math.sin(timeSec * 3 + (agent.bob ?? 0));
+    // Pulse alpha: 0.2 + 0.15 * sin(t * 12)
+    const pulseAlpha = 0.2 + 0.15 * Math.sin(timeSec * 12 + (agent.bob ?? 0));
     const clampedAlpha = Math.max(0.15, Math.min(0.35, pulseAlpha));
 
     ctx.save();
@@ -1205,20 +1253,20 @@ export function drawWorkstationScreens(
     ctx.globalAlpha = Math.max(0.2, Math.min(0.5, clampedAlpha * 1.3));
     ctx.strokeRect(rect.x, rect.y, rect.w, rect.h);
 
-    // 3-4 simulated text / code lines inside screen
-    const lineCount = 4;
+    // 3 simulated text / code lines inside screen with random/shimmering brightness
+    const lineCount = 3;
     const padX = rect.w * 0.08;
-    const padY = rect.h * 0.18;
+    const padY = rect.h * 0.2;
     const availH = rect.h - padY * 2;
-    const lineStep = availH / (lineCount - 1);
-    const lineFractions = [0.72, 0.48, 0.84, 0.58];
+    const lineStep = availH / (lineCount - 1 || 1);
+    const lineFractions = [0.75, 0.52, 0.82];
 
     ctx.fillStyle = roleColor;
     for (let i = 0; i < lineCount; i++) {
       const ly = rect.y + padY + i * lineStep;
       const lw = (rect.w - padX * 2) * lineFractions[i];
-      const textAlpha = (0.35 + 0.12 * Math.sin(timeSec * 6 + i * 1.5)) * (clampedAlpha / 0.25);
-      ctx.globalAlpha = Math.max(0.2, Math.min(0.65, textAlpha));
+      const textAlpha = (0.35 + 0.15 * Math.sin(timeSec * 12 + i * 2.3)) * (clampedAlpha / 0.2);
+      ctx.globalAlpha = Math.max(0.15, Math.min(0.7, textAlpha));
       ctx.fillRect(rect.x + padX, ly, lw, 3);
     }
 
@@ -1305,7 +1353,7 @@ export function drawStage(
 
   const sorted = [...agents].sort((a, b) => a.y - b.y);
   for (const a of sorted) {
-    drawAgent(ctx, a, sheetImg);
+    drawAgent(ctx, a, sheetImg, timeSec);
   }
 
   // Draw desk occlusion cutouts over sitting/standing agents' lower bodies
