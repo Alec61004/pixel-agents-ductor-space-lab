@@ -89,12 +89,12 @@ export const WORKSTATIONS: Record<DuctorRoleName, WorkstationConfig> = {
     agentName: 'Alec',
     label: 'Alec — Strategy',
     roleDescription: 'Strategy',
-    walkPoint: { x: 560, y: 645 },
-    seatPoint: { x: 560, y: 645 },
-    tableX: 560,
-    tableY: 645,
-    standingX: 560,
-    standingY: 645,
+    walkPoint: { x: 425, y: 580 },
+    seatPoint: { x: 425, y: 580 },
+    tableX: 425,
+    tableY: 580,
+    standingX: 425,
+    standingY: 580,
     facing: 'front',
     screenRect: { x: 312, y: 537, w: 225, h: 94 },
     deskCutout: { x: 312, y: 537, w: 225, h: 94 },
@@ -119,12 +119,12 @@ export const WORKSTATIONS: Record<DuctorRoleName, WorkstationConfig> = {
     agentName: 'Benjamin',
     label: 'Benjamin — QA',
     roleDescription: 'QA',
-    walkPoint: { x: 1000, y: 640 },
-    seatPoint: { x: 1000, y: 640 },
-    tableX: 1000,
-    tableY: 640,
-    standingX: 1000,
-    standingY: 640,
+    walkPoint: { x: 1080, y: 595 },
+    seatPoint: { x: 1080, y: 595 },
+    tableX: 1080,
+    tableY: 595,
+    standingX: 1080,
+    standingY: 595,
     facing: 'back',
     screenRect: { x: 987, y: 556, w: 213, h: 63 },
     deskCutout: { x: 987, y: 556, w: 213, h: 80 },
@@ -428,7 +428,7 @@ export function makeAgent(spec: {
     speed: 46 + Math.random() * 22,
     facing: spec.facing ?? 1,
     state: spec.state ?? STATE.WORKING,
-    stateTimer: 2 + Math.random() * 4,
+    stateTimer: 2 + Math.random() * 2,
     animFrame: 0,
     animTimer: 0,
     bob: Math.random() * Math.PI * 2,
@@ -647,7 +647,7 @@ export function updateAgent(
         a.state = STATE.BLOCKED;
       } else if (a.reportedState === 'idle' || a.reportedState === 'waiting') {
         a.state = STATE.IDLE;
-        a.stateTimer = 2 + Math.random() * 3;
+        a.stateTimer = 2 + Math.random() * 2;
       } else {
         a.state = STATE.WORKING;
         a.stateTimer = 2.5 + Math.random() * 3.5;
@@ -681,7 +681,7 @@ export function updateAgent(
       a.facing = ws.facing;
     }
     a.stateTimer -= dt * speedMult;
-    a.bob += dt * 16 * Math.PI; // 8Hz typing bob oscillation
+    a.bob += dt * 12 * Math.PI; // 6Hz typing bob oscillation
     a.animTimer += dt;
     if (a.animTimer > 0.5) {
       a.animTimer = 0;
@@ -696,7 +696,7 @@ export function updateAgent(
         }
       } else {
         a.state = STATE.IDLE;
-        a.stateTimer = 1.2 + Math.random() * 1.8;
+        a.stateTimer = 2 + Math.random() * 2;
         a.animFrame = 0;
       }
     }
@@ -999,7 +999,7 @@ export function drawAgent(
   const BASE_DRAW_H = 92;
   const drawH = BASE_DRAW_H * scale;
   const drawW = drawH * (cw / ch);
-  const bobY = isWorking ? Math.sin(a.bob) * 1 : 0;
+  const bobY = isWorking ? Math.sin(a.bob) * 2 : 0;
   const leanY = isWorking ? -1 : 0;
 
   // Foot Anchor: Coordinates (a.x, a.y) = bottom center of character feet.
@@ -1034,29 +1034,29 @@ export function drawAgent(
   ctx.globalAlpha = isOffline ? 0.35 * 0.22 : 0.22;
   ctx.drawImage(sheetImg, sx, sy, cw, ch, -drawW / 2, -drawH, drawW, drawH);
 
-  // (4) 2 typing arms rects (4x3px) in role color in front of chest, oscillating in opposite phase with sin(t*10)
+  // (4) 2 typing arms rects (3x2px) in bright role color in front of chest, oscillating in opposite phase with 6Hz
   if (isWorking) {
-    const armW = 4 * scale;
-    const armH = 3 * scale;
+    const armW = 3 * scale;
+    const armH = 2 * scale;
     const chestY = -drawH * 0.38;
-    const tArm = timeSec * 10 || (a.bob ? a.bob * (10 / (16 * Math.PI)) * 10 : 0);
-    const armOff1 = Math.sin(tArm) * 1.5 * scale;
-    const armOff2 = -Math.sin(tArm) * 1.5 * scale;
+    const tArm = timeSec * (12 * Math.PI) || a.bob;
+    const armOff1 = Math.sin(tArm) * 2 * scale;
+    const armOff2 = -Math.sin(tArm) * 2 * scale;
 
     ctx.save();
     ctx.globalCompositeOperation = 'source-over';
-    ctx.globalAlpha = isOffline ? 0.35 : 0.95;
+    ctx.globalAlpha = isOffline ? 0.35 : 1.0;
     ctx.fillStyle = roleGlow;
     ctx.shadowColor = roleGlow;
     ctx.shadowBlur = 4;
-    // Left arm
+    // Left arm & Right arm
     if (typeof ctx.fillRect === 'function') {
-      ctx.fillRect(-drawW * 0.16, chestY + armOff1, armW, armH);
-      ctx.fillRect(drawW * 0.08, chestY + armOff2, armW, armH);
+      ctx.fillRect(-drawW * 0.14, chestY + armOff1, armW, armH);
+      ctx.fillRect(drawW * 0.06, chestY + armOff2, armW, armH);
     } else if (typeof ctx.rect === 'function') {
       ctx.beginPath();
-      ctx.rect(-drawW * 0.16, chestY + armOff1, armW, armH);
-      ctx.rect(drawW * 0.08, chestY + armOff2, armW, armH);
+      ctx.rect(-drawW * 0.14, chestY + armOff1, armW, armH);
+      ctx.rect(drawW * 0.06, chestY + armOff2, armW, armH);
       if (typeof ctx.fill === 'function') ctx.fill();
     }
     ctx.restore();
@@ -1237,9 +1237,9 @@ export function drawWorkstationScreens(
     const rect = ws.screenRect;
     const roleColor = ROLE_GLOW_COLORS[agent.name] ?? agent.skin?.tint ?? '#5ce1ff';
 
-    // Pulse alpha: 0.2 + 0.15 * sin(t * 12)
-    const pulseAlpha = 0.2 + 0.15 * Math.sin(timeSec * 12 + (agent.bob ?? 0));
-    const clampedAlpha = Math.max(0.15, Math.min(0.35, pulseAlpha));
+    // Pulse alpha: 0.4-0.6 pulse nhanh 10Hz màu role
+    const pulseAlpha = 0.5 + 0.1 * Math.sin(timeSec * 20 * Math.PI + (agent.bob ?? 0));
+    const clampedAlpha = Math.max(0.4, Math.min(0.6, pulseAlpha));
 
     ctx.save();
     // Screen glow fill
@@ -1250,23 +1250,23 @@ export function drawWorkstationScreens(
     // Screen glow border
     ctx.strokeStyle = roleColor;
     ctx.lineWidth = 1.5;
-    ctx.globalAlpha = Math.max(0.2, Math.min(0.5, clampedAlpha * 1.3));
+    ctx.globalAlpha = Math.min(1.0, clampedAlpha * 1.3);
     ctx.strokeRect(rect.x, rect.y, rect.w, rect.h);
 
-    // 3 simulated text / code lines inside screen with random/shimmering brightness
-    const lineCount = 3;
+    // 4-5 vạch chữ chạy:
+    const lineCount = 5;
     const padX = rect.w * 0.08;
-    const padY = rect.h * 0.2;
+    const padY = rect.h * 0.14;
     const availH = rect.h - padY * 2;
     const lineStep = availH / (lineCount - 1 || 1);
-    const lineFractions = [0.75, 0.52, 0.82];
+    const lineFractions = [0.82, 0.56, 0.90, 0.48, 0.74];
 
     ctx.fillStyle = roleColor;
     for (let i = 0; i < lineCount; i++) {
       const ly = rect.y + padY + i * lineStep;
       const lw = (rect.w - padX * 2) * lineFractions[i];
-      const textAlpha = (0.35 + 0.15 * Math.sin(timeSec * 12 + i * 2.3)) * (clampedAlpha / 0.2);
-      ctx.globalAlpha = Math.max(0.15, Math.min(0.7, textAlpha));
+      const textAlpha = (0.55 + 0.25 * Math.sin(timeSec * 20 * Math.PI + i * 1.6)) * (clampedAlpha / 0.5);
+      ctx.globalAlpha = Math.max(0.3, Math.min(0.95, textAlpha));
       ctx.fillRect(rect.x + padX, ly, lw, 3);
     }
 

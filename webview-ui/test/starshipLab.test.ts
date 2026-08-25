@@ -242,8 +242,8 @@ test('defines 3 fixed workstations (Alec, Kevin, Benjamin) with correct labels a
   assert.ok(WORKSTATIONS.Kevin);
   assert.ok(WORKSTATIONS.Benjamin);
 
-  // Exact data from specification V1.8
-  assert.deepEqual(WORKSTATIONS.Alec.walkPoint, { x: 560, y: 645 });
+  // Exact data from specification V1.9 desk occlusion
+  assert.deepEqual(WORKSTATIONS.Alec.walkPoint, { x: 425, y: 580 });
   assert.equal(WORKSTATIONS.Alec.facing, 'front');
   assert.deepEqual(WORKSTATIONS.Alec.screenRect, { x: 312, y: 537, w: 225, h: 94 });
   assert.deepEqual(WORKSTATIONS.Alec.deskCutout, { x: 312, y: 537, w: 225, h: 94 });
@@ -255,7 +255,7 @@ test('defines 3 fixed workstations (Alec, Kevin, Benjamin) with correct labels a
   assert.deepEqual(WORKSTATIONS.Kevin.deskCutout, { x: 250, y: 450, w: 450, h: 80 });
   assert.equal(WORKSTATIONS.Kevin.label, 'Kevin — Build');
 
-  assert.deepEqual(WORKSTATIONS.Benjamin.walkPoint, { x: 1000, y: 640 });
+  assert.deepEqual(WORKSTATIONS.Benjamin.walkPoint, { x: 1080, y: 595 });
   assert.equal(WORKSTATIONS.Benjamin.facing, 'back');
   assert.deepEqual(WORKSTATIONS.Benjamin.screenRect, { x: 987, y: 556, w: 213, h: 63 });
   assert.deepEqual(WORKSTATIONS.Benjamin.deskCutout, { x: 987, y: 556, w: 213, h: 80 });
@@ -266,6 +266,21 @@ test('defines 3 fixed workstations (Alec, Kevin, Benjamin) with correct labels a
   assert.equal(typeof drawDeskCutouts, 'function');
   assert.equal(typeof drawHologramTopGlow, 'function');
   assert.equal(typeof drawFloorMarkers, 'function');
+
+  // Walk points must be inside deskCutout y range for desk occlusion
+  assert.ok(
+    WORKSTATIONS.Alec.walkPoint.y >= WORKSTATIONS.Alec.deskCutout.y &&
+      WORKSTATIONS.Alec.walkPoint.y <= WORKSTATIONS.Alec.deskCutout.y + WORKSTATIONS.Alec.deskCutout.h,
+  );
+  assert.ok(
+    WORKSTATIONS.Kevin.walkPoint.y >= WORKSTATIONS.Kevin.deskCutout.y &&
+      WORKSTATIONS.Kevin.walkPoint.y <= WORKSTATIONS.Kevin.deskCutout.y + WORKSTATIONS.Kevin.deskCutout.h,
+  );
+  assert.ok(
+    WORKSTATIONS.Benjamin.walkPoint.y >= WORKSTATIONS.Benjamin.deskCutout.y &&
+      WORKSTATIONS.Benjamin.walkPoint.y <=
+        WORKSTATIONS.Benjamin.deskCutout.y + WORKSTATIONS.Benjamin.deskCutout.h,
+  );
 
   // Walk points must be inside walkable polygon
   assert.equal(
@@ -812,15 +827,15 @@ test('drawAgent selects front-idle frames for Alec (facing front) and back-idle 
   const imgCalls3 = drawCalls.filter((c) => c.type === 'drawImage');
   assert.equal(imgCalls3[0].args[1], 11 * cw);
 
-  // Typing bob at 8Hz (bob amplitude in [-1, 1])
+  // Typing bob at 6Hz (bob amplitude in [-2, 2])
   kevin.bob = 0;
   updateAgent(kevin, 0.02, 1, crew);
   assert.ok(kevin.bob > 0);
-  const bobY = Math.sin(kevin.bob) * 1;
-  assert.ok(bobY >= -1.0 && bobY <= 1.0);
+  const bobY = Math.sin(kevin.bob) * 2;
+  assert.ok(bobY >= -2.0 && bobY <= 2.0);
 });
 
-test('drawWorkstationScreens draws screen glow rect with pulse alpha 0.15-0.35 in role color + 3-4 text lines, and turns off when idle', () => {
+test('drawWorkstationScreens draws screen glow rect with pulse alpha 0.4-0.6 in role color + 4-5 text lines, and turns off when idle', () => {
   const crew = createInitialCrew(snapshot);
   const fillRectCalls: any[] = [];
   const strokeRectCalls: any[] = [];
@@ -871,7 +886,7 @@ test('drawWorkstationScreens draws screen glow rect with pulse alpha 0.15-0.35 i
   );
   assert.ok(kevinFill);
   assert.equal(kevinFill.fillStyle, ROLE_GLOW_COLORS.Kevin);
-  assert.ok(kevinFill.globalAlpha >= 0.15 && kevinFill.globalAlpha <= 0.35);
+  assert.ok(kevinFill.globalAlpha >= 0.4 && kevinFill.globalAlpha <= 0.6);
 
   // Verify Benjamin screenRect
   const benjaminFill = fillRectCalls.find(
@@ -883,7 +898,7 @@ test('drawWorkstationScreens draws screen glow rect with pulse alpha 0.15-0.35 i
   );
   assert.ok(benjaminFill);
   assert.equal(benjaminFill.fillStyle, ROLE_GLOW_COLORS.Benjamin);
-  assert.ok(benjaminFill.globalAlpha >= 0.15 && benjaminFill.globalAlpha <= 0.35);
+  assert.ok(benjaminFill.globalAlpha >= 0.4 && benjaminFill.globalAlpha <= 0.6);
 
   // Test idle state: screen turns off (no rect drawn for idle agent)
   fillRectCalls.length = 0;
@@ -1009,7 +1024,7 @@ test('drawHologramTopGlow renders pulsing violet hologram ellipse, starmap rings
   assert.equal(arcCalls.length, 0);
 });
 
-test('V1.9a typing effects: drawAgent renders 2 typing arms (4x3px) in role color oscillating in opposite phase with sin(t*10)', () => {
+test('V1.9 typing effects: drawAgent renders 2 typing arms (3x2px) in role color oscillating in opposite phase with 6Hz', () => {
   const crew = createInitialCrew(snapshot);
   const kevin = crew.find((a) => a.name === 'Kevin')!;
   assert.equal(kevin.state, STATE.WORKING);
@@ -1048,22 +1063,22 @@ test('V1.9a typing effects: drawAgent renders 2 typing arms (4x3px) in role colo
 
   assert.equal(leftArm.fillStyle, ROLE_GLOW_COLORS.Kevin);
   assert.equal(rightArm.fillStyle, ROLE_GLOW_COLORS.Kevin);
-  // Dimensions roughly 4x3px (scaled with depthScale ~0.8-1.1)
-  assert.ok(leftArm.w >= 3 && leftArm.w <= 5);
-  assert.ok(leftArm.h >= 2 && leftArm.h <= 4);
-  assert.ok(rightArm.w >= 3 && rightArm.w <= 5);
-  assert.ok(rightArm.h >= 2 && rightArm.h <= 4);
+  // Dimensions roughly 3x2px (scaled with depthScale ~0.8-1.1)
+  assert.ok(leftArm.w >= 2 && leftArm.w <= 4);
+  assert.ok(leftArm.h >= 1.5 && leftArm.h <= 3);
+  assert.ok(rightArm.w >= 2 && rightArm.w <= 4);
+  assert.ok(rightArm.h >= 1.5 && rightArm.h <= 3);
 
-  // At time t = Math.PI / 20 (quarter cycle of sin(t*10)): arms move in opposite directions
+  // At time t = 1 / (6 * 4) = 1/24 s (quarter cycle of sin(t * 12 * PI)): arms move in opposite directions
   fillRectCalls.length = 0;
-  drawAgent(mockCtx, kevin, mockImg, Math.PI / 20);
+  drawAgent(mockCtx, kevin, mockImg, 1 / 24);
   const leftArmQ = fillRectCalls[0]!;
   const rightArmQ = fillRectCalls[1]!;
   assert.ok(leftArmQ.y > leftArm.y, 'Left arm moves down at peak phase');
   assert.ok(rightArmQ.y < rightArm.y, 'Right arm moves up (opposite phase)');
 });
 
-test('V1.9a typing effects: drawAgentStatusBubble renders yellow pulsating border for working agents', () => {
+test('V1.9 typing effects: drawAgentStatusBubble renders yellow pulsating border for working agents', () => {
   const crew = createInitialCrew(snapshot);
   const kevin = crew.find((a) => a.name === 'Kevin')!;
   assert.equal(kevin.state, STATE.WORKING);
@@ -1092,4 +1107,59 @@ test('V1.9a typing effects: drawAgentStatusBubble renders yellow pulsating borde
   drawAgentStatusBubble(mockCtx, kevin, 80, 0);
   assert.ok(strokes.length >= 1);
   assert.equal(strokes[0], '#ffcf6e');
+});
+
+test('V1.9 idle wander: idle agent wanders between points every 2-4s and changes position within 5s', () => {
+  const idleSnapshot: DuctorStatusSnapshot = {
+    theme: 'ductor-space-lab',
+    roles: [
+      {
+        name: 'Alec',
+        presence: 'online',
+        state: 'idle',
+        taskLabel: 'Standby',
+        updatedAt: '2026-08-22T05:30:00.000Z',
+        derived: false,
+      },
+      {
+        name: 'Kevin',
+        presence: 'online',
+        state: 'idle',
+        taskLabel: 'Standby',
+        updatedAt: '2026-08-22T05:30:00.000Z',
+        derived: false,
+      },
+      {
+        name: 'Benjamin',
+        presence: 'online',
+        state: 'idle',
+        taskLabel: 'Standby',
+        updatedAt: '2026-08-22T05:30:00.000Z',
+        derived: false,
+      },
+    ],
+  };
+
+  const crew = createInitialCrew(idleSnapshot);
+  const startPositions = crew.map((a) => ({ id: a.id, name: a.name, x: a.x, y: a.y }));
+
+  // Simulate 5 seconds in steps of 0.05s (100 steps)
+  const dt = 0.05;
+  const totalSteps = 5 / dt;
+  for (let step = 0; step < totalSteps; step++) {
+    for (const a of crew) {
+      updateAgent(a, dt, 1, crew);
+    }
+  }
+
+  // At least one idle agent must have changed position within 5s (idle wander)
+  for (const start of startPositions) {
+    const agent = crew.find((a) => a.id === start.id)!;
+    const distMoved = Math.hypot(agent.x - start.x, agent.y - start.y);
+    console.log(`[IDLE WANDER TEST] ${agent.name} moved ${distMoved.toFixed(1)}px within 5s`);
+    assert.ok(
+      distMoved > 10,
+      `Idle agent ${agent.name} should have wandered and changed position within 5s, but moved only ${distMoved.toFixed(1)}px`,
+    );
+  }
 });
