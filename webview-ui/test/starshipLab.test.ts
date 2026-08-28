@@ -270,11 +270,13 @@ test('defines 3 fixed workstations (Alec, Kevin, Benjamin) with correct labels a
   // Walk points must be inside deskCutout y range for desk occlusion
   assert.ok(
     WORKSTATIONS.Alec.walkPoint.y >= WORKSTATIONS.Alec.deskCutout.y &&
-      WORKSTATIONS.Alec.walkPoint.y <= WORKSTATIONS.Alec.deskCutout.y + WORKSTATIONS.Alec.deskCutout.h,
+      WORKSTATIONS.Alec.walkPoint.y <=
+        WORKSTATIONS.Alec.deskCutout.y + WORKSTATIONS.Alec.deskCutout.h,
   );
   assert.ok(
     WORKSTATIONS.Kevin.walkPoint.y >= WORKSTATIONS.Kevin.deskCutout.y &&
-      WORKSTATIONS.Kevin.walkPoint.y <= WORKSTATIONS.Kevin.deskCutout.y + WORKSTATIONS.Kevin.deskCutout.h,
+      WORKSTATIONS.Kevin.walkPoint.y <=
+        WORKSTATIONS.Kevin.deskCutout.y + WORKSTATIONS.Kevin.deskCutout.h,
   );
   assert.ok(
     WORKSTATIONS.Benjamin.walkPoint.y >= WORKSTATIONS.Benjamin.deskCutout.y &&
@@ -283,49 +285,40 @@ test('defines 3 fixed workstations (Alec, Kevin, Benjamin) with correct labels a
   );
 
   // Walk points must be inside walkable polygon
-  assert.equal(
-    isPointInPolygon(WORKSTATIONS.Alec.walkPoint, WALKABLE_POLYGON),
-    true,
-  );
-  assert.equal(
-    isPointInPolygon(WORKSTATIONS.Kevin.walkPoint, WALKABLE_POLYGON),
-    true,
-  );
-  assert.equal(
-    isPointInPolygon(WORKSTATIONS.Benjamin.walkPoint, WALKABLE_POLYGON),
-    true,
-  );
+  assert.equal(isPointInPolygon(WORKSTATIONS.Alec.walkPoint, WALKABLE_POLYGON), true);
+  assert.equal(isPointInPolygon(WORKSTATIONS.Kevin.walkPoint, WALKABLE_POLYGON), true);
+  assert.equal(isPointInPolygon(WORKSTATIONS.Benjamin.walkPoint, WALKABLE_POLYGON), true);
 });
 
-test('agent working state positions agent at their own assigned workstation walkPoint and facing matches workstation config', () => {
+test('agent working state positions agent at their own assigned workstation seatPoint and facing matches workstation config', () => {
   const crew = createInitialCrew(snapshot);
   const alec = crew.find((a) => a.name === 'Alec')!;
   const kevin = crew.find((a) => a.name === 'Kevin')!;
   const benjamin = crew.find((a) => a.name === 'Benjamin')!;
 
-  // Alec must be at Alec's desk walkPoint facing front
-  assert.equal(alec.x, WORKSTATIONS.Alec.walkPoint.x);
-  assert.equal(alec.y, WORKSTATIONS.Alec.walkPoint.y);
+  // Alec must be at Alec's desk seatPoint facing front
+  assert.equal(alec.x, WORKSTATIONS.Alec.seatPoint.x);
+  assert.equal(alec.y, WORKSTATIONS.Alec.seatPoint.y);
   assert.equal(alec.facing, 'front');
   assert.equal(alec.currentStation, 'Alec — Strategy');
-  assert.notEqual(alec.x, WORKSTATIONS.Kevin.walkPoint.x);
-  assert.notEqual(alec.x, WORKSTATIONS.Benjamin.walkPoint.x);
+  assert.notEqual(alec.x, WORKSTATIONS.Kevin.seatPoint.x);
+  assert.notEqual(alec.x, WORKSTATIONS.Benjamin.seatPoint.x);
 
-  // Kevin must be at Kevin's desk walkPoint facing back
-  assert.equal(kevin.x, WORKSTATIONS.Kevin.walkPoint.x);
-  assert.equal(kevin.y, WORKSTATIONS.Kevin.walkPoint.y);
+  // Kevin must be at Kevin's desk seatPoint facing back
+  assert.equal(kevin.x, WORKSTATIONS.Kevin.seatPoint.x);
+  assert.equal(kevin.y, WORKSTATIONS.Kevin.seatPoint.y);
   assert.equal(kevin.facing, 'back');
   assert.equal(kevin.currentStation, 'Kevin — Build');
-  assert.notEqual(kevin.x, WORKSTATIONS.Alec.walkPoint.x);
-  assert.notEqual(kevin.x, WORKSTATIONS.Benjamin.walkPoint.x);
+  assert.notEqual(kevin.x, WORKSTATIONS.Alec.seatPoint.x);
+  assert.notEqual(kevin.x, WORKSTATIONS.Benjamin.seatPoint.x);
 
-  // Benjamin must be at Benjamin's desk walkPoint facing back
-  assert.equal(benjamin.x, WORKSTATIONS.Benjamin.walkPoint.x);
-  assert.equal(benjamin.y, WORKSTATIONS.Benjamin.walkPoint.y);
+  // Benjamin must be at Benjamin's desk seatPoint facing back
+  assert.equal(benjamin.x, WORKSTATIONS.Benjamin.seatPoint.x);
+  assert.equal(benjamin.y, WORKSTATIONS.Benjamin.seatPoint.y);
   assert.equal(benjamin.facing, 'back');
   assert.equal(benjamin.currentStation, 'Benjamin — QA');
-  assert.notEqual(benjamin.x, WORKSTATIONS.Alec.walkPoint.x);
-  assert.notEqual(benjamin.x, WORKSTATIONS.Kevin.walkPoint.x);
+  assert.notEqual(benjamin.x, WORKSTATIONS.Alec.seatPoint.x);
+  assert.notEqual(benjamin.x, WORKSTATIONS.Kevin.seatPoint.x);
 });
 
 test('simulation 10-second run: idle/demo crew changes position at least 2 times and changes state at least 1 time (fails if agents stand still)', () => {
@@ -366,7 +359,9 @@ test('simulation 10-second run: idle/demo crew changes position at least 2 times
   for (const a of demoCrew) {
     const posChanges = positionChangeCounts.get(a.id)!;
     const stateChanges = stateChangeCounts.get(a.id)!;
-    console.log(`[MOTION TEST] ${a.name}: ${posChanges} position changes, ${stateChanges} state changes`);
+    console.log(
+      `[MOTION TEST] ${a.name}: ${posChanges} position changes, ${stateChanges} state changes`,
+    );
     assert.ok(
       posChanges >= 2,
       `Agent ${a.name} should have changed position at least 2 times, but only changed ${posChanges} times (agent was stationary)`,
@@ -594,39 +589,39 @@ test('getAgentStatusBubble generates correct text and role colors for working, i
     state: STATE.WORKING,
   });
 
-  // Working state
+  // Working state - name always shows in line 1, status in line 2
   const alecBubble = getAgentStatusBubble(alec);
-  assert.equal(alecBubble.text, '⚙ Alec đang làm việc');
+  assert.equal(alecBubble.text, 'Alec — Strategy\n⚙ đang làm việc');
   assert.equal(alecBubble.color, '#c98bff');
   assert.equal(alecBubble.borderColor, '#c98bff');
 
   const kevinBubble = getAgentStatusBubble(kevin);
-  assert.equal(kevinBubble.text, '⚙ Kevin đang làm việc');
+  assert.equal(kevinBubble.text, 'Kevin — Build\n⚙ đang làm việc');
   assert.equal(kevinBubble.color, '#5ce1ff');
   assert.equal(kevinBubble.borderColor, '#5ce1ff');
 
   const benjaminBubble = getAgentStatusBubble(benjamin);
-  assert.equal(benjaminBubble.text, '⚙ Benjamin đang làm việc');
+  assert.equal(benjaminBubble.text, 'Benjamin — QA\n⚙ đang làm việc');
   assert.equal(benjaminBubble.color, '#ff5c5c');
   assert.equal(benjaminBubble.borderColor, '#ff5c5c');
 
-  // Idle state
+  // Idle state - name always shows in line 1
   alec.state = STATE.IDLE;
   alec.reportedState = 'idle';
   const idleBubble = getAgentStatusBubble(alec);
-  assert.equal(idleBubble.text, '💤 idle');
+  assert.equal(idleBubble.text, 'Alec — Strategy\n💤 idle');
 
-  // Offline state
+  // Offline state - name always shows in line 1
   kevin.state = STATE.OFFLINE;
   kevin.reportedState = 'offline';
   const offlineBubble = getAgentStatusBubble(kevin);
-  assert.equal(offlineBubble.text, '⚫ offline');
+  assert.equal(offlineBubble.text, 'Kevin — Build\n⚫ offline');
 
-  // Blocked state
+  // Blocked state - name always shows in line 1
   benjamin.state = STATE.BLOCKED;
   benjamin.reportedState = 'blocked';
   const blockedBubble = getAgentStatusBubble(benjamin);
-  assert.equal(blockedBubble.text, '⚠️ blocked');
+  assert.equal(blockedBubble.text, 'Benjamin — QA\n⚠️ blocked');
 });
 
 test('work particles spawn every ~0.9s for working agents with role-specific icons and float upward', () => {
@@ -731,19 +726,18 @@ test('drawAgentStatusBubble and drawWorkParticles execute without errors on 2D c
 test('render snapshot contains status text bubbles in markup', () => {
   const markup = renderToStaticMarkup(createElement(StarshipLab, { snapshot }));
 
-  // Markup must include status text bubbles for agents
-  assert.match(markup, /Alec đang làm việc/);
-  assert.match(markup, /Kevin đang làm việc/);
-  assert.match(markup, /Benjamin đang làm việc/);
+  // Markup must include status text bubbles for agents (name in line 1, status in line 2)
+  assert.match(markup, /Alec — Strategy/);
+  assert.match(markup, /Kevin — Build/);
+  assert.match(markup, /Benjamin — QA/);
+  assert.match(markup, /đang làm việc/);
 });
 
 test('2 working agents do not share coordinates with distance > 20px', () => {
   const crew = createInitialCrew(snapshot);
   const workingAgents = crew.filter(
     (a) =>
-      a.state === STATE.WORKING ||
-      a.reportedState === 'working' ||
-      a.reportedState === 'review',
+      a.state === STATE.WORKING || a.reportedState === 'working' || a.reportedState === 'review',
   );
 
   assert.ok(workingAgents.length >= 2, 'Must have at least 2 working agents');
@@ -911,9 +905,7 @@ test('drawWorkstationScreens draws screen glow rect with pulse alpha 0.4-0.6 in 
 
   // Kevin's screenRect must NOT be drawn when idle
   const kevinIdleFill = fillRectCalls.find(
-    (c) =>
-      c.x === WORKSTATIONS.Kevin.screenRect.x &&
-      c.y === WORKSTATIONS.Kevin.screenRect.y,
+    (c) => c.x === WORKSTATIONS.Kevin.screenRect.x && c.y === WORKSTATIONS.Kevin.screenRect.y,
   );
   assert.equal(kevinIdleFill, undefined);
 });
@@ -956,7 +948,8 @@ test('drawDeskCutouts renders desk cutout slices from bgImg to occlude agent low
 
   // Benjamin desk cutout
   const benjaminCutout = drawImageCalls.find(
-    (c) => c[1] === WORKSTATIONS.Benjamin.deskCutout.x && c[2] === WORKSTATIONS.Benjamin.deskCutout.y,
+    (c) =>
+      c[1] === WORKSTATIONS.Benjamin.deskCutout.x && c[2] === WORKSTATIONS.Benjamin.deskCutout.y,
   );
   assert.ok(benjaminCutout);
   assert.equal(benjaminCutout[3], WORKSTATIONS.Benjamin.deskCutout.w);
@@ -1029,7 +1022,8 @@ test('V1.9 typing effects: drawAgent renders 2 typing arms (3x2px) in role color
   const kevin = crew.find((a) => a.name === 'Kevin')!;
   assert.equal(kevin.state, STATE.WORKING);
 
-  const fillRectCalls: Array<{ x: number; y: number; w: number; h: number; fillStyle: string }> = [];
+  const fillRectCalls: Array<{ x: number; y: number; w: number; h: number; fillStyle: string }> =
+    [];
   const mockCtx = {
     save: () => {},
     restore: () => {},

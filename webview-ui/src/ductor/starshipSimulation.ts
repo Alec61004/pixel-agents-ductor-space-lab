@@ -90,7 +90,7 @@ export const WORKSTATIONS: Record<DuctorRoleName, WorkstationConfig> = {
     label: 'Alec — Strategy',
     roleDescription: 'Strategy',
     walkPoint: { x: 425, y: 580 },
-    seatPoint: { x: 425, y: 580 },
+    seatPoint: { x: 425, y: 574 },
     tableX: 425,
     tableY: 580,
     standingX: 425,
@@ -105,7 +105,7 @@ export const WORKSTATIONS: Record<DuctorRoleName, WorkstationConfig> = {
     label: 'Kevin — Build',
     roleDescription: 'Build',
     walkPoint: { x: 480, y: 495 },
-    seatPoint: { x: 480, y: 495 },
+    seatPoint: { x: 480, y: 489 },
     tableX: 480,
     tableY: 495,
     standingX: 480,
@@ -120,7 +120,7 @@ export const WORKSTATIONS: Record<DuctorRoleName, WorkstationConfig> = {
     label: 'Benjamin — QA',
     roleDescription: 'QA',
     walkPoint: { x: 1080, y: 595 },
-    seatPoint: { x: 1080, y: 595 },
+    seatPoint: { x: 1080, y: 589 },
     tableX: 1080,
     tableY: 595,
     standingX: 1080,
@@ -193,10 +193,7 @@ export function getDepthScale(
   return minScale + t * (maxScale - minScale);
 }
 
-export function isPointInPolygon(
-  p: Point2D,
-  polygon: Point2D[] = WALKABLE_POLYGON,
-): boolean {
+export function isPointInPolygon(p: Point2D, polygon: Point2D[] = WALKABLE_POLYGON): boolean {
   let inside = false;
   const n = polygon.length;
   for (let i = 0, j = n - 1; i < n; j = i++) {
@@ -204,17 +201,13 @@ export function isPointInPolygon(
     const yi = polygon[i].y;
     const xj = polygon[j].x;
     const yj = polygon[j].y;
-    const intersect =
-      yi > p.y !== yj > p.y && p.x < ((xj - xi) * (p.y - yi)) / (yj - yi) + xi;
+    const intersect = yi > p.y !== yj > p.y && p.x < ((xj - xi) * (p.y - yi)) / (yj - yi) + xi;
     if (intersect) inside = !inside;
   }
   return inside;
 }
 
-export function clampPointToPolygon(
-  p: Point2D,
-  polygon: Point2D[] = WALKABLE_POLYGON,
-): Point2D {
+export function clampPointToPolygon(p: Point2D, polygon: Point2D[] = WALKABLE_POLYGON): Point2D {
   if (isPointInPolygon(p, polygon)) {
     return { x: p.x, y: p.y };
   }
@@ -330,6 +323,7 @@ export function pickStation(
   for (let i = 0; i < STATIONS.length; i++) {
     if (counts[i] === minCount) candidates.push(i);
   }
+  // Prefer stations farther from current position for more natural movement
   const stationIndex = candidates[Math.floor(Math.random() * candidates.length)] ?? 0;
   const slot = STATION_SLOTS[Math.min(minCount, STATION_SLOTS.length - 1)] ?? STATION_SLOTS[0];
   return { stationIndex, slot };
@@ -507,8 +501,8 @@ export function createInitialCrew(snapshot?: DuctorStatusSnapshot): StarshipAgen
       // working, review, or fallback without snapshot
       const ws = ASSIGNED_WORKSTATIONS[spec.name];
       if (ws) {
-        x = ws.standingX;
-        y = ws.standingY;
+        x = ws.seatPoint.x;
+        y = ws.seatPoint.y;
         stationIndex = ws.stationIndex;
         currentStation = ws.label;
       } else {
@@ -591,9 +585,10 @@ export function applySnapshotToAgents(
         a.targetY = ws.standingY;
         a.facing = ws.facing;
         a.state =
-          Math.hypot(a.x - ws.standingX, a.y - ws.standingY) < 3
-            ? STATE.WORKING
-            : STATE.MOVING;
+          Math.hypot(a.x - ws.standingX, a.y - ws.standingY) < 3 ? STATE.WORKING : STATE.MOVING;
+        // Staggered dispatch: add role-based delay to avoid all agents moving simultaneously
+        const roleDelay: Record<DuctorRoleName, number> = { Alec: 0, Kevin: 0.3, Benjamin: 0.6 };
+        a.stateTimer = (roleDelay[a.name] ?? 0) + Math.random() * 0.2;
         if (pushLog) pushLog(`${a.name} dispatched to assigned desk [${ws.label}].`);
       } else {
         pickNewTarget(a, agents);
@@ -679,6 +674,19 @@ export function updateAgent(
     const ws = ASSIGNED_WORKSTATIONS[a.name];
     if (ws) {
       a.facing = ws.facing;
+      // Move to sitting position if at station but not at seat yet
+      const atStation = isAgentAtStation(a);
+      const atSeat = Math.hypot(a.x - ws.seatPoint.x, a.y - ws.seatPoint.y) < 5;
+      if (atStation && !atSeat) {
+        a.targetX = ws.seatPoint.x;
+        a.targetY = ws.seatPoint.y;
+        a.state = STATE.MOVING;
+        return;
+      }
+      if (atSeat) {
+        a.x = ws.seatPoint.x;
+        a.y = ws.seatPoint.y;
+      }
     }
     a.stateTimer -= dt * speedMult;
     a.bob += dt * 12 * Math.PI; // 6Hz typing bob oscillation
@@ -797,7 +805,8 @@ export function isAgentAtStation(a: StarshipAgent): boolean {
 
   const distWalk = Math.hypot(a.x - ws.walkPoint.x, a.y - ws.walkPoint.y);
   const distStanding = Math.hypot(a.x - ws.standingX, a.y - ws.standingY);
-  if (distWalk < 35 || distStanding < 35) {
+  const distSeat = Math.hypot(a.x - ws.seatPoint.x, a.y - ws.seatPoint.y);
+  if (distWalk < 35 || distStanding < 35 || distSeat < 35) {
     return true;
   }
 
@@ -821,7 +830,7 @@ export function getAgentStatusBubble(agent: StarshipAgent): AgentStatusBubble {
     agent.reportedState === 'working' ||
     agent.reportedState === 'review'
   ) {
-    statusText = `⚙ ${agent.name} đang làm việc`;
+    statusText = `⚙ đang làm việc`;
     color = roleColor;
     borderColor = roleColor;
   } else if (agent.state === STATE.BLOCKED || agent.reportedState === 'blocked') {
@@ -830,9 +839,9 @@ export function getAgentStatusBubble(agent: StarshipAgent): AgentStatusBubble {
     borderColor = STARSHIP_CRIMSON_TINT;
   }
 
-  const atStation = isAgentAtStation(agent);
   const ws = WORKSTATIONS[agent.name];
-  const lines = atStation && ws ? [ws.label, statusText] : [statusText];
+  const nameLabel = ws ? ws.label : agent.name;
+  const lines = [nameLabel, statusText];
 
   return {
     text: lines.join('\n'),
@@ -892,9 +901,7 @@ export function drawAgentStatusBubble(
 
   const isWorking =
     !isOffline &&
-    (a.state === STATE.WORKING ||
-      a.reportedState === 'working' ||
-      a.reportedState === 'review');
+    (a.state === STATE.WORKING || a.reportedState === 'working' || a.reportedState === 'review');
 
   if (isWorking) {
     const pulse = 0.5 + 0.5 * Math.sin((a.bob ?? 0) * 1.5);
@@ -972,9 +979,7 @@ export function drawAgent(
   const isOffline = a.reportedState === 'offline' || a.state === STATE.OFFLINE;
   const isWorking =
     !isOffline &&
-    (a.state === STATE.WORKING ||
-      a.reportedState === 'working' ||
-      a.reportedState === 'review');
+    (a.state === STATE.WORKING || a.reportedState === 'working' || a.reportedState === 'review');
 
   ctx.save();
   if (isOffline) {
@@ -1098,10 +1103,7 @@ export function drawAgent(
   }
 
   // Attention glow ring when blocked (scaled at feet)
-  if (
-    (a.state === STATE.BLOCKED || a.reportedState === 'blocked') &&
-    !isOffline
-  ) {
+  if ((a.state === STATE.BLOCKED || a.reportedState === 'blocked') && !isOffline) {
     ctx.save();
     ctx.beginPath();
     ctx.ellipse(a.x, a.y, 22 * scale, 8 * scale, 0, 0, Math.PI * 2);
@@ -1175,7 +1177,7 @@ export function drawHologramTopGlow(
   const cy = r.y + r.h / 2;
   ctx.ellipse(cx, cy, r.w * 0.42, r.h * 0.38, 0, 0, Math.PI * 2);
   ctx.fillStyle = color;
-  ctx.globalAlpha = Math.max(0.12, Math.min(0.40, pulse));
+  ctx.globalAlpha = Math.max(0.12, Math.min(0.4, pulse));
   ctx.fill();
   ctx.strokeStyle = '#e9d5ff';
   ctx.lineWidth = 1.5;
@@ -1259,13 +1261,14 @@ export function drawWorkstationScreens(
     const padY = rect.h * 0.14;
     const availH = rect.h - padY * 2;
     const lineStep = availH / (lineCount - 1 || 1);
-    const lineFractions = [0.82, 0.56, 0.90, 0.48, 0.74];
+    const lineFractions = [0.82, 0.56, 0.9, 0.48, 0.74];
 
     ctx.fillStyle = roleColor;
     for (let i = 0; i < lineCount; i++) {
       const ly = rect.y + padY + i * lineStep;
       const lw = (rect.w - padX * 2) * lineFractions[i];
-      const textAlpha = (0.55 + 0.25 * Math.sin(timeSec * 20 * Math.PI + i * 1.6)) * (clampedAlpha / 0.5);
+      const textAlpha =
+        (0.55 + 0.25 * Math.sin(timeSec * 20 * Math.PI + i * 1.6)) * (clampedAlpha / 0.5);
       ctx.globalAlpha = Math.max(0.3, Math.min(0.95, textAlpha));
       ctx.fillRect(rect.x + padX, ly, lw, 3);
     }
