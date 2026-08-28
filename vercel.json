@@ -4,9 +4,6 @@
   "buildCommand": "npm run build:ductor-cloud",
   "installCommand": "npm ci --ignore-scripts",
   "outputDirectory": "dist/webview",
-  "git": {
-    "deploymentEnabled": false
-  },
   "headers": [
     {
       "source": "/(.*)",
