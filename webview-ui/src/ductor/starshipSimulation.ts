@@ -1335,15 +1335,19 @@ export function drawStage(
   rect: { width: number; height: number },
   dpr: number,
   timeSec: number = Date.now() / 1000,
+  panX: number = 0,
+  panY: number = 0,
+  zoom: number = 1,
 ): { scale: number; offX: number; offY: number } {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, rect.width, rect.height);
 
-  const scale = Math.max(rect.width / CW, rect.height / CH);
+  const baseScale = Math.max(rect.width / CW, rect.height / CH);
+  const scale = baseScale * zoom;
   const drawW = CW * scale;
   const drawH = CH * scale;
-  const offX = (rect.width - drawW) / 2;
-  const offY = (rect.height - drawH) / 2;
+  const offX = (rect.width - drawW) / 2 + panX;
+  const offY = (rect.height - drawH) / 2 + panY;
 
   ctx.drawImage(bgImg, offX, offY, drawW, drawH);
 

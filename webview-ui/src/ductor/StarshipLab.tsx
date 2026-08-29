@@ -170,6 +170,11 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
   showStationsRef.current = showStations;
 
   const lastTransformRef = useRef({ scale: 1, offX: 0, offY: 0 });
+  const panRef = useRef({ x: 0, y: 0 });
+  const zoomRef = useRef(1);
+  const touchStateRef = useRef<{ dist: number; zoom: number; panX: number; panY: number } | null>(
+    null,
+  );
   const logQueueRef = useRef<string[]>(['Bridge systems online. Crew dispersed to stations.']);
 
   const pushLog = (msg: string) => {
@@ -256,6 +261,60 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
     resize();
     window.addEventListener('resize', resize);
 
+    const wrap = stageWrapRef.current;
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 1) {
+        touchStateRef.current = {
+          dist: 0,
+          zoom: zoomRef.current,
+          panX: e.touches[0].clientX - panRef.current.x,
+          panY: e.touches[0].clientY - panRef.current.y,
+        };
+      } else if (e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        touchStateRef.current = {
+          dist: Math.hypot(dx, dy),
+          zoom: zoomRef.current,
+          panX: panRef.current.x,
+          panY: panRef.current.y,
+        };
+      }
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      if (e.touches.length === 1 && touchStateRef.current) {
+        panRef.current.x = e.touches[0].clientX - touchStateRef.current.panX;
+        panRef.current.y = e.touches[0].clientY - touchStateRef.current.panY;
+      } else if (e.touches.length === 2 && touchStateRef.current) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.hypot(dx, dy);
+        const ratio = dist / touchStateRef.current.dist;
+        zoomRef.current = Math.max(0.5, Math.min(3, touchStateRef.current.zoom * ratio));
+        panRef.current.x = touchStateRef.current.panX;
+        panRef.current.y = touchStateRef.current.panY;
+      }
+    };
+    const onTouchEnd = () => {
+      touchStateRef.current = null;
+    };
+
+    if (wrap) {
+      wrap.addEventListener('touchstart', onTouchStart, { passive: false });
+      wrap.addEventListener('touchmove', onTouchMove, { passive: false });
+      wrap.addEventListener('touchend', onTouchEnd);
+    }
+
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const delta = -e.deltaY * 0.001;
+      zoomRef.current = Math.max(0.5, Math.min(3, zoomRef.current + delta));
+    };
+    if (wrap) {
+      wrap.addEventListener('wheel', onWheel, { passive: false });
+    }
+
     const logInterval = setInterval(() => {
       if (disposed) return;
       if (logQueueRef.current.length <= 1) {
@@ -299,6 +358,9 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
             rect,
             dpr,
             now / 1000,
+            panRef.current.x,
+            panRef.current.y,
+            zoomRef.current,
           );
         }
       }
@@ -326,6 +388,12 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
     return () => {
       disposed = true;
       window.removeEventListener('resize', resize);
+      if (wrap) {
+        wrap.removeEventListener('touchstart', onTouchStart);
+        wrap.removeEventListener('touchmove', onTouchMove);
+        wrap.removeEventListener('touchend', onTouchEnd);
+        wrap.removeEventListener('wheel', onWheel);
+      }
       cancelAnimationFrame(animId);
       clearInterval(logInterval);
     };
@@ -389,7 +457,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
         .starship-stat { font-size: 10px; color: var(--dim); text-align: right; line-height: 1.6; }
         .starship-stat b { color: var(--cyan); font-weight: 600; }
         .starship-main { flex: 1 1 auto; position: relative; display: flex; min-height: 0; width: 100%; height: 100%; overflow: hidden; }
-        .starship-stage-wrap { flex: 1 1 auto; position: relative; width: 100%; height: 100%; min-width: 0; background: #000; }
+        .starship-stage-wrap { flex: 1 1 auto; position: relative; width: 100%; height: 100%; min-width: 0; background: #000; touch-action: none; }
         .starship-stage {
           display: block; width: 100%; height: 100%;
           image-rendering: pixelated; cursor: crosshair;
