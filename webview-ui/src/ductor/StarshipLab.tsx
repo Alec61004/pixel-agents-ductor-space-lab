@@ -3,11 +3,11 @@ import { useEffect, useRef, useState } from 'react';
 import type { DuctorStatusSnapshot } from './ductorLabModel.js';
 import { ductorAssetUrl } from './ductorLabModel.js';
 import {
+  type AgentStatusBubble,
   applyCloudStatus,
   applySnapshotToAgents,
   ASSIGNED_WORKSTATIONS,
   type AssignedWorkstation,
-  type AgentStatusBubble,
   ATTENTION_POINTS,
   clampPointToPolygon,
   createInitialCrew,
@@ -32,8 +32,8 @@ import {
   isPointInPolygon,
   makeAgent,
   OFFLINE_POINTS,
-  pickStation,
   pickNewTarget,
+  pickStation,
   type Point2D,
   ROLE_GLOW_COLORS,
   ROLE_IDLE_SLOT_OFFSETS,
@@ -43,27 +43,27 @@ import {
   SHEET_COLS,
   SHEET_ROWS,
   SKINS,
-  STATIONS,
-  STATION_SLOTS,
-  STATE,
   type Star,
   type StarshipAgent,
   type StarshipAgentState,
+  STATE,
+  STATION_SLOTS,
+  STATIONS,
   updateAgent,
   WALKABLE_POLYGON,
   type WorkParticle,
+  type WorkstationConfig,
   type WorkstationCutout,
   WORKSTATIONS,
-  type WorkstationConfig,
   type WorkstationScreenRect,
 } from './starshipSimulation.js';
 
 export {
+  type AgentStatusBubble,
   applyCloudStatus,
   applySnapshotToAgents,
   ASSIGNED_WORKSTATIONS,
   type AssignedWorkstation,
-  type AgentStatusBubble,
   ATTENTION_POINTS,
   clampPointToPolygon,
   createInitialCrew,
@@ -88,8 +88,8 @@ export {
   isPointInPolygon,
   makeAgent,
   OFFLINE_POINTS,
-  pickStation,
   pickNewTarget,
+  pickStation,
   type Point2D,
   ROLE_GLOW_COLORS,
   ROLE_IDLE_SLOT_OFFSETS,
@@ -99,18 +99,18 @@ export {
   SHEET_COLS,
   SHEET_ROWS,
   SKINS,
-  STATIONS,
-  STATION_SLOTS,
-  STATE,
   type Star,
   type StarshipAgent,
   type StarshipAgentState,
+  STATE,
+  STATION_SLOTS,
+  STATIONS,
   updateAgent,
   WALKABLE_POLYGON,
   type WorkParticle,
+  type WorkstationConfig,
   type WorkstationCutout,
   WORKSTATIONS,
-  type WorkstationConfig,
   type WorkstationScreenRect,
 };
 
@@ -593,7 +593,12 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
           </div>
           {!rosterCollapsed && (
             <>
-              <div id="roster" className="starship-roster" role="list" aria-label="Ductor crew roster">
+              <div
+                id="roster"
+                className="starship-roster"
+                role="list"
+                aria-label="Ductor crew roster"
+              >
                 {agentsList.map((a) => {
                   const displayState = a.reportedState ?? a.state;
                   const badgeState = a.reportedState ?? a.state;

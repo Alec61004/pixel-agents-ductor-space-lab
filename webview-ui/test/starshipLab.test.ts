@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
+
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { test } from 'vitest';
 
+import type { DuctorStatusSnapshot } from '../src/ductor/ductorLabModel.js';
 import {
   applySnapshotToAgents,
   ASSIGNED_WORKSTATIONS,
@@ -32,14 +34,13 @@ import {
   ROLE_PARTICLE_ICONS,
   routeToPoint,
   SKINS,
-  STATIONS,
   StarshipLab,
   STATE,
+  STATIONS,
   updateAgent,
   WALKABLE_POLYGON,
   WORKSTATIONS,
 } from '../src/ductor/StarshipLab.js';
-import type { DuctorStatusSnapshot } from '../src/ductor/ductorLabModel.js';
 
 const snapshot: DuctorStatusSnapshot = {
   theme: 'ductor-space-lab',

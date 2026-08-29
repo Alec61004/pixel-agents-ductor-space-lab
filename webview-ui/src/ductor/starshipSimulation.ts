@@ -470,11 +470,11 @@ export function createInitialCrew(snapshot?: DuctorStatusSnapshot): StarshipAgen
       roleSnapshot?.state === 'offline';
     const effective = isOffline ? 'offline' : roleSnapshot?.state;
 
-    let x = 0;
-    let y = 0;
-    let stationIndex: number | null = null;
-    let currentStation = '';
-    let initialState: StarshipAgentState = STATE.WORKING;
+    let x!: number;
+    let y!: number;
+    let stationIndex!: number | null;
+    let currentStation!: string;
+    let initialState!: StarshipAgentState;
 
     if (effective === 'offline') {
       const pt = OFFLINE_POINTS[spec.name] ?? { x: 120, y: 620 };

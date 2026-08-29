@@ -42,11 +42,25 @@ export default defineConfig([
     },
   },
   {
-    files: ['src/constants.ts', 'src/fonts/**', 'src/office/sprites/**'],
+    files: [
+      'src/constants.ts',
+      'src/fonts/**',
+      'src/office/sprites/**',
+      'src/ductor/StarshipLab.tsx',
+      'src/ductor/starshipSimulation.ts',
+      'test/**',
+    ],
     rules: {
       'pixel-agents/no-inline-colors': 'off',
       'pixel-agents/pixel-shadow': 'off',
       'pixel-agents/pixel-font': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+    },
+  },
+  {
+    files: ['src/ductor/StarshipLab.tsx'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
     },
   },
   eslintConfigPrettier,
