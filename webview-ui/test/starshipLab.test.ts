@@ -1,10 +1,10 @@
-import assert from 'node:assert/strict';
+import assert from "node:assert/strict";
 
-import { createElement } from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
-import { test } from 'vitest';
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { test } from "vitest";
 
-import type { DuctorStatusSnapshot } from '../src/ductor/ductorLabModel.js';
+import type { DuctorStatusSnapshot } from "../src/ductor/ductorLabModel.js";
 import {
   applySnapshotToAgents,
   ASSIGNED_WORKSTATIONS,
@@ -41,61 +41,61 @@ import {
   WAITING_POINTS,
   WALKABLE_POLYGON,
   WORKSTATIONS,
-} from '../src/ductor/StarshipLab.js';
+} from "../src/ductor/StarshipLab.js";
 
 const snapshot: DuctorStatusSnapshot = {
-  theme: 'ductor-space-lab',
+  theme: "ductor-space-lab",
   roles: [
     {
-      name: 'Alec',
-      presence: 'online',
-      state: 'working',
-      taskLabel: 'Coordinate MVP',
-      updatedAt: '2026-08-22T05:30:00.000Z',
+      name: "Alec",
+      presence: "online",
+      state: "working",
+      taskLabel: "Coordinate MVP",
+      updatedAt: "2026-08-22T05:30:00.000Z",
       derived: false,
     },
     {
-      name: 'Kevin',
-      presence: 'online',
-      state: 'working',
-      taskLabel: 'Implement bridge',
-      updatedAt: '2026-08-22T05:30:00.000Z',
+      name: "Kevin",
+      presence: "online",
+      state: "working",
+      taskLabel: "Implement bridge",
+      updatedAt: "2026-08-22T05:30:00.000Z",
       derived: false,
     },
     {
-      name: 'Benjamin',
-      presence: 'online',
-      state: 'review',
-      taskLabel: 'Review contract',
-      updatedAt: '2026-08-22T05:30:00.000Z',
+      name: "Benjamin",
+      presence: "online",
+      state: "review",
+      taskLabel: "Review contract",
+      updatedAt: "2026-08-22T05:30:00.000Z",
       derived: false,
     },
   ],
 };
 
-test('renders StarshipLab without crashing with 2 canvases and 3 agents', () => {
+test("renders StarshipLab without crashing with 2 canvases and 3 agents", () => {
   const markup = renderToStaticMarkup(createElement(StarshipLab, { snapshot }));
 
   assert.match(markup, /data-starship-lab="true"/);
   assert.match(markup, /id="stage"/);
   assert.match(markup, /id="stars"/);
-  assert.match(markup, /STARSHIP AGENTS/);
+  assert.match(markup, /DUCTOR SPACE LAB/);
   assert.match(markup, /Alec/);
   assert.match(markup, /Kevin/);
   assert.match(markup, /Benjamin/);
   assert.match(markup, /Coordinate MVP/);
-  assert.match(markup, /Nebula Sentinel/);
-  assert.match(markup, /Void Recon Unit/);
-  assert.match(markup, /Crimson Hunter-Class/);
+  assert.match(markup, /Strategy/);
+  assert.match(markup, /Build/);
+  assert.match(markup, /QA/);
 });
 
-test('spawns exactly 3 initial agents with distinct skins matching Alec, Kevin, Benjamin', () => {
+test("spawns exactly 3 initial agents with distinct skins matching Alec, Kevin, Benjamin", () => {
   const crew = createInitialCrew(snapshot);
   assert.equal(crew.length, 3);
 
-  const alec = crew.find((a) => a.name === 'Alec');
-  const kevin = crew.find((a) => a.name === 'Kevin');
-  const benjamin = crew.find((a) => a.name === 'Benjamin');
+  const alec = crew.find((a) => a.name === "Alec");
+  const kevin = crew.find((a) => a.name === "Kevin");
+  const benjamin = crew.find((a) => a.name === "Benjamin");
 
   assert.ok(alec);
   assert.ok(kevin);
@@ -106,7 +106,7 @@ test('spawns exactly 3 initial agents with distinct skins matching Alec, Kevin, 
   assert.equal(benjamin.skin.row, 0); // Crimson Hunter-Class
 });
 
-test('has 8 design stations and supports least-occupied pickStation', () => {
+test("has 8 design stations and supports least-occupied pickStation", () => {
   assert.equal(STATIONS.length, 8);
   const crew = createInitialCrew(snapshot);
 
@@ -115,7 +115,7 @@ test('has 8 design stations and supports least-occupied pickStation', () => {
   assert.ok(slot);
 });
 
-test('state machine transitions MOVING -> WORKING on arrival and handles routeToPoint', () => {
+test("state machine transitions MOVING -> WORKING on arrival and handles routeToPoint", () => {
   const crew = createInitialCrew(snapshot);
   const agent = crew[0];
 
@@ -133,41 +133,41 @@ test('state machine transitions MOVING -> WORKING on arrival and handles routeTo
   assert.ok(agent.stateTimer > 0);
 });
 
-test('maps live status snapshot roles to respective states: working, idle, blocked, offline', () => {
+test("maps live status snapshot roles to respective states: working, idle, blocked, offline", () => {
   const mixedSnapshot: DuctorStatusSnapshot = {
-    theme: 'ductor-space-lab',
+    theme: "ductor-space-lab",
     roles: [
       {
-        name: 'Alec',
-        presence: 'online',
-        state: 'idle',
-        taskLabel: 'Standby',
-        updatedAt: '2026-08-22T05:30:00.000Z',
+        name: "Alec",
+        presence: "online",
+        state: "idle",
+        taskLabel: "Standby",
+        updatedAt: "2026-08-22T05:30:00.000Z",
         derived: false,
       },
       {
-        name: 'Kevin',
-        presence: 'online',
-        state: 'blocked',
-        taskLabel: 'Need API key',
-        updatedAt: '2026-08-22T05:30:00.000Z',
+        name: "Kevin",
+        presence: "online",
+        state: "blocked",
+        taskLabel: "Need API key",
+        updatedAt: "2026-08-22T05:30:00.000Z",
         derived: false,
       },
       {
-        name: 'Benjamin',
-        presence: 'offline',
-        state: 'offline',
+        name: "Benjamin",
+        presence: "offline",
+        state: "offline",
         taskLabel: null,
-        updatedAt: '2026-08-22T05:30:00.000Z',
+        updatedAt: "2026-08-22T05:30:00.000Z",
         derived: true,
       },
     ],
   };
 
   const crew = createInitialCrew(mixedSnapshot);
-  const alec = crew.find((a) => a.name === 'Alec')!;
-  const kevin = crew.find((a) => a.name === 'Kevin')!;
-  const benjamin = crew.find((a) => a.name === 'Benjamin')!;
+  const alec = crew.find((a) => a.name === "Alec")!;
+  const kevin = crew.find((a) => a.name === "Kevin")!;
+  const benjamin = crew.find((a) => a.name === "Benjamin")!;
 
   assert.equal(alec.state, STATE.IDLE);
   assert.equal(alec.x, IDLE_POINTS.Alec.x);
@@ -182,13 +182,13 @@ test('maps live status snapshot roles to respective states: working, idle, block
   assert.equal(benjamin.y, OFFLINE_POINTS.Benjamin.y);
 });
 
-test('keeps waiting agents at their hold points with a truthful waiting bubble', () => {
+test("keeps waiting agents at their hold points with a truthful waiting bubble", () => {
   const waitingSnapshot: DuctorStatusSnapshot = {
     ...snapshot,
     roles: snapshot.roles.map((role) => ({
       ...role,
-      state: 'waiting',
-      taskLabel: 'Awaiting next instruction',
+      state: "waiting",
+      taskLabel: "Awaiting next instruction",
     })),
   };
 
@@ -199,8 +199,7 @@ test('keeps waiting agents at their hold points with a truthful waiting bubble',
     assert.deepEqual({ x: agent.x, y: agent.y }, point);
 
     const bubble = getAgentStatusBubble(agent);
-    assert.equal(bubble.lines[0], WORKSTATIONS[agent.name].label);
-    assert.equal(bubble.lines[1], '⏳ waiting');
+    assert.deepEqual(bubble.lines, [`${agent.name.toUpperCase()}  ·  WAITING`]);
 
     const before = { x: agent.x, y: agent.y };
     updateAgent(agent, 5, 1, crew);
@@ -209,9 +208,9 @@ test('keeps waiting agents at their hold points with a truthful waiting bubble',
   }
 });
 
-test('applies live snapshot transitions dynamically to active crew', () => {
+test("applies live snapshot transitions dynamically to active crew", () => {
   const crew = createInitialCrew(snapshot);
-  const kevin = crew.find((a) => a.name === 'Kevin')!;
+  const kevin = crew.find((a) => a.name === "Kevin")!;
   assert.equal(kevin.state, STATE.WORKING);
 
   // Transition Kevin to blocked
@@ -220,11 +219,11 @@ test('applies live snapshot transitions dynamically to active crew', () => {
     roles: [
       snapshot.roles[0]!,
       {
-        name: 'Kevin',
-        presence: 'online',
-        state: 'blocked',
-        taskLabel: 'Waiting for permission',
-        updatedAt: '2026-08-22T05:35:00.000Z',
+        name: "Kevin",
+        presence: "online",
+        state: "blocked",
+        taskLabel: "Waiting for permission",
+        updatedAt: "2026-08-22T05:35:00.000Z",
         derived: false,
       },
       snapshot.roles[2]!,
@@ -232,7 +231,7 @@ test('applies live snapshot transitions dynamically to active crew', () => {
   };
 
   applySnapshotToAgents(crew, blockedSnapshot);
-  assert.equal(kevin.reportedState, 'blocked');
+  assert.equal(kevin.reportedState, "blocked");
   assert.equal(kevin.targetX, ATTENTION_POINTS.Kevin.x);
   assert.equal(kevin.targetY, ATTENTION_POINTS.Kevin.y);
   assert.equal(kevin.state, STATE.MOVING);
@@ -244,7 +243,7 @@ test('applies live snapshot transitions dynamically to active crew', () => {
   assert.equal(kevin.state, STATE.BLOCKED);
 });
 
-test('falls back cleanly to random behavior when snapshot is missing or disconnected without crash', () => {
+test("falls back cleanly to random behavior when snapshot is missing or disconnected without crash", () => {
   const crew = createInitialCrew(undefined);
   assert.equal(crew.length, 3);
   for (const a of crew) {
@@ -260,50 +259,82 @@ test('falls back cleanly to random behavior when snapshot is missing or disconne
   }
 });
 
-test('renders live status badges in roster matching snapshot roles', () => {
+test("renders compact live crew pills matching snapshot roles", () => {
   const markup = renderToStaticMarkup(createElement(StarshipLab, { snapshot }));
 
-  assert.match(markup, /<div class="starship-badge badge working">\s*WORKING\s*<\/div>/);
-  assert.match(markup, /<div class="starship-badge badge review">\s*REVIEW\s*<\/div>/);
+  assert.match(markup, /class="starship-crew-pill working"/);
+  assert.match(markup, /class="starship-crew-pill review"/);
+  assert.match(markup, /class="starship-crew-state">working<\/span>/);
+  assert.match(markup, /class="starship-crew-state">review<\/span>/);
 });
 
-test('shows the reported task beside each live roster status', () => {
+test("shows the reported task beside each live roster status", () => {
   const markup = renderToStaticMarkup(createElement(StarshipLab, { snapshot }));
 
-  assert.match(markup, /class="starship-task"[^>]*>Coordinate MVP<\/div>/);
-  assert.match(markup, /class="starship-task"[^>]*>Implement bridge<\/div>/);
-  assert.match(markup, /class="starship-task"[^>]*>Review contract<\/div>/);
+  assert.match(markup, /title="Coordinate MVP"/);
+  assert.match(markup, /title="Implement bridge"/);
+  assert.match(markup, /title="Review contract"/);
 });
 
-test('defines 3 fixed workstations (Alec, Kevin, Benjamin) with correct labels and coordinates within walkable polygon', () => {
+test("defines 3 fixed workstations (Alec, Kevin, Benjamin) with correct labels and coordinates within walkable polygon", () => {
   assert.ok(WORKSTATIONS.Alec);
   assert.ok(WORKSTATIONS.Kevin);
   assert.ok(WORKSTATIONS.Benjamin);
 
-  // Exact data from specification V1.9 desk occlusion
-  assert.deepEqual(WORKSTATIONS.Alec.walkPoint, { x: 425, y: 580 });
-  assert.equal(WORKSTATIONS.Alec.facing, 'front');
-  assert.deepEqual(WORKSTATIONS.Alec.screenRect, { x: 312, y: 537, w: 225, h: 94 });
-  assert.deepEqual(WORKSTATIONS.Alec.deskCutout, { x: 312, y: 537, w: 225, h: 94 });
-  assert.equal(WORKSTATIONS.Alec.label, 'Alec — Strategy');
+  // Calibrated against the painted furniture in the 1600×678 deck image.
+  assert.deepEqual(WORKSTATIONS.Alec.walkPoint, { x: 558, y: 585 });
+  assert.equal(WORKSTATIONS.Alec.facing, "front");
+  assert.deepEqual(WORKSTATIONS.Alec.screenRect, {
+    x: 500,
+    y: 515,
+    w: 118,
+    h: 78,
+  });
+  assert.deepEqual(WORKSTATIONS.Alec.deskCutout, {
+    x: 500,
+    y: 545,
+    w: 118,
+    h: 82,
+  });
+  assert.equal(WORKSTATIONS.Alec.label, "Alec — Strategy");
 
   assert.deepEqual(WORKSTATIONS.Kevin.walkPoint, { x: 480, y: 495 });
-  assert.equal(WORKSTATIONS.Kevin.facing, 'back');
-  assert.deepEqual(WORKSTATIONS.Kevin.screenRect, { x: 412, y: 412, w: 140, h: 82 });
-  assert.deepEqual(WORKSTATIONS.Kevin.deskCutout, { x: 250, y: 450, w: 450, h: 80 });
-  assert.equal(WORKSTATIONS.Kevin.label, 'Kevin — Build');
+  assert.equal(WORKSTATIONS.Kevin.facing, "back");
+  assert.deepEqual(WORKSTATIONS.Kevin.screenRect, {
+    x: 399,
+    y: 405,
+    w: 176,
+    h: 54,
+  });
+  assert.deepEqual(WORKSTATIONS.Kevin.deskCutout, {
+    x: 376,
+    y: 454,
+    w: 210,
+    h: 72,
+  });
+  assert.equal(WORKSTATIONS.Kevin.label, "Kevin — Build");
 
   assert.deepEqual(WORKSTATIONS.Benjamin.walkPoint, { x: 1080, y: 595 });
-  assert.equal(WORKSTATIONS.Benjamin.facing, 'back');
-  assert.deepEqual(WORKSTATIONS.Benjamin.screenRect, { x: 987, y: 556, w: 213, h: 63 });
-  assert.deepEqual(WORKSTATIONS.Benjamin.deskCutout, { x: 987, y: 556, w: 213, h: 80 });
-  assert.equal(WORKSTATIONS.Benjamin.label, 'Benjamin — QA');
+  assert.equal(WORKSTATIONS.Benjamin.facing, "back");
+  assert.deepEqual(WORKSTATIONS.Benjamin.screenRect, {
+    x: 1024,
+    y: 548,
+    w: 112,
+    h: 42,
+  });
+  assert.deepEqual(WORKSTATIONS.Benjamin.deskCutout, {
+    x: 998,
+    y: 566,
+    w: 176,
+    h: 70,
+  });
+  assert.equal(WORKSTATIONS.Benjamin.label, "Benjamin — QA");
 
-  assert.equal(typeof drawWorkstationLabels, 'function');
-  assert.equal(typeof drawWorkstationScreens, 'function');
-  assert.equal(typeof drawDeskCutouts, 'function');
-  assert.equal(typeof drawHologramTopGlow, 'function');
-  assert.equal(typeof drawFloorMarkers, 'function');
+  assert.equal(typeof drawWorkstationLabels, "function");
+  assert.equal(typeof drawWorkstationScreens, "function");
+  assert.equal(typeof drawDeskCutouts, "function");
+  assert.equal(typeof drawHologramTopGlow, "function");
+  assert.equal(typeof drawFloorMarkers, "function");
 
   // Walk points must be inside deskCutout y range for desk occlusion
   assert.ok(
@@ -323,43 +354,52 @@ test('defines 3 fixed workstations (Alec, Kevin, Benjamin) with correct labels a
   );
 
   // Walk points must be inside walkable polygon
-  assert.equal(isPointInPolygon(WORKSTATIONS.Alec.walkPoint, WALKABLE_POLYGON), true);
-  assert.equal(isPointInPolygon(WORKSTATIONS.Kevin.walkPoint, WALKABLE_POLYGON), true);
-  assert.equal(isPointInPolygon(WORKSTATIONS.Benjamin.walkPoint, WALKABLE_POLYGON), true);
+  assert.equal(
+    isPointInPolygon(WORKSTATIONS.Alec.walkPoint, WALKABLE_POLYGON),
+    true,
+  );
+  assert.equal(
+    isPointInPolygon(WORKSTATIONS.Kevin.walkPoint, WALKABLE_POLYGON),
+    true,
+  );
+  assert.equal(
+    isPointInPolygon(WORKSTATIONS.Benjamin.walkPoint, WALKABLE_POLYGON),
+    true,
+  );
 });
 
-test('agent working state positions agent at their own assigned workstation seatPoint and facing matches workstation config', () => {
+test("agent working state positions agent at their own assigned workstation seatPoint and facing matches workstation config", () => {
   const crew = createInitialCrew(snapshot);
-  const alec = crew.find((a) => a.name === 'Alec')!;
-  const kevin = crew.find((a) => a.name === 'Kevin')!;
-  const benjamin = crew.find((a) => a.name === 'Benjamin')!;
+  const alec = crew.find((a) => a.name === "Alec")!;
+  const kevin = crew.find((a) => a.name === "Kevin")!;
+  const benjamin = crew.find((a) => a.name === "Benjamin")!;
 
   // Alec must be at Alec's desk seatPoint facing front
   assert.equal(alec.x, WORKSTATIONS.Alec.seatPoint.x);
   assert.equal(alec.y, WORKSTATIONS.Alec.seatPoint.y);
-  assert.equal(alec.facing, 'front');
-  assert.equal(alec.currentStation, 'Alec — Strategy');
+  assert.equal(alec.facing, "front");
+  assert.equal(alec.currentStation, "Alec — Strategy");
   assert.notEqual(alec.x, WORKSTATIONS.Kevin.seatPoint.x);
   assert.notEqual(alec.x, WORKSTATIONS.Benjamin.seatPoint.x);
 
   // Kevin must be at Kevin's desk seatPoint facing back
   assert.equal(kevin.x, WORKSTATIONS.Kevin.seatPoint.x);
   assert.equal(kevin.y, WORKSTATIONS.Kevin.seatPoint.y);
-  assert.equal(kevin.facing, 'back');
-  assert.equal(kevin.currentStation, 'Kevin — Build');
+  assert.equal(kevin.facing, "back");
+  assert.equal(kevin.currentStation, "Kevin — Build");
   assert.notEqual(kevin.x, WORKSTATIONS.Alec.seatPoint.x);
   assert.notEqual(kevin.x, WORKSTATIONS.Benjamin.seatPoint.x);
 
   // Benjamin must be at Benjamin's desk seatPoint facing back
   assert.equal(benjamin.x, WORKSTATIONS.Benjamin.seatPoint.x);
   assert.equal(benjamin.y, WORKSTATIONS.Benjamin.seatPoint.y);
-  assert.equal(benjamin.facing, 'back');
-  assert.equal(benjamin.currentStation, 'Benjamin — QA');
+  assert.equal(benjamin.facing, "back");
+  assert.equal(benjamin.currentStation, "Benjamin — QA");
   assert.notEqual(benjamin.x, WORKSTATIONS.Alec.seatPoint.x);
   assert.notEqual(benjamin.x, WORKSTATIONS.Kevin.seatPoint.x);
 });
 
-test('simulation 10-second run: idle/demo crew changes position at least 2 times and changes state at least 1 time (fails if agents stand still)', () => {
+test("simulation 10-second run: idle/demo crew changes position at least 2 times and changes state at least 1 time (fails if agents stand still)", () => {
   const demoCrew = createInitialCrew(undefined);
   const positionChangeCounts = new Map<string, number>();
   const stateChangeCounts = new Map<string, number>();
@@ -411,7 +451,7 @@ test('simulation 10-second run: idle/demo crew changes position at least 2 times
   }
 });
 
-test('point-in-polygon correctly distinguishes walkable floor points from out-of-bound areas', () => {
+test("point-in-polygon correctly distinguishes walkable floor points from out-of-bound areas", () => {
   // Points on the walkable floor
   assert.equal(isPointInPolygon({ x: 800, y: 560 }, WALKABLE_POLYGON), true);
   assert.equal(isPointInPolygon({ x: 430, y: 600 }, WALKABLE_POLYGON), true);
@@ -426,7 +466,7 @@ test('point-in-polygon correctly distinguishes walkable floor points from out-of
   assert.equal(isPointInPolygon({ x: 1800, y: 560 }, WALKABLE_POLYGON), false); // right out-of-bounds
 });
 
-test('clampPointToPolygon preserves interior points and projects outside points onto walkable polygon', () => {
+test("clampPointToPolygon preserves interior points and projects outside points onto walkable polygon", () => {
   // Interior point remains unchanged
   const insidePt = { x: 700, y: 550 };
   const clampedInside = clampPointToPolygon(insidePt, WALKABLE_POLYGON);
@@ -452,7 +492,7 @@ test('clampPointToPolygon preserves interior points and projects outside points 
   assert.ok(clampedLeft.x >= 49.9 && clampedLeft.x <= 51);
 });
 
-test('getDepthScale calculates linear depth scaling between rear wall ~0.8 and front edge ~1.1', () => {
+test("getDepthScale calculates linear depth scaling between rear wall ~0.8 and front edge ~1.1", () => {
   // Min Y (rear wall) -> 0.8
   const rearScale = getDepthScale(FLOOR_Y_MIN);
   assert.equal(rearScale, DEPTH_SCALE_MIN);
@@ -480,7 +520,7 @@ test('getDepthScale calculates linear depth scaling between rear wall ~0.8 and f
   assert.ok(getDepthScale(600) < getDepthScale(650));
 });
 
-test('agents stepping outside walkable floor are clamped to walkable polygon during movement', () => {
+test("agents stepping outside walkable floor are clamped to walkable polygon during movement", () => {
   const crew = createInitialCrew(snapshot);
   const agent = crew[0];
 
@@ -503,17 +543,17 @@ test('agents stepping outside walkable floor are clamped to walkable polygon dur
   }
 });
 
-test('defines role glow colors for Alec (#c98bff), Kevin (#5ce1ff), and Benjamin (#ff5c5c)', () => {
-  assert.equal(ROLE_GLOW_COLORS.Alec, '#c98bff');
-  assert.equal(ROLE_GLOW_COLORS.Kevin, '#5ce1ff');
-  assert.equal(ROLE_GLOW_COLORS.Benjamin, '#ff5c5c');
+test("defines role glow colors for Alec (#c98bff), Kevin (#5ce1ff), and Benjamin (#ff5c5c)", () => {
+  assert.equal(ROLE_GLOW_COLORS.Alec, "#c98bff");
+  assert.equal(ROLE_GLOW_COLORS.Kevin, "#5ce1ff");
+  assert.equal(ROLE_GLOW_COLORS.Benjamin, "#ff5c5c");
 });
 
-test('makeAgent defaults flash to 1 when undefined and updateAgent never drops flash below 1', () => {
+test("makeAgent defaults flash to 1 when undefined and updateAgent never drops flash below 1", () => {
   const agent = makeAgent({
-    id: 'Kevin',
-    name: 'Kevin',
-    role: 'Builder',
+    id: "Kevin",
+    name: "Kevin",
+    role: "Builder",
     skin: SKINS[2],
     x: 500,
     y: 500,
@@ -537,25 +577,25 @@ test('makeAgent defaults flash to 1 when undefined and updateAgent never drops f
   assert.equal(agent.flash, 1.0);
 });
 
-test('drawAgent disables imageSmoothingEnabled, sets role shadowColor rim glow, and executes lighter boost pass', () => {
+test("drawAgent disables imageSmoothingEnabled, sets role shadowColor rim glow, and executes lighter boost pass", () => {
   const crew = createInitialCrew(snapshot);
-  const kevin = crew.find((a) => a.name === 'Kevin')!;
+  const kevin = crew.find((a) => a.name === "Kevin")!;
 
   const drawCalls: any[] = [];
   const operations: string[] = [];
 
   const mockCtx = {
-    save: () => operations.push('save'),
-    restore: () => operations.push('restore'),
-    translate: () => operations.push('translate'),
-    scale: () => operations.push('scale'),
-    beginPath: () => operations.push('beginPath'),
-    roundRect: () => operations.push('roundRect'),
-    rect: () => operations.push('rect'),
-    ellipse: () => operations.push('ellipse'),
-    fill: () => operations.push('fill'),
-    stroke: () => operations.push('stroke'),
-    fillText: () => operations.push('fillText'),
+    save: () => operations.push("save"),
+    restore: () => operations.push("restore"),
+    translate: () => operations.push("translate"),
+    scale: () => operations.push("scale"),
+    beginPath: () => operations.push("beginPath"),
+    roundRect: () => operations.push("roundRect"),
+    rect: () => operations.push("rect"),
+    ellipse: () => operations.push("ellipse"),
+    fill: () => operations.push("fill"),
+    stroke: () => operations.push("stroke"),
+    fillText: () => operations.push("fillText"),
     drawImage: (...args: any[]) => {
       drawCalls.push({
         args,
@@ -565,17 +605,17 @@ test('drawAgent disables imageSmoothingEnabled, sets role shadowColor rim glow, 
         globalCompositeOperation: mockCtx.globalCompositeOperation,
         globalAlpha: mockCtx.globalAlpha,
       });
-      operations.push('drawImage');
+      operations.push("drawImage");
     },
     imageSmoothingEnabled: true,
-    shadowColor: '',
+    shadowColor: "",
     shadowBlur: 0,
-    globalCompositeOperation: 'source-over',
+    globalCompositeOperation: "source-over",
     globalAlpha: 1.0,
-    font: '',
-    textAlign: '',
-    fillStyle: '',
-    strokeStyle: '',
+    font: "",
+    textAlign: "",
+    fillStyle: "",
+    strokeStyle: "",
     lineWidth: 1,
   } as unknown as CanvasRenderingContext2D;
 
@@ -586,91 +626,91 @@ test('drawAgent disables imageSmoothingEnabled, sets role shadowColor rim glow, 
   // Must have executed at least 2 drawImage passes (base + lighter brightness boost)
   assert.ok(drawCalls.length >= 2);
 
-  // First sprite draw: pixel smoothing disabled, rim glow with role color, shadowBlur = 8
+  // First sprite draw: pixel smoothing disabled with a restrained role rim glow.
   const basePass = drawCalls[0];
   assert.equal(basePass.imageSmoothingEnabled, false);
-  assert.equal(basePass.shadowColor, '#5ce1ff');
-  assert.equal(basePass.shadowBlur, 8);
+  assert.equal(basePass.shadowColor, "#5ce1ff");
+  assert.equal(basePass.shadowBlur, 3);
 
-  // Second sprite draw: lighter composite mode with alpha 0.22 to boost sprite brightness
+  // Second sprite draw: subtle lighter pass keeps the sprite integrated with the room.
   const boostPass = drawCalls[1];
-  assert.equal(boostPass.globalCompositeOperation, 'lighter');
-  assert.equal(boostPass.globalAlpha, 0.22);
+  assert.equal(boostPass.globalCompositeOperation, "lighter");
+  assert.equal(boostPass.globalAlpha, 0.12);
 });
 
-test('getAgentStatusBubble generates correct text and role colors for working, idle, blocked, and offline states', () => {
+test("getAgentStatusBubble generates correct text and role colors for working, idle, blocked, and offline states", () => {
   const alec = makeAgent({
-    id: 'Alec',
-    name: 'Alec',
-    role: 'Planner',
+    id: "Alec",
+    name: "Alec",
+    role: "Planner",
     skin: SKINS[4],
     x: 480,
     y: 505,
     state: STATE.WORKING,
   });
   const kevin = makeAgent({
-    id: 'Kevin',
-    name: 'Kevin',
-    role: 'Builder',
+    id: "Kevin",
+    name: "Kevin",
+    role: "Builder",
     skin: SKINS[2],
     x: 920,
     y: 535,
     state: STATE.WORKING,
   });
   const benjamin = makeAgent({
-    id: 'Benjamin',
-    name: 'Benjamin',
-    role: 'QA',
+    id: "Benjamin",
+    name: "Benjamin",
+    role: "QA",
     skin: SKINS[0],
     x: 1240,
     y: 520,
     state: STATE.WORKING,
   });
 
-  // Working state - name always shows in line 1, status in line 2
+  // The in-world label is deliberately compact so it does not cover equipment.
   const alecBubble = getAgentStatusBubble(alec);
-  assert.equal(alecBubble.text, 'Alec — Strategy\n⚙ đang làm việc');
-  assert.equal(alecBubble.color, '#c98bff');
-  assert.equal(alecBubble.borderColor, '#c98bff');
+  assert.equal(alecBubble.text, "ALEC  ·  WORKING");
+  assert.equal(alecBubble.color, "#c98bff");
+  assert.equal(alecBubble.borderColor, "#c98bff");
 
   const kevinBubble = getAgentStatusBubble(kevin);
-  assert.equal(kevinBubble.text, 'Kevin — Build\n⚙ đang làm việc');
-  assert.equal(kevinBubble.color, '#5ce1ff');
-  assert.equal(kevinBubble.borderColor, '#5ce1ff');
+  assert.equal(kevinBubble.text, "KEVIN  ·  WORKING");
+  assert.equal(kevinBubble.color, "#5ce1ff");
+  assert.equal(kevinBubble.borderColor, "#5ce1ff");
 
   const benjaminBubble = getAgentStatusBubble(benjamin);
-  assert.equal(benjaminBubble.text, 'Benjamin — QA\n⚙ đang làm việc');
-  assert.equal(benjaminBubble.color, '#ff5c5c');
-  assert.equal(benjaminBubble.borderColor, '#ff5c5c');
+  assert.equal(benjaminBubble.text, "BENJAMIN  ·  WORKING");
+  assert.equal(benjaminBubble.color, "#ff5c5c");
+  assert.equal(benjaminBubble.borderColor, "#ff5c5c");
 
   // Idle state - name always shows in line 1
   alec.state = STATE.IDLE;
-  alec.reportedState = 'idle';
+  alec.reportedState = "idle";
   const idleBubble = getAgentStatusBubble(alec);
-  assert.equal(idleBubble.text, 'Alec — Strategy\n💤 idle');
+  assert.equal(idleBubble.text, "ALEC  ·  IDLE");
 
   // Offline state - name always shows in line 1
   kevin.state = STATE.OFFLINE;
-  kevin.reportedState = 'offline';
+  kevin.reportedState = "offline";
   const offlineBubble = getAgentStatusBubble(kevin);
-  assert.equal(offlineBubble.text, 'Kevin — Build\n⚫ offline');
+  assert.equal(offlineBubble.text, "KEVIN  ·  OFFLINE");
 
   // Blocked state - name always shows in line 1
   benjamin.state = STATE.BLOCKED;
-  benjamin.reportedState = 'blocked';
+  benjamin.reportedState = "blocked";
   const blockedBubble = getAgentStatusBubble(benjamin);
-  assert.equal(blockedBubble.text, 'Benjamin — QA\n⚠️ blocked');
+  assert.equal(blockedBubble.text, "BENJAMIN  ·  BLOCKED");
 });
 
-test('work particles spawn every ~0.9s for working agents with role-specific icons and float upward', () => {
+test("work particles spawn every ~0.9s for working agents with role-specific icons and float upward", () => {
   const crew = createInitialCrew(snapshot);
-  const alec = crew.find((a) => a.name === 'Alec')!;
-  const kevin = crew.find((a) => a.name === 'Kevin')!;
-  const benjamin = crew.find((a) => a.name === 'Benjamin')!;
+  const alec = crew.find((a) => a.name === "Alec")!;
+  const kevin = crew.find((a) => a.name === "Kevin")!;
+  const benjamin = crew.find((a) => a.name === "Benjamin")!;
 
-  assert.equal(ROLE_PARTICLE_ICONS.Alec, '⌨');
-  assert.equal(ROLE_PARTICLE_ICONS.Kevin, '</>');
-  assert.equal(ROLE_PARTICLE_ICONS.Benjamin, '✓');
+  assert.equal(ROLE_PARTICLE_ICONS.Alec, "✦");
+  assert.equal(ROLE_PARTICLE_ICONS.Kevin, "</>");
+  assert.equal(ROLE_PARTICLE_ICONS.Benjamin, "✓");
 
   // Initial state: no particles
   assert.equal(alec.particles?.length ?? 0, 0);
@@ -683,36 +723,36 @@ test('work particles spawn every ~0.9s for working agents with role-specific ico
   updateAgent(alec, 0.5, 1, crew);
   assert.equal(alec.particles?.length, 1);
   const p1 = alec.particles![0]!;
-  assert.equal(p1.icon, '⌨');
-  assert.equal(p1.color, '#c98bff');
+  assert.equal(p1.icon, "✦");
+  assert.equal(p1.color, "#c98bff");
   assert.ok(p1.vy < 0); // upward velocity
 
   // Test Kevin code particle
   updateAgent(kevin, 1.0, 1, crew);
   assert.equal(kevin.particles?.length, 1);
   const kp = kevin.particles![0]!;
-  assert.equal(kp.icon, '</>');
-  assert.equal(kp.color, '#5ce1ff');
+  assert.equal(kp.icon, "</>");
+  assert.equal(kp.color, "#5ce1ff");
 
   // Test Benjamin check particle
   updateAgent(benjamin, 1.0, 1, crew);
   assert.equal(benjamin.particles?.length, 1);
   const bp = benjamin.particles![0]!;
-  assert.equal(bp.icon, '✓');
-  assert.equal(bp.color, '#ff5c5c');
+  assert.equal(bp.icon, "✓");
+  assert.equal(bp.color, "#ff5c5c");
 
   // Particles float upward and decay over time
   const initialY = p1.y;
   updateAgent(alec, 0.3, 1, crew);
-  assert.ok(p1.y < initialY, 'Particle must move upwards (y decreases)');
-  assert.ok(p1.alpha < 1, 'Particle alpha must decay');
+  assert.ok(p1.y < initialY, "Particle must move upwards (y decreases)");
+  assert.ok(p1.alpha < 1, "Particle alpha must decay");
 });
 
-test('working agent faces into desk/station according to assigned workstation config', () => {
+test("working agent faces into desk/station according to assigned workstation config", () => {
   const crew = createInitialCrew(snapshot);
-  const alec = crew.find((a) => a.name === 'Alec')!;
-  const kevin = crew.find((a) => a.name === 'Kevin')!;
-  const benjamin = crew.find((a) => a.name === 'Benjamin')!;
+  const alec = crew.find((a) => a.name === "Alec")!;
+  const kevin = crew.find((a) => a.name === "Kevin")!;
+  const benjamin = crew.find((a) => a.name === "Benjamin")!;
 
   assert.equal(alec.facing, ASSIGNED_WORKSTATIONS.Alec.facing);
   assert.equal(kevin.facing, ASSIGNED_WORKSTATIONS.Kevin.facing);
@@ -724,61 +764,61 @@ test('working agent faces into desk/station according to assigned workstation co
   assert.equal(alec.facing, ASSIGNED_WORKSTATIONS.Alec.facing);
 });
 
-test('drawAgentStatusBubble and drawWorkParticles execute without errors on 2D context', () => {
+test("drawAgentStatusBubble and drawWorkParticles execute without errors on 2D context", () => {
   const crew = createInitialCrew(snapshot);
-  const kevin = crew.find((a) => a.name === 'Kevin')!;
+  const kevin = crew.find((a) => a.name === "Kevin")!;
 
   // Spawn a particle
   updateAgent(kevin, 1.0, 1, crew);
 
   const operations: string[] = [];
   const mockCtx = {
-    save: () => operations.push('save'),
-    restore: () => operations.push('restore'),
-    beginPath: () => operations.push('beginPath'),
-    roundRect: () => operations.push('roundRect'),
-    rect: () => operations.push('rect'),
-    fill: () => operations.push('fill'),
-    stroke: () => operations.push('stroke'),
-    fillText: () => operations.push('fillText'),
+    save: () => operations.push("save"),
+    restore: () => operations.push("restore"),
+    beginPath: () => operations.push("beginPath"),
+    roundRect: () => operations.push("roundRect"),
+    rect: () => operations.push("rect"),
+    fill: () => operations.push("fill"),
+    stroke: () => operations.push("stroke"),
+    fillText: () => operations.push("fillText"),
     measureText: (txt: string) => ({ width: txt.length * 6 }),
-    font: '',
-    textAlign: '',
-    textBaseline: '',
-    fillStyle: '',
-    strokeStyle: '',
+    font: "",
+    textAlign: "",
+    textBaseline: "",
+    fillStyle: "",
+    strokeStyle: "",
     lineWidth: 1,
-    shadowColor: '',
+    shadowColor: "",
     shadowBlur: 0,
     globalAlpha: 1,
   } as unknown as CanvasRenderingContext2D;
 
   drawAgentStatusBubble(mockCtx, kevin, 80, 0);
-  assert.ok(operations.includes('fillText'));
-  assert.ok(operations.includes('stroke'));
+  assert.ok(operations.includes("fillText"));
+  assert.ok(operations.includes("stroke"));
 
   drawWorkParticles(mockCtx, kevin);
-  assert.ok(operations.filter((op) => op === 'fillText').length >= 2);
+  assert.ok(operations.filter((op) => op === "fillText").length >= 2);
 });
 
-test('render snapshot contains status text bubbles in markup', () => {
+test("render snapshot contains status text bubbles in markup", () => {
   const markup = renderToStaticMarkup(createElement(StarshipLab, { snapshot }));
 
-  // Markup must include status text bubbles for agents (name in line 1, status in line 2)
-  assert.match(markup, /Alec — Strategy/);
-  assert.match(markup, /Kevin — Build/);
-  assert.match(markup, /Benjamin — QA/);
-  assert.match(markup, /đang làm việc/);
+  assert.match(markup, /ALEC  ·  WORKING/);
+  assert.match(markup, /KEVIN  ·  WORKING/);
+  assert.match(markup, /BENJAMIN  ·  REVIEWING/);
 });
 
-test('2 working agents do not share coordinates with distance > 20px', () => {
+test("2 working agents do not share coordinates with distance > 20px", () => {
   const crew = createInitialCrew(snapshot);
   const workingAgents = crew.filter(
     (a) =>
-      a.state === STATE.WORKING || a.reportedState === 'working' || a.reportedState === 'review',
+      a.state === STATE.WORKING ||
+      a.reportedState === "working" ||
+      a.reportedState === "review",
   );
 
-  assert.ok(workingAgents.length >= 2, 'Must have at least 2 working agents');
+  assert.ok(workingAgents.length >= 2, "Must have at least 2 working agents");
 
   for (let i = 0; i < workingAgents.length; i++) {
     for (let j = i + 1; j < workingAgents.length; j++) {
@@ -793,10 +833,10 @@ test('2 working agents do not share coordinates with distance > 20px', () => {
   }
 });
 
-test('drawAgent selects front-idle frames for Alec (facing front) and back-idle frames for Kevin/Benjamin (facing back) with 8Hz typing bob', () => {
+test("drawAgent selects front-idle frames for Alec (facing front) and back-idle frames for Kevin/Benjamin (facing back) with 8Hz typing bob", () => {
   const crew = createInitialCrew(snapshot);
-  const alec = crew.find((a) => a.name === 'Alec')!;
-  const kevin = crew.find((a) => a.name === 'Kevin')!;
+  const alec = crew.find((a) => a.name === "Alec")!;
+  const kevin = crew.find((a) => a.name === "Kevin")!;
   assert.equal(alec.state, STATE.WORKING);
   assert.equal(kevin.state, STATE.WORKING);
 
@@ -805,7 +845,7 @@ test('drawAgent selects front-idle frames for Alec (facing front) and back-idle 
     save: () => {},
     restore: () => {},
     translate: (x: number, y: number) => {
-      drawCalls.push({ type: 'translate', x, y });
+      drawCalls.push({ type: "translate", x, y });
     },
     scale: () => {},
     beginPath: () => {},
@@ -816,19 +856,19 @@ test('drawAgent selects front-idle frames for Alec (facing front) and back-idle 
     stroke: () => {},
     fillText: () => {},
     drawImage: (...args: any[]) => {
-      drawCalls.push({ type: 'drawImage', args });
+      drawCalls.push({ type: "drawImage", args });
     },
     measureText: () => ({ width: 50 }),
     imageSmoothingEnabled: true,
-    shadowColor: '',
+    shadowColor: "",
     shadowBlur: 0,
-    globalCompositeOperation: 'source-over',
+    globalCompositeOperation: "source-over",
     globalAlpha: 1.0,
-    font: '',
-    textAlign: '',
-    textBaseline: '',
-    fillStyle: '',
-    strokeStyle: '',
+    font: "",
+    textAlign: "",
+    textBaseline: "",
+    fillStyle: "",
+    strokeStyle: "",
     lineWidth: 1,
   } as unknown as CanvasRenderingContext2D;
 
@@ -838,7 +878,7 @@ test('drawAgent selects front-idle frames for Alec (facing front) and back-idle 
   // Alec facing front: col = 0..3 (sx = 0 * 32 = 0)
   alec.animFrame = 0;
   drawAgent(mockCtx, alec, mockImg);
-  const alecCalls = drawCalls.filter((c) => c.type === 'drawImage');
+  const alecCalls = drawCalls.filter((c) => c.type === "drawImage");
   assert.ok(alecCalls.length >= 1);
   const sxAlec = alecCalls[0].args[1];
   assert.equal(sxAlec, 0 * cw); // column index 0 = front-facing
@@ -847,7 +887,7 @@ test('drawAgent selects front-idle frames for Alec (facing front) and back-idle 
   drawCalls.length = 0;
   kevin.animFrame = 0;
   drawAgent(mockCtx, kevin, mockImg);
-  const kevinCalls = drawCalls.filter((c) => c.type === 'drawImage');
+  const kevinCalls = drawCalls.filter((c) => c.type === "drawImage");
   assert.ok(kevinCalls.length >= 1);
   const sxKevin = kevinCalls[0].args[1];
   assert.equal(sxKevin, 8 * cw); // column index 8 = back-facing
@@ -856,7 +896,7 @@ test('drawAgent selects front-idle frames for Alec (facing front) and back-idle 
   drawCalls.length = 0;
   kevin.animFrame = 3;
   drawAgent(mockCtx, kevin, mockImg);
-  const imgCalls3 = drawCalls.filter((c) => c.type === 'drawImage');
+  const imgCalls3 = drawCalls.filter((c) => c.type === "drawImage");
   assert.equal(imgCalls3[0].args[1], 11 * cw);
 
   // Typing bob at 6Hz (bob amplitude in [-2, 2])
@@ -867,7 +907,7 @@ test('drawAgent selects front-idle frames for Alec (facing front) and back-idle 
   assert.ok(bobY >= -2.0 && bobY <= 2.0);
 });
 
-test('drawWorkstationScreens draws screen glow rect with pulse alpha 0.4-0.6 in role color + 4-5 text lines, and turns off when idle', () => {
+test("drawWorkstationScreens activates only the painted monitor panels and turns them off when idle", () => {
   const crew = createInitialCrew(snapshot);
   const fillRectCalls: any[] = [];
   const strokeRectCalls: any[] = [];
@@ -899,8 +939,8 @@ test('drawWorkstationScreens draws screen glow rect with pulse alpha 0.4-0.6 in 
         globalAlpha: mockCtx.globalAlpha,
       });
     },
-    fillStyle: '',
-    strokeStyle: '',
+    fillStyle: "",
+    strokeStyle: "",
     globalAlpha: 1.0,
     lineWidth: 1,
   } as unknown as CanvasRenderingContext2D;
@@ -908,47 +948,39 @@ test('drawWorkstationScreens draws screen glow rect with pulse alpha 0.4-0.6 in 
   // Working crew: screens should be drawn
   drawWorkstationScreens(mockCtx, crew, 0);
 
-  // Verify Kevin screenRect
+  // Kevin uses three individual monitors instead of one debug rectangle over the desk.
   const kevinFill = fillRectCalls.find(
-    (c) =>
-      c.x === WORKSTATIONS.Kevin.screenRect.x &&
-      c.y === WORKSTATIONS.Kevin.screenRect.y &&
-      c.w === WORKSTATIONS.Kevin.screenRect.w &&
-      c.h === WORKSTATIONS.Kevin.screenRect.h,
+    (c) => c.x === 398 && c.y === 397 && c.w === 45 && c.h === 30,
   );
   assert.ok(kevinFill);
   assert.equal(kevinFill.fillStyle, ROLE_GLOW_COLORS.Kevin);
-  assert.ok(kevinFill.globalAlpha >= 0.4 && kevinFill.globalAlpha <= 0.6);
+  assert.ok(kevinFill.globalAlpha >= 0.08 && kevinFill.globalAlpha <= 0.16);
 
-  // Verify Benjamin screenRect
+  // Benjamin uses the two QA console panels painted behind his chair.
   const benjaminFill = fillRectCalls.find(
-    (c) =>
-      c.x === WORKSTATIONS.Benjamin.screenRect.x &&
-      c.y === WORKSTATIONS.Benjamin.screenRect.y &&
-      c.w === WORKSTATIONS.Benjamin.screenRect.w &&
-      c.h === WORKSTATIONS.Benjamin.screenRect.h,
+    (c) => c.x === 1018 && c.y === 550 && c.w === 49 && c.h === 29,
   );
   assert.ok(benjaminFill);
   assert.equal(benjaminFill.fillStyle, ROLE_GLOW_COLORS.Benjamin);
-  assert.ok(benjaminFill.globalAlpha >= 0.4 && benjaminFill.globalAlpha <= 0.6);
+  assert.ok(
+    benjaminFill.globalAlpha >= 0.08 && benjaminFill.globalAlpha <= 0.16,
+  );
 
   // Test idle state: screen turns off (no rect drawn for idle agent)
   fillRectCalls.length = 0;
   strokeRectCalls.length = 0;
-  const kevin = crew.find((a) => a.name === 'Kevin')!;
+  const kevin = crew.find((a) => a.name === "Kevin")!;
   kevin.state = STATE.IDLE;
-  kevin.reportedState = 'idle';
+  kevin.reportedState = "idle";
 
   drawWorkstationScreens(mockCtx, crew, 0);
 
-  // Kevin's screenRect must NOT be drawn when idle
-  const kevinIdleFill = fillRectCalls.find(
-    (c) => c.x === WORKSTATIONS.Kevin.screenRect.x && c.y === WORKSTATIONS.Kevin.screenRect.y,
-  );
+  // Kevin's three screen fills must not be drawn when idle.
+  const kevinIdleFill = fillRectCalls.find((c) => c.x === 398 && c.y === 397);
   assert.equal(kevinIdleFill, undefined);
 });
 
-test('drawDeskCutouts renders desk cutout slices from bgImg to occlude agent lower bodies when working at desk', () => {
+test("drawDeskCutouts renders desk cutout slices from bgImg to occlude agent lower bodies when working at desk", () => {
   const crew = createInitialCrew(snapshot);
   const drawImageCalls: any[] = [];
 
@@ -970,7 +1002,9 @@ test('drawDeskCutouts renders desk cutout slices from bgImg to occlude agent low
 
   // Alec desk cutout
   const alecCutout = drawImageCalls.find(
-    (c) => c[1] === WORKSTATIONS.Alec.deskCutout.x && c[2] === WORKSTATIONS.Alec.deskCutout.y,
+    (c) =>
+      c[1] === WORKSTATIONS.Alec.deskCutout.x &&
+      c[2] === WORKSTATIONS.Alec.deskCutout.y,
   );
   assert.ok(alecCutout);
   assert.equal(alecCutout[3], WORKSTATIONS.Alec.deskCutout.w);
@@ -978,7 +1012,9 @@ test('drawDeskCutouts renders desk cutout slices from bgImg to occlude agent low
 
   // Kevin desk cutout
   const kevinCutout = drawImageCalls.find(
-    (c) => c[1] === WORKSTATIONS.Kevin.deskCutout.x && c[2] === WORKSTATIONS.Kevin.deskCutout.y,
+    (c) =>
+      c[1] === WORKSTATIONS.Kevin.deskCutout.x &&
+      c[2] === WORKSTATIONS.Kevin.deskCutout.y,
   );
   assert.ok(kevinCutout);
   assert.equal(kevinCutout[3], WORKSTATIONS.Kevin.deskCutout.w);
@@ -987,7 +1023,8 @@ test('drawDeskCutouts renders desk cutout slices from bgImg to occlude agent low
   // Benjamin desk cutout
   const benjaminCutout = drawImageCalls.find(
     (c) =>
-      c[1] === WORKSTATIONS.Benjamin.deskCutout.x && c[2] === WORKSTATIONS.Benjamin.deskCutout.y,
+      c[1] === WORKSTATIONS.Benjamin.deskCutout.x &&
+      c[2] === WORKSTATIONS.Benjamin.deskCutout.y,
   );
   assert.ok(benjaminCutout);
   assert.equal(benjaminCutout[3], WORKSTATIONS.Benjamin.deskCutout.w);
@@ -995,19 +1032,21 @@ test('drawDeskCutouts renders desk cutout slices from bgImg to occlude agent low
 
   // When agent is idle, their desk cutout is not drawn
   drawImageCalls.length = 0;
-  const alec = crew.find((a) => a.name === 'Alec')!;
+  const alec = crew.find((a) => a.name === "Alec")!;
   alec.state = STATE.IDLE;
-  alec.reportedState = 'idle';
+  alec.reportedState = "idle";
 
   drawDeskCutouts(mockCtx, mockBgImg, crew);
   assert.equal(drawImageCalls.length, 2);
   const alecIdleCutout = drawImageCalls.find(
-    (c) => c[1] === WORKSTATIONS.Alec.deskCutout.x && c[2] === WORKSTATIONS.Alec.deskCutout.y,
+    (c) =>
+      c[1] === WORKSTATIONS.Alec.deskCutout.x &&
+      c[2] === WORKSTATIONS.Alec.deskCutout.y,
   );
   assert.equal(alecIdleCutout, undefined);
 });
 
-test('drawHologramTopGlow renders pulsing violet hologram ellipse, starmap rings, and star nodes for Alec when working', () => {
+test("drawHologramTopGlow renders pulsing violet hologram ellipse, starmap rings, and star nodes for Alec when working", () => {
   const crew = createInitialCrew(snapshot);
   const ellipseCalls: any[] = [];
   const arcCalls: any[] = [];
@@ -1016,6 +1055,8 @@ test('drawHologramTopGlow renders pulsing violet hologram ellipse, starmap rings
     save: () => {},
     restore: () => {},
     beginPath: () => {},
+    moveTo: () => {},
+    lineTo: () => {},
     ellipse: (...args: any[]) => {
       ellipseCalls.push(args);
     },
@@ -1024,8 +1065,8 @@ test('drawHologramTopGlow renders pulsing violet hologram ellipse, starmap rings
     },
     fill: () => {},
     stroke: () => {},
-    fillStyle: '',
-    strokeStyle: '',
+    fillStyle: "",
+    strokeStyle: "",
     globalAlpha: 1.0,
     lineWidth: 1,
   } as unknown as CanvasRenderingContext2D;
@@ -1046,22 +1087,27 @@ test('drawHologramTopGlow renders pulsing violet hologram ellipse, starmap rings
   // Turns off when Alec is idle
   ellipseCalls.length = 0;
   arcCalls.length = 0;
-  const alec = crew.find((a) => a.name === 'Alec')!;
+  const alec = crew.find((a) => a.name === "Alec")!;
   alec.state = STATE.IDLE;
-  alec.reportedState = 'idle';
+  alec.reportedState = "idle";
 
   drawHologramTopGlow(mockCtx, crew, 0);
   assert.equal(ellipseCalls.length, 0);
   assert.equal(arcCalls.length, 0);
 });
 
-test('V1.9 typing effects: drawAgent renders 2 typing arms (3x2px) in role color oscillating in opposite phase with 6Hz', () => {
+test("V1.9 typing effects: drawAgent renders 2 typing arms (3x2px) in role color oscillating in opposite phase with 6Hz", () => {
   const crew = createInitialCrew(snapshot);
-  const kevin = crew.find((a) => a.name === 'Kevin')!;
+  const kevin = crew.find((a) => a.name === "Kevin")!;
   assert.equal(kevin.state, STATE.WORKING);
 
-  const fillRectCalls: Array<{ x: number; y: number; w: number; h: number; fillStyle: string }> =
-    [];
+  const fillRectCalls: Array<{
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    fillStyle: string;
+  }> = [];
   const mockCtx = {
     save: () => {},
     restore: () => {},
@@ -1075,21 +1121,31 @@ test('V1.9 typing effects: drawAgent renders 2 typing arms (3x2px) in role color
     fillText: () => {},
     drawImage: () => {},
     fillRect: (x: number, y: number, w: number, h: number) => {
-      fillRectCalls.push({ x, y, w, h, fillStyle: mockCtx.fillStyle as string });
+      fillRectCalls.push({
+        x,
+        y,
+        w,
+        h,
+        fillStyle: mockCtx.fillStyle as string,
+      });
     },
     imageSmoothingEnabled: true,
-    shadowColor: '',
+    shadowColor: "",
     shadowBlur: 0,
-    globalCompositeOperation: 'source-over',
+    globalCompositeOperation: "source-over",
     globalAlpha: 1.0,
-    fillStyle: '',
+    fillStyle: "",
   } as unknown as CanvasRenderingContext2D;
 
   const mockImg = { width: 512, height: 256 } as HTMLImageElement;
 
   // At time t = 0
   drawAgent(mockCtx, kevin, mockImg, 0);
-  assert.equal(fillRectCalls.length, 2, 'Must render exactly 2 typing arm rects for working agent');
+  assert.equal(
+    fillRectCalls.length,
+    2,
+    "Must render exactly 2 typing arm rects for working agent",
+  );
   const leftArm = fillRectCalls[0]!;
   const rightArm = fillRectCalls[1]!;
 
@@ -1106,13 +1162,13 @@ test('V1.9 typing effects: drawAgent renders 2 typing arms (3x2px) in role color
   drawAgent(mockCtx, kevin, mockImg, 1 / 24);
   const leftArmQ = fillRectCalls[0]!;
   const rightArmQ = fillRectCalls[1]!;
-  assert.ok(leftArmQ.y > leftArm.y, 'Left arm moves down at peak phase');
-  assert.ok(rightArmQ.y < rightArm.y, 'Right arm moves up (opposite phase)');
+  assert.ok(leftArmQ.y > leftArm.y, "Left arm moves down at peak phase");
+  assert.ok(rightArmQ.y < rightArm.y, "Right arm moves up (opposite phase)");
 });
 
-test('V1.9 typing effects: drawAgentStatusBubble renders yellow pulsating border for working agents', () => {
+test("compact status label keeps the working agent role color without a distracting pulse", () => {
   const crew = createInitialCrew(snapshot);
-  const kevin = crew.find((a) => a.name === 'Kevin')!;
+  const kevin = crew.find((a) => a.name === "Kevin")!;
   assert.equal(kevin.state, STATE.WORKING);
 
   const strokes: string[] = [];
@@ -1128,52 +1184,56 @@ test('V1.9 typing effects: drawAgentStatusBubble renders yellow pulsating border
     },
     fillText: () => {},
     measureText: () => ({ width: 50 }),
-    strokeStyle: '',
-    fillStyle: '',
+    strokeStyle: "",
+    fillStyle: "",
     globalAlpha: 1.0,
-    globalCompositeOperation: 'source-over',
+    globalCompositeOperation: "source-over",
   } as unknown as CanvasRenderingContext2D;
 
-  // With a.bob at peak phase -> stroke is STARSHIP_AMBER (#ffcf6e)
   kevin.bob = Math.PI / 3;
   drawAgentStatusBubble(mockCtx, kevin, 80, 0);
   assert.ok(strokes.length >= 1);
-  assert.equal(strokes[0], '#ffcf6e');
+  assert.equal(strokes[0], ROLE_GLOW_COLORS.Kevin);
 });
 
-test('V1.9 idle wander: idle agent wanders between points every 2-4s and changes position within 5s', () => {
+test("V1.9 idle wander: idle agent wanders between points every 2-4s and changes position within 5s", () => {
   const idleSnapshot: DuctorStatusSnapshot = {
-    theme: 'ductor-space-lab',
+    theme: "ductor-space-lab",
     roles: [
       {
-        name: 'Alec',
-        presence: 'online',
-        state: 'idle',
-        taskLabel: 'Standby',
-        updatedAt: '2026-08-22T05:30:00.000Z',
+        name: "Alec",
+        presence: "online",
+        state: "idle",
+        taskLabel: "Standby",
+        updatedAt: "2026-08-22T05:30:00.000Z",
         derived: false,
       },
       {
-        name: 'Kevin',
-        presence: 'online',
-        state: 'idle',
-        taskLabel: 'Standby',
-        updatedAt: '2026-08-22T05:30:00.000Z',
+        name: "Kevin",
+        presence: "online",
+        state: "idle",
+        taskLabel: "Standby",
+        updatedAt: "2026-08-22T05:30:00.000Z",
         derived: false,
       },
       {
-        name: 'Benjamin',
-        presence: 'online',
-        state: 'idle',
-        taskLabel: 'Standby',
-        updatedAt: '2026-08-22T05:30:00.000Z',
+        name: "Benjamin",
+        presence: "online",
+        state: "idle",
+        taskLabel: "Standby",
+        updatedAt: "2026-08-22T05:30:00.000Z",
         derived: false,
       },
     ],
   };
 
   const crew = createInitialCrew(idleSnapshot);
-  const startPositions = crew.map((a) => ({ id: a.id, name: a.name, x: a.x, y: a.y }));
+  const startPositions = crew.map((a) => ({
+    id: a.id,
+    name: a.name,
+    x: a.x,
+    y: a.y,
+  }));
 
   // Simulate 5 seconds in steps of 0.05s (100 steps)
   const dt = 0.05;
@@ -1188,7 +1248,9 @@ test('V1.9 idle wander: idle agent wanders between points every 2-4s and changes
   for (const start of startPositions) {
     const agent = crew.find((a) => a.id === start.id)!;
     const distMoved = Math.hypot(agent.x - start.x, agent.y - start.y);
-    console.log(`[IDLE WANDER TEST] ${agent.name} moved ${distMoved.toFixed(1)}px within 5s`);
+    console.log(
+      `[IDLE WANDER TEST] ${agent.name} moved ${distMoved.toFixed(1)}px within 5s`,
+    );
     assert.ok(
       distMoved > 10,
       `Idle agent ${agent.name} should have wandered and changed position within 5s, but moved only ${distMoved.toFixed(1)}px`,
