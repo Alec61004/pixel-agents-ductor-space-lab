@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react';
 
-import { type DuctorStatusSnapshot, isDuctorStatusSnapshot } from './ductorLabModel.js';
+import {
+  type DuctorStatusSnapshot,
+  expireStaleDuctorActivity,
+  isDuctorStatusSnapshot,
+} from './ductorLabModel.js';
 
 const VISIBLE_STATUS_POLL_MS = 5_000;
 const HIDDEN_STATUS_POLL_MS = 60_000;
@@ -29,7 +33,7 @@ export function useDuctorLabStatus(): DuctorStatusSnapshot | null | undefined {
         }
         const candidate: unknown = await response.json();
         if (!disposed && isDuctorStatusSnapshot(candidate)) {
-          setSnapshot(candidate);
+          setSnapshot(expireStaleDuctorActivity(candidate));
         }
       } catch {
         // Upstream office and Vite mock modes intentionally have no Ductor endpoint.

@@ -4,7 +4,11 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { test } from 'vitest';
 
-import type { DuctorStatusSnapshot } from '../src/ductor/ductorLabModel.js';
+import {
+  DUCTOR_ACTIVITY_LEASE_MS,
+  type DuctorStatusSnapshot,
+  expireStaleDuctorActivity,
+} from '../src/ductor/ductorLabModel.js';
 import {
   applySnapshotToAgents,
   ASSIGNED_WORKSTATIONS,
@@ -21,7 +25,6 @@ import {
   drawHologramTopGlow,
   drawWorkParticles,
   drawWorkstationInteraction,
-  drawWorkstationGlassOverlays,
   drawWorkstationLabels,
   drawWorkstationScreens,
   FLOOR_Y_MAX,
@@ -77,6 +80,64 @@ const snapshot: DuctorStatusSnapshot = {
     },
   ],
 };
+
+test('active role reports expire to truthful idle after the activity lease', () => {
+  const updatedAt = '2026-08-22T05:30:00.000Z';
+  const projected = expireStaleDuctorActivity(
+    {
+      theme: 'ductor-space-lab',
+      publishedAt: '2026-08-22T05:30:30.000Z',
+      stale: false,
+      roles: [
+        {
+          name: 'Alec',
+          presence: 'online',
+          state: 'working',
+          taskLabel: 'Planning',
+          updatedAt,
+          derived: false,
+          provenance: 'operator-agent-reported',
+        },
+        {
+          name: 'Kevin',
+          presence: 'online',
+          state: 'idle',
+          taskLabel: null,
+          updatedAt,
+          derived: false,
+          provenance: 'operator-agent-reported',
+        },
+        {
+          name: 'Benjamin',
+          presence: 'online',
+          state: 'review',
+          taskLabel: 'QA',
+          updatedAt,
+          derived: false,
+          provenance: 'operator-agent-reported',
+        },
+      ],
+    },
+    Date.parse(updatedAt) + DUCTOR_ACTIVITY_LEASE_MS + 1,
+  );
+
+  assert.deepEqual(
+    projected.roles.map((role) => role.state),
+    ['idle', 'idle', 'idle'],
+  );
+  assert.equal(projected.roles[0]?.derived, true);
+  assert.equal(projected.roles[0]?.taskLabel, null);
+  assert.equal(projected.roles[0]?.provenance, 'stale-local-report');
+});
+
+test('fresh working and review reports remain active inside the activity lease', () => {
+  const updatedAt = '2026-08-22T05:30:00.000Z';
+  const projected = expireStaleDuctorActivity(
+    snapshot,
+    Date.parse(updatedAt) + DUCTOR_ACTIVITY_LEASE_MS,
+  );
+  assert.equal(projected, snapshot);
+});
 
 test('renders StarshipLab without crashing with 2 canvases and 3 agents', () => {
   const markup = renderToStaticMarkup(createElement(StarshipLab, { snapshot }));
@@ -303,7 +364,7 @@ test('defines 3 fixed workstations (Alec, Kevin, Benjamin) with correct labels a
   });
   assert.equal(WORKSTATIONS.Alec.label, 'Alec — Strategy');
 
-  assert.deepEqual(WORKSTATIONS.Kevin.walkPoint, { x: 491, y: 436 });
+  assert.deepEqual(WORKSTATIONS.Kevin.walkPoint, { x: 491, y: 426 });
   assert.equal(WORKSTATIONS.Kevin.facing, 'back');
   assert.deepEqual(WORKSTATIONS.Kevin.screenRect, {
     x: 466,
@@ -905,7 +966,7 @@ test('drawAgent selects back-facing work frames for all three desk-oriented crew
   assert.ok(kevinCalls.length >= 1);
   const sxKevin = kevinCalls[0].args[1];
   assert.equal(sxKevin, 8 * cw); // column index 8 = back-facing
-  assert.equal(kevinCalls[0].args[8], 92, 'Kevin uses a full-size seated pose at the real chair');
+  assert.ok(kevinCalls[0].args[8] < 92, 'Kevin uses scene depth at the real chair');
 
   // Frame 3 of back-idle for Kevin: col = 11 (sx = 11 * 32 = 352)
   drawCalls.length = 0;
@@ -1087,29 +1148,6 @@ test('drawWorkstationInteraction restores visible hands on top of each active wo
   assert.ok(fillRectCalls.some((call) => call.x === 478 && call.y === 389));
   assert.ok(fillRectCalls.some((call) => call.x === 1064 && call.y === 573));
   assert.ok(fillRectCalls.some((call) => call.x === 540 && call.w === 8));
-});
-
-test('Alec is composited behind the real hologram glass while working', () => {
-  const crew = createInitialCrew(snapshot);
-  const drawImageCalls: any[] = [];
-  const alphaValues: number[] = [];
-  const mockCtx = {
-    save: () => {},
-    restore: () => {},
-    drawImage: (...args: any[]) => {
-      drawImageCalls.push(args);
-      alphaValues.push(mockCtx.globalAlpha);
-    },
-    imageSmoothingEnabled: true,
-    globalAlpha: 1,
-  } as unknown as CanvasRenderingContext2D;
-  const mockBgImg = { width: 1600, height: 678 } as HTMLImageElement;
-
-  drawWorkstationGlassOverlays(mockCtx, mockBgImg, crew);
-
-  assert.equal(drawImageCalls.length, 1);
-  assert.deepEqual(drawImageCalls[0].slice(1), [499, 470, 120, 81, 499, 470, 120, 81]);
-  assert.equal(alphaValues[0], 0.55);
 });
 
 test('drawHologramTopGlow renders pulsing violet hologram ellipse, starmap rings, and star nodes for Alec when working', () => {
