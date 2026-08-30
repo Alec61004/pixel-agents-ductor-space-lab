@@ -5,12 +5,12 @@ import { EditorState } from '../office/editor/editorState.js';
 import { isE2E } from '../runtime.js';
 import type { DuctorStatusSnapshot } from './ductorLabModel.js';
 import {
+  createDuctorOfficeRuntime,
   DUCTOR_AGENT_IDS,
   DUCTOR_ROLE_PRESENTATION,
   type DuctorAgentObservation,
   DuctorOfficeRuntime,
 } from './ductorOfficeRuntime.js';
-import { StarshipLab } from './StarshipLab.js';
 
 export interface DuctorLabProps {
   snapshot: DuctorStatusSnapshot;
@@ -158,8 +158,13 @@ export function DuctorEngineSurface({
   );
 }
 
-export function DuctorLab({ snapshot }: DuctorLabProps) {
-  return <StarshipLab snapshot={snapshot} />;
+export function DuctorLab({ snapshot, initialRuntime }: DuctorLabProps) {
+  const runtimeRef = useRef<DuctorOfficeRuntime | null>(null);
+  if (runtimeRef.current === null) {
+    runtimeRef.current = initialRuntime ?? createDuctorOfficeRuntime(snapshot);
+  }
+  const runtime = runtimeRef.current;
+  return <DuctorEngineSurface runtime={runtime} snapshot={snapshot} />;
 }
 
-export { DUCTOR_AGENT_IDS, StarshipLab };
+export { DUCTOR_AGENT_IDS };
