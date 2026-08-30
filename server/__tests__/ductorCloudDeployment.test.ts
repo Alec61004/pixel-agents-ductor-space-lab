@@ -7,17 +7,17 @@ describe('Ductor cloud deployment configuration', () => {
   it('builds only the web surface with private security headers and no public source view', () => {
     const config = JSON.parse(readFileSync(resolve('..', 'vercel.json'), 'utf8')) as {
       buildCommand: string;
-      framework: string;
+      framework: null;
       headers: Array<{ headers: Array<{ key: string; value: string }>; source: string }>;
       installCommand: string;
       outputDirectory: string;
       public: boolean;
     };
 
-    expect(config.framework).toBe('vite');
-    expect(config.buildCommand).toBe('npm run build:ductor-cloud');
+    expect(config.framework).toBeNull();
+    expect(config.buildCommand).toBe('npm run build:webview');
     expect(config.installCommand).toBe('npm ci --ignore-scripts');
-    expect(config.outputDirectory).toBe('dist/webview');
+    expect(config.outputDirectory).toBe('dist');
     expect(config.public).toBeUndefined();
     const headers = Object.fromEntries(
       config.headers[0]?.headers.map(({ key, value }) => [key.toLowerCase(), value]) ?? [],
