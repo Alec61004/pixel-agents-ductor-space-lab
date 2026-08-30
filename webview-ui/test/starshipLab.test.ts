@@ -33,6 +33,7 @@ import {
   getDepthScale,
   hitTestDeckObject,
   IDLE_POINTS,
+  IDLE_PATROL_POINTS,
   INTERACTIVE_DECK_OBJECTS,
   isPointInPolygon,
   makeAgent,
@@ -1353,5 +1354,16 @@ test('V1.9 idle wander: idle agent wanders between points every 2-4s and changes
       distMoved > 10,
       `Idle agent ${agent.name} should have wandered and changed position within 5s, but moved only ${distMoved.toFixed(1)}px`,
     );
+  }
+});
+
+test('idle patrol points stay on the bridge floor and away from the raised QA console', () => {
+  assert.deepEqual(IDLE_POINTS.Benjamin, { x: 1280, y: 620 });
+  for (const [name, points] of Object.entries(IDLE_PATROL_POINTS)) {
+    assert.ok(points.length >= 3, `${name} has a patrol lane`);
+    for (const point of points) {
+      assert.equal(isPointInPolygon(point, WALKABLE_POLYGON), true);
+      assert.ok(point.y >= 600, `${name} patrol point is on the floor, not on furniture`);
+    }
   }
 });

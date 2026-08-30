@@ -253,9 +253,33 @@ export const OFFLINE_POINTS: Record<DuctorRoleName, { x: number; y: number }> = 
 };
 
 export const IDLE_POINTS: Record<DuctorRoleName, { x: number; y: number }> = {
-  Alec: { x: 500, y: 550 },
-  Kevin: { x: 800, y: 560 },
-  Benjamin: { x: 1120, y: 550 },
+  Alec: { x: 430, y: 620 },
+  Kevin: { x: 800, y: 610 },
+  Benjamin: { x: 1280, y: 620 },
+};
+
+// Safe floor-only patrol lanes. The decorative station coordinates include
+// raised furniture (notably the QA console), so idle agents must never use
+// those as foot anchors.
+export const IDLE_PATROL_POINTS: Record<
+  DuctorRoleName,
+  readonly { x: number; y: number }[]
+> = {
+  Alec: [
+    { x: 360, y: 620 },
+    { x: 460, y: 635 },
+    { x: 590, y: 615 },
+  ],
+  Kevin: [
+    { x: 720, y: 620 },
+    { x: 820, y: 635 },
+    { x: 920, y: 615 },
+  ],
+  Benjamin: [
+    { x: 1220, y: 620 },
+    { x: 1340, y: 635 },
+    { x: 1460, y: 615 },
+  ],
 };
 
 export const WAITING_POINTS: Record<DuctorRoleName, { x: number; y: number }> = {
@@ -478,6 +502,19 @@ export function pickNewTarget(agent: StarshipAgent, agents: StarshipAgent[]): vo
       agent.state = STATE.MOVING;
       return;
     }
+  }
+
+  if (agent.reportedState === 'idle') {
+    const patrol = IDLE_PATROL_POINTS[agent.name];
+    const distant = patrol.filter((point) => Math.hypot(agent.x - point.x, agent.y - point.y) > 40);
+    const candidates = distant.length > 0 ? distant : patrol;
+    const point = candidates[Math.floor(Math.random() * candidates.length)] ?? IDLE_POINTS[agent.name];
+    agent.stationIndex = null;
+    agent.targetX = point.x;
+    agent.targetY = point.y;
+    agent.currentStation = 'Bridge Floor';
+    agent.state = STATE.MOVING;
+    return;
   }
 
   // Idle wander mode or demo mode: pick among stations with distinct role slot offsets to prevent overlap
