@@ -192,15 +192,18 @@ export const WORKSTATIONS: Record<DuctorRoleName, WorkstationConfig> = {
     // The strategy station is the raised star-map table, not the specimen jars
     // immediately to its left. Alec approaches from the bridge floor and works
     // from behind the projection so the table can correctly occlude his legs.
-    walkPoint: { x: 558, y: 627 },
-    seatPoint: { x: 558, y: 620 },
+    // The table's painted foreground starts at y≈551. Anchoring the sprite at
+    // y≈620 submerged almost the whole body inside the hologram. Stand behind
+    // the rim so the foreground can hide only the legs, like the QA console.
+    walkPoint: { x: 558, y: 570 },
+    seatPoint: { x: 558, y: 567 },
     tableX: 558,
-    tableY: 575,
+    tableY: 570,
     standingX: 558,
-    standingY: 620,
+    standingY: 570,
     facing: 'back',
     screenRect: { x: 500, y: 515, w: 118, h: 78 },
-    deskCutout: { x: 500, y: 584, w: 118, h: 43 },
+    deskCutout: { x: 500, y: 551, w: 118, h: 76 },
     stationIndex: 1,
   },
   Kevin: {
@@ -1475,16 +1478,21 @@ export function drawWorkstationScreens(
           ];
 
     for (const rect of displays) {
-      const pulse = 0.12 + 0.04 * Math.sin(timeSec * 4 + rect.x * 0.01);
       ctx.save();
-      ctx.fillStyle = roleColor;
-      ctx.globalAlpha = pulse;
-      ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
-      ctx.strokeStyle = roleColor;
-      ctx.lineWidth = 0.75;
-      ctx.globalAlpha = 0.45;
-      ctx.strokeRect(rect.x, rect.y, rect.w, rect.h);
-
+      // Never paint or outline the whole rectangle. The display and its frame
+      // already exist in the background; only animate pixels inside the glass.
+      // Keep the existing QA treatment unchanged; Benjamin's two rects are
+      // already calibrated to the console glass and visually read correctly.
+      if (agent.name !== 'Kevin') {
+        const pulse = 0.12 + 0.04 * Math.sin(timeSec * 4 + rect.x * 0.01);
+        ctx.fillStyle = roleColor;
+        ctx.globalAlpha = pulse;
+        ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+        ctx.strokeStyle = roleColor;
+        ctx.lineWidth = 0.75;
+        ctx.globalAlpha = 0.45;
+        ctx.strokeRect(rect.x, rect.y, rect.w, rect.h);
+      }
       const padX = 5;
       const lineFractions = [0.78, 0.52, 0.88, 0.64];
       ctx.fillStyle = '#d9fbff';
@@ -1492,6 +1500,9 @@ export function drawWorkstationScreens(
         ctx.globalAlpha = 0.42 + 0.18 * Math.sin(timeSec * 3 + i * 1.3);
         ctx.fillRect(rect.x + padX, rect.y + 6 + i * 5, (rect.w - padX * 2) * lineFractions[i], 1);
       }
+      ctx.fillStyle = roleColor;
+      ctx.globalAlpha = 0.65 + 0.2 * Math.sin(timeSec * 5 + rect.x * 0.02);
+      ctx.fillRect(rect.x + rect.w - 8, rect.y + 5, 2, 2);
       ctx.restore();
     }
 
