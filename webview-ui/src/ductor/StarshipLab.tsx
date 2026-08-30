@@ -14,11 +14,13 @@ import {
   createInitialCrew,
   DEPTH_SCALE_MAX,
   DEPTH_SCALE_MIN,
+  type DeckObjectId,
   drawAgent,
   drawAgentStatusBubble,
   drawDeskCutouts,
   drawFloorMarkers,
   drawHologramTopGlow,
+  drawLivingDeckObjects,
   drawStage,
   drawStarsLayer,
   drawWorkParticles,
@@ -29,7 +31,10 @@ import {
   FLOOR_Y_MIN,
   getAgentStatusBubble,
   getDepthScale,
+  hitTestDeckObject,
   IDLE_POINTS,
+  INTERACTIVE_DECK_OBJECTS,
+  type InteractiveDeckObject,
   isAgentAtStation,
   isPointInPolygon,
   makeAgent,
@@ -72,11 +77,13 @@ export {
   createInitialCrew,
   DEPTH_SCALE_MAX,
   DEPTH_SCALE_MIN,
+  type DeckObjectId,
   drawAgent,
   drawAgentStatusBubble,
   drawDeskCutouts,
   drawFloorMarkers,
   drawHologramTopGlow,
+  drawLivingDeckObjects,
   drawStage,
   drawStarsLayer,
   drawWorkParticles,
@@ -87,7 +94,10 @@ export {
   FLOOR_Y_MIN,
   getAgentStatusBubble,
   getDepthScale,
+  hitTestDeckObject,
   IDLE_POINTS,
+  INTERACTIVE_DECK_OBJECTS,
+  type InteractiveDeckObject,
   isAgentAtStation,
   isPointInPolygon,
   makeAgent,
@@ -151,9 +161,17 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
   const [agentsList, setAgentsList] = useState<StarshipAgent[]>(agentsRef.current);
   const [loaded, setLoaded] = useState(false);
   const [activityText, setActivityText] = useState('Live agent telemetry connected.');
+  const [hoveredObjectId, setHoveredObjectId] = useState<DeckObjectId | null>(null);
+  const [selectedObjectId, setSelectedObjectId] = useState<DeckObjectId | null>(null);
+  const [engagedObjects, setEngagedObjects] = useState<Set<DeckObjectId>>(new Set());
 
   const panRef = useRef({ x: 0, y: 0 });
   const zoomRef = useRef(1);
+  const hoveredObjectRef = useRef<DeckObjectId | null>(null);
+  const selectedObjectRef = useRef<DeckObjectId | null>(null);
+  const engagedObjectsRef = useRef<Set<DeckObjectId>>(new Set());
+  const stageTransformRef = useRef({ scale: 1, offX: 0, offY: 0 });
+  const cameraTargetRef = useRef<{ zoom: number; panX: number; panY: number } | null>(null);
   const touchStateRef = useRef<{
     dist: number;
     zoom: number;
@@ -161,6 +179,82 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
     panY: number;
   } | null>(null);
   const pushLog = useCallback((msg: string) => setActivityText(msg), []);
+
+  const focusObject = useCallback((object: InteractiveDeckObject) => {
+    const wrap = stageWrapRef.current;
+    if (!wrap) return;
+    const rect = wrap.getBoundingClientRect();
+    const targetZoom = 1.42;
+    const targetScale = Math.max(rect.width / 1600, rect.height / 678) * targetZoom;
+    const centerX = object.rect.x + object.rect.w / 2;
+    const centerY = object.rect.y + object.rect.h / 2;
+    cameraTargetRef.current = {
+      zoom: targetZoom,
+      panX: targetScale * (800 - centerX),
+      panY: targetScale * (339 - centerY),
+    };
+  }, []);
+
+  const selectObject = useCallback(
+    (object: InteractiveDeckObject) => {
+      selectedObjectRef.current = object.id;
+      setSelectedObjectId(object.id);
+      setActivityText(`${object.system} selected · ${object.actionLabel}.`);
+      focusObject(object);
+    },
+    [focusObject],
+  );
+
+  const handleStagePointerMove = useCallback((event: React.PointerEvent<HTMLCanvasElement>) => {
+    const wrap = stageWrapRef.current;
+    if (!wrap) return;
+    const bounds = wrap.getBoundingClientRect();
+    const transform = stageTransformRef.current;
+    const worldX = (event.clientX - bounds.left - transform.offX) / transform.scale;
+    const worldY = (event.clientY - bounds.top - transform.offY) / transform.scale;
+    const hit = hitTestDeckObject(worldX, worldY);
+    const nextId = hit?.id ?? null;
+    if (nextId !== hoveredObjectRef.current) {
+      hoveredObjectRef.current = nextId;
+      setHoveredObjectId(nextId);
+    }
+  }, []);
+
+  const handleStageClick = useCallback(
+    (event: React.MouseEvent<HTMLCanvasElement>) => {
+      const wrap = stageWrapRef.current;
+      if (!wrap) return;
+      const bounds = wrap.getBoundingClientRect();
+      const transform = stageTransformRef.current;
+      const worldX = (event.clientX - bounds.left - transform.offX) / transform.scale;
+      const worldY = (event.clientY - bounds.top - transform.offY) / transform.scale;
+      const hit = hitTestDeckObject(worldX, worldY);
+      if (hit) selectObject(hit);
+      else {
+        selectedObjectRef.current = null;
+        setSelectedObjectId(null);
+      }
+    },
+    [selectObject],
+  );
+
+  const toggleSelectedObject = useCallback(() => {
+    if (!selectedObjectRef.current) return;
+    const id = selectedObjectRef.current;
+    setEngagedObjects((current) => {
+      const next = new Set(current);
+      if (next.has(id)) {
+        next.delete(id);
+        pushLog(`${id} returned to autonomous mode.`);
+      } else {
+        next.add(id);
+        const object = INTERACTIVE_DECK_OBJECTS.find((candidate) => candidate.id === id);
+        pushLog(`${object?.system ?? id} engaged by operator.`);
+      }
+      engagedObjectsRef.current = next;
+      return next;
+    });
+  }, [pushLog]);
 
   useEffect(() => {
     applySnapshotToAgents(agentsRef.current, snapshot, pushLog);
@@ -171,6 +265,8 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
     const a = agentsRef.current.find((ag) => ag.id === agentId);
     if (a) {
       a.flash = 2.0;
+      const object = INTERACTIVE_DECK_OBJECTS.find((candidate) => candidate.owner === a.name);
+      if (object) selectObject(object);
     }
   };
 
@@ -225,6 +321,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
 
     const wrap = stageWrapRef.current;
     const onTouchStart = (e: TouchEvent) => {
+      cameraTargetRef.current = null;
       if (e.touches.length === 1) {
         touchStateRef.current = {
           dist: 0,
@@ -270,6 +367,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
+      cameraTargetRef.current = null;
       const delta = -e.deltaY * 0.001;
       zoomRef.current = Math.max(0.5, Math.min(3, zoomRef.current + delta));
     };
@@ -281,6 +379,21 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
       if (disposed) return;
       const dt = Math.min((now - lastTime) / 1000, 0.1);
       lastTime = now;
+
+      const cameraTarget = cameraTargetRef.current;
+      if (cameraTarget) {
+        const ease = Math.min(1, dt * 5);
+        zoomRef.current += (cameraTarget.zoom - zoomRef.current) * ease;
+        panRef.current.x += (cameraTarget.panX - panRef.current.x) * ease;
+        panRef.current.y += (cameraTarget.panY - panRef.current.y) * ease;
+        if (
+          Math.abs(cameraTarget.zoom - zoomRef.current) < 0.002 &&
+          Math.abs(cameraTarget.panX - panRef.current.x) < 0.5 &&
+          Math.abs(cameraTarget.panY - panRef.current.y) < 0.5
+        ) {
+          cameraTargetRef.current = null;
+        }
+      }
 
       const currentAgents = agentsRef.current;
       for (const a of currentAgents) {
@@ -296,7 +409,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
         if (ctx) {
           const rect = wrap.getBoundingClientRect();
           const dpr = window.devicePixelRatio || 1;
-          drawStage(
+          stageTransformRef.current = drawStage(
             ctx,
             bgImg,
             sheetImg,
@@ -308,6 +421,9 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
             panRef.current.x,
             panRef.current.y,
             zoomRef.current,
+            hoveredObjectRef.current,
+            selectedObjectRef.current,
+            engagedObjectsRef.current,
           );
         }
       }
@@ -346,6 +462,11 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
   }, [pushLog, resolvedBgUrl, resolvedSheetUrl]);
 
   const isCloud = Boolean(snapshot?.publishedAt);
+  const selectedObject = INTERACTIVE_DECK_OBJECTS.find((object) => object.id === selectedObjectId);
+  const selectedOperator = selectedObject?.owner
+    ? agentsList.find((agent) => agent.name === selectedObject.owner)
+    : undefined;
+  const selectedEngaged = selectedObject ? engagedObjects.has(selectedObject.id) : false;
 
   return (
     <div
@@ -488,6 +609,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
         }
         .starship-link-light.stale { background: var(--amber); box-shadow: 0 0 8px rgba(255,207,110,.75); }
         .starship-stage { cursor: default; }
+        .starship-stage.interactive { cursor: pointer; }
         .starship-activity {
           position: absolute; left: 12px; bottom: 11px; z-index: 8;
           max-width: min(460px, 55%); display: flex; align-items: center; gap: 8px;
@@ -497,6 +619,48 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
           overflow: hidden; text-overflow: ellipsis; pointer-events: none;
         }
         .starship-activity-label { color: var(--cyan); font-weight: 700; letter-spacing: .9px; }
+        .starship-game-hint {
+          position: absolute; right: 12px; bottom: 11px; z-index: 8;
+          display: flex; gap: 9px; align-items: center; padding: 5px 9px;
+          color: rgba(217,211,240,.58); background: rgba(8,7,18,.68);
+          border: 1px solid rgba(185,139,255,.16); border-radius: 4px;
+          backdrop-filter: blur(8px); font-size: 7px; pointer-events: none;
+          text-transform: uppercase; letter-spacing: .55px;
+        }
+        .starship-game-hint b { color: var(--violet); }
+        .starship-object-panel {
+          --object-color: var(--cyan);
+          position: absolute; top: 14px; right: 14px; z-index: 12;
+          width: min(300px, calc(100% - 28px)); padding: 14px;
+          color: var(--text); background: linear-gradient(145deg, rgba(12,10,25,.95), rgba(22,16,42,.91));
+          border: 1px solid color-mix(in srgb, var(--object-color) 55%, transparent);
+          border-radius: 7px; box-shadow: 0 18px 55px rgba(0,0,0,.42), 0 0 28px color-mix(in srgb, var(--object-color) 12%, transparent);
+          backdrop-filter: blur(14px);
+        }
+        .starship-object-head { display: flex; justify-content: space-between; gap: 12px; }
+        .starship-object-kicker { color: var(--object-color); font-size: 7px; letter-spacing: 1.25px; text-transform: uppercase; }
+        .starship-object-panel h2 { margin: 6px 0 0; color: #fff; font-size: 12px; line-height: 1.25; }
+        .starship-object-close {
+          width: 25px; height: 25px; border: 1px solid rgba(255,255,255,.1); border-radius: 4px;
+          color: var(--dim); background: rgba(255,255,255,.025); cursor: pointer;
+        }
+        .starship-object-panel p { margin: 12px 0; color: #9e96bd; font-size: 8px; line-height: 1.6; }
+        .starship-object-readout {
+          display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px;
+        }
+        .starship-object-readout div { padding: 8px; border: 1px solid rgba(255,255,255,.07); background: rgba(255,255,255,.025); }
+        .starship-object-readout span { display: block; color: #6f688e; font-size: 6px; text-transform: uppercase; letter-spacing: .7px; }
+        .starship-object-readout strong { display: block; margin-top: 4px; color: #fff; font-size: 8px; text-transform: uppercase; }
+        .starship-object-actions { display: grid; grid-template-columns: 1fr auto; gap: 7px; }
+        .starship-object-actions button {
+          min-height: 31px; padding: 0 11px; border: 1px solid rgba(255,255,255,.1); border-radius: 4px;
+          color: #cfc8e9; background: rgba(255,255,255,.03); font: 700 7px 'JetBrains Mono', monospace;
+          text-transform: uppercase; letter-spacing: .6px; cursor: pointer;
+        }
+        .starship-object-actions .primary {
+          border-color: color-mix(in srgb, var(--object-color) 62%, transparent);
+          color: #070812; background: var(--object-color);
+        }
         @media (max-width: 760px) {
           .starship-header { grid-template-columns: auto 1fr auto; gap: 8px; padding: 7px 9px; }
           .starship-brand-lockup .starship-subtitle, .starship-crew-copy small { display: none; }
@@ -554,7 +718,17 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
 
       <main className="starship-main">
         <div id="stage-wrap" ref={stageWrapRef} className="starship-stage-wrap">
-          <canvas id="stage" ref={stageCanvasRef} className="starship-stage" />
+          <canvas
+            id="stage"
+            ref={stageCanvasRef}
+            className={`starship-stage ${hoveredObjectId ? 'interactive' : ''}`}
+            onPointerMove={handleStagePointerMove}
+            onPointerLeave={() => {
+              hoveredObjectRef.current = null;
+              setHoveredObjectId(null);
+            }}
+            onClick={handleStageClick}
+          />
           <canvas id="stars" ref={starsCanvasRef} className="starship-starfield" />
           <div className="starship-scanline" />
           <div className="starship-vignette" />
@@ -580,6 +754,63 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
             <span className="starship-activity-label">LIVE</span>
             <span>{activityText}</span>
           </div>
+          <div className="starship-game-hint" aria-hidden="true">
+            <span>
+              <b>Hover</b> systems
+            </span>
+            <span>
+              <b>Click</b> interact
+            </span>
+            <span>
+              <b>Wheel</b> zoom
+            </span>
+          </div>
+          {selectedObject && (
+            <aside
+              className="starship-object-panel"
+              style={{ '--object-color': selectedObject.color } as CSSProperties}
+              aria-label={`${selectedObject.label} controls`}
+            >
+              <div className="starship-object-head">
+                <div>
+                  <div className="starship-object-kicker">{selectedObject.system}</div>
+                  <h2>{selectedObject.label}</h2>
+                </div>
+                <button
+                  type="button"
+                  className="starship-object-close"
+                  aria-label="Close system panel"
+                  onClick={() => {
+                    selectedObjectRef.current = null;
+                    setSelectedObjectId(null);
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+              <p>{selectedObject.description}</p>
+              <div className="starship-object-readout">
+                <div>
+                  <span>Operator</span>
+                  <strong>{selectedObject.owner ?? 'AUTOMATED'}</strong>
+                </div>
+                <div>
+                  <span>System state</span>
+                  <strong>
+                    {selectedEngaged ? 'ENGAGED' : (selectedOperator?.reportedState ?? 'STANDBY')}
+                  </strong>
+                </div>
+              </div>
+              <div className="starship-object-actions">
+                <button type="button" className="primary" onClick={toggleSelectedObject}>
+                  {selectedEngaged ? 'Disengage' : selectedObject.actionLabel}
+                </button>
+                <button type="button" onClick={() => focusObject(selectedObject)}>
+                  Focus
+                </button>
+              </div>
+            </aside>
+          )}
           <div className={`starship-loading ${loaded ? 'hidden' : ''}`}>
             <div className="starship-spinner" />
             <div className="starship-ltext">LOADING DECK ASSETS…</div>
