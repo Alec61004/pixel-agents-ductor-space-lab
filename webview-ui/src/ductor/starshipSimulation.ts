@@ -66,6 +66,97 @@ export interface WorkstationScreenRect {
   h: number;
 }
 
+export type DeckObjectId =
+  | 'strategy-map'
+  | 'build-console'
+  | 'qa-console'
+  | 'specimen-bank'
+  | 'xeno-vault'
+  | 'armory';
+
+export interface InteractiveDeckObject {
+  id: DeckObjectId;
+  label: string;
+  system: string;
+  description: string;
+  owner?: DuctorRoleName;
+  color: string;
+  rect: { x: number; y: number; w: number; h: number };
+  actionLabel: string;
+}
+
+export const INTERACTIVE_DECK_OBJECTS: InteractiveDeckObject[] = [
+  {
+    id: 'strategy-map',
+    label: 'Stellar Strategy Table',
+    system: 'TACTICAL HOLOGRAM',
+    description: 'Explore route nodes, threat sectors, and live mission geometry.',
+    owner: 'Alec',
+    color: '#c98bff',
+    rect: { x: 490, y: 500, w: 145, h: 132 },
+    actionLabel: 'Run simulation',
+  },
+  {
+    id: 'build-console',
+    label: 'Build Engineering Console',
+    system: 'COMPILER ARRAY',
+    description: 'Inspect build lanes, terminal activity, and deployment health.',
+    owner: 'Kevin',
+    color: '#5ce1ff',
+    rect: { x: 372, y: 382, w: 224, h: 150 },
+    actionLabel: 'Boost compiler',
+  },
+  {
+    id: 'qa-console',
+    label: 'QA Verification Console',
+    system: 'SCAN MATRIX',
+    description: 'Review validation passes, anomalies, and release readiness.',
+    owner: 'Benjamin',
+    color: '#ff5c5c',
+    rect: { x: 985, y: 526, w: 198, h: 132 },
+    actionLabel: 'Run deep scan',
+  },
+  {
+    id: 'specimen-bank',
+    label: 'Specimen Bank',
+    system: 'BIOLOGICAL ARCHIVE',
+    description: 'Cycle preservation fields and analyze the contained samples.',
+    color: '#76f7b2',
+    rect: { x: 300, y: 520, w: 190, h: 145 },
+    actionLabel: 'Analyze samples',
+  },
+  {
+    id: 'xeno-vault',
+    label: 'Xeno Containment Vault',
+    system: 'STASIS CORE',
+    description: 'Monitor containment integrity and life-sign harmonics.',
+    color: '#70ffd2',
+    rect: { x: 790, y: 250, w: 165, h: 245 },
+    actionLabel: 'Pulse stasis field',
+  },
+  {
+    id: 'armory',
+    label: 'Energy Armory',
+    system: 'POWER DIAGNOSTICS',
+    description: 'Cycle weapon cells and inspect the energy distribution rail.',
+    color: '#ffb65c',
+    rect: { x: 385, y: 155, w: 165, h: 200 },
+    actionLabel: 'Cycle power cells',
+  },
+];
+
+export function hitTestDeckObject(x: number, y: number): InteractiveDeckObject | null {
+  for (let index = INTERACTIVE_DECK_OBJECTS.length - 1; index >= 0; index--) {
+    const object = INTERACTIVE_DECK_OBJECTS[index];
+    if (!object) continue;
+    const { rect } = object;
+    if (x >= rect.x && x <= rect.x + rect.w && y >= rect.y && y <= rect.y + rect.h) {
+      return object;
+    }
+  }
+  return null;
+}
+
 export interface WorkstationConfig {
   agentName: DuctorRoleName;
   label: string;
@@ -1461,6 +1552,176 @@ export function drawWorkstationLabels(
   ctx.restore();
 }
 
+function drawHotspotCorners(
+  ctx: CanvasRenderingContext2D,
+  object: InteractiveDeckObject,
+  selected: boolean,
+  timeSec: number,
+): void {
+  const { rect, color } = object;
+  const corner = selected ? 15 : 10;
+  const pulse = selected ? 0.75 + Math.sin(timeSec * 5) * 0.2 : 0.55;
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = selected ? 1.5 : 1;
+  ctx.globalAlpha = pulse;
+  ctx.beginPath();
+  ctx.moveTo(rect.x, rect.y + corner);
+  ctx.lineTo(rect.x, rect.y);
+  ctx.lineTo(rect.x + corner, rect.y);
+  ctx.moveTo(rect.x + rect.w - corner, rect.y);
+  ctx.lineTo(rect.x + rect.w, rect.y);
+  ctx.lineTo(rect.x + rect.w, rect.y + corner);
+  ctx.moveTo(rect.x + rect.w, rect.y + rect.h - corner);
+  ctx.lineTo(rect.x + rect.w, rect.y + rect.h);
+  ctx.lineTo(rect.x + rect.w - corner, rect.y + rect.h);
+  ctx.moveTo(rect.x + corner, rect.y + rect.h);
+  ctx.lineTo(rect.x, rect.y + rect.h);
+  ctx.lineTo(rect.x, rect.y + rect.h - corner);
+  ctx.stroke();
+
+  const label = selected ? `${object.system} · ENGAGED` : `INTERACT · ${object.label}`;
+  ctx.font = "bold 7px 'JetBrains Mono', monospace";
+  const textWidth = ctx.measureText(label).width;
+  const labelX = rect.x + rect.w / 2 - textWidth / 2 - 6;
+  const labelY = rect.y - 17;
+  ctx.globalAlpha = 0.92;
+  ctx.fillStyle = 'rgba(7, 8, 18, 0.9)';
+  ctx.fillRect(labelX, labelY, textWidth + 12, 13);
+  ctx.strokeRect(labelX, labelY, textWidth + 12, 13);
+  ctx.fillStyle = color;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(label, rect.x + rect.w / 2, labelY + 7);
+  ctx.restore();
+}
+
+/** Draws the always-on game layer that makes flattened background props live. */
+export function drawLivingDeckObjects(
+  ctx: CanvasRenderingContext2D,
+  agents: StarshipAgent[],
+  timeSec: number,
+  hoveredId: DeckObjectId | null = null,
+  selectedId: DeckObjectId | null = null,
+  engagedObjects: ReadonlySet<DeckObjectId> = new Set<DeckObjectId>(),
+): void {
+  const intensity = (id: DeckObjectId) => {
+    if (engagedObjects.has(id)) return 1;
+    const object = INTERACTIVE_DECK_OBJECTS.find((candidate) => candidate.id === id);
+    const operator = object?.owner
+      ? agents.find((agent) => agent.name === object.owner)
+      : undefined;
+    const operatorWorking =
+      operator &&
+      (operator.state === STATE.WORKING ||
+        operator.reportedState === 'working' ||
+        operator.reportedState === 'review');
+    return operatorWorking ? 0.82 : 0.45;
+  };
+  ctx.save();
+  ctx.globalCompositeOperation = 'source-over';
+
+  // Build console: all three displays remain alive; active work adds scrolling
+  // terminal rows and a cursor that crosses between monitors.
+  const buildBoost = intensity('build-console');
+  ctx.fillStyle = '#5ce1ff';
+  for (let monitor = 0; monitor < 3; monitor++) {
+    const x = 402 + monitor * 64;
+    const width = monitor === 1 ? 47 : 41;
+    for (let line = 0; line < 4; line++) {
+      const y = 402 + ((line * 6 + timeSec * (8 + monitor)) % 25);
+      ctx.globalAlpha = 0.12 + buildBoost * 0.18;
+      ctx.fillRect(x + 4, y, width * (0.45 + ((line + monitor) % 3) * 0.17), 1);
+    }
+  }
+  ctx.globalAlpha = 0.45 + buildBoost * 0.35;
+  ctx.fillRect(399 + ((timeSec * 26) % 168), 435, 3, 2);
+
+  // QA console: twin scanners sweep in opposite directions even when nobody
+  // is seated. Engaged mode adds a confirmation pulse.
+  const qaBoost = intensity('qa-console');
+  const qaScan = (timeSec * 20) % 28;
+  ctx.fillStyle = '#ff5c5c';
+  ctx.globalAlpha = 0.2 + qaBoost * 0.35;
+  ctx.fillRect(1027, 550 + qaScan, 39, 1);
+  ctx.fillRect(1094, 578 - qaScan, 43, 1);
+  if (engagedObjects.has('qa-console')) {
+    ctx.globalAlpha = 0.6 + Math.sin(timeSec * 8) * 0.25;
+    ctx.fillRect(1128, 554, 7, 7);
+  }
+
+  // Specimen cylinders: deterministic bubbles climb through the glass, with a
+  // brighter analysis beam when the bank is engaged.
+  const specimenBoost = intensity('specimen-bank');
+  const specimenTanks = [337, 413, 735];
+  ctx.fillStyle = '#a7ffe0';
+  specimenTanks.forEach((tankX, tankIndex) => {
+    for (let bubble = 0; bubble < 4; bubble++) {
+      const travel = (timeSec * (12 + tankIndex * 2) + bubble * 23) % 76;
+      const x = tankX + Math.sin(timeSec * 1.8 + bubble * 2.1) * 9;
+      const y = 616 - travel;
+      ctx.globalAlpha = 0.18 + specimenBoost * 0.28;
+      ctx.beginPath();
+      ctx.arc(x, y, bubble % 2 === 0 ? 1.5 : 1, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  });
+  if (engagedObjects.has('specimen-bank')) {
+    ctx.fillStyle = '#76f7b2';
+    ctx.globalAlpha = 0.22 + Math.sin(timeSec * 6) * 0.08;
+    ctx.fillRect(315 + ((timeSec * 35) % 150), 535, 2, 91);
+  }
+
+  // Central containment vault: life-sign rings and rising stasis particles.
+  const vaultBoost = intensity('xeno-vault');
+  ctx.strokeStyle = '#70ffd2';
+  ctx.lineWidth = 1;
+  for (let ring = 0; ring < 3; ring++) {
+    ctx.beginPath();
+    ctx.globalAlpha = 0.08 + vaultBoost * 0.16;
+    ctx.ellipse(872, 428 - ring * 43, 43 - ring * 4, 9, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.fillStyle = '#d3fff3';
+  for (let particle = 0; particle < 7; particle++) {
+    const y = 438 - ((timeSec * (10 + particle) + particle * 31) % 160);
+    const x = 872 + Math.sin(timeSec + particle * 1.7) * 31;
+    ctx.globalAlpha = 0.12 + vaultBoost * 0.22;
+    ctx.fillRect(x, y, 1.5, 3);
+  }
+
+  // Armory cells charge sequentially along the painted weapon rack.
+  const armoryBoost = intensity('armory');
+  const weaponCells = [225, 267, 310];
+  weaponCells.forEach((y, index) => {
+    const charge = (Math.sin(timeSec * 4 + index * 1.8) + 1) / 2;
+    ctx.fillStyle = index === 2 ? '#ff9d4d' : '#5ce1ff';
+    ctx.globalAlpha = 0.16 + charge * (0.18 + armoryBoost * 0.25);
+    ctx.fillRect(478, y, 52 * charge, 4);
+  });
+
+  // A tiny shuttle crossing the left viewport adds parallax against the static
+  // galaxy and keeps the room from feeling like a background image.
+  const shuttleX = 520 + ((timeSec * 18) % 300);
+  const shuttleY = 286 + Math.sin(timeSec * 0.8) * 12;
+  ctx.fillStyle = '#c8eaff';
+  ctx.globalAlpha = 0.38;
+  ctx.fillRect(shuttleX, shuttleY, 7, 2);
+  ctx.fillStyle = '#7b6cff';
+  ctx.globalAlpha = 0.28;
+  ctx.fillRect(shuttleX - 6, shuttleY, 5, 1);
+
+  // Hover and selection affordances are rendered only on demand so the room
+  // stays cinematic until the player points at a system.
+  for (const object of INTERACTIVE_DECK_OBJECTS) {
+    if (object.id === hoveredId || object.id === selectedId) {
+      drawHotspotCorners(ctx, object, object.id === selectedId, timeSec);
+    }
+  }
+
+  ctx.restore();
+}
+
 export function drawStage(
   ctx: CanvasRenderingContext2D,
   bgImg: HTMLImageElement,
@@ -1473,6 +1734,9 @@ export function drawStage(
   panX: number = 0,
   panY: number = 0,
   zoom: number = 1,
+  hoveredObjectId: DeckObjectId | null = null,
+  selectedObjectId: DeckObjectId | null = null,
+  engagedObjects: ReadonlySet<DeckObjectId> = new Set<DeckObjectId>(),
 ): { scale: number; offX: number; offY: number } {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, rect.width, rect.height);
@@ -1490,6 +1754,7 @@ export function drawStage(
   ctx.translate(offX, offY);
   ctx.scale(scale, scale);
 
+  drawLivingDeckObjects(ctx, agents, timeSec, hoveredObjectId, selectedObjectId, engagedObjects);
   drawWorkstationScreens(ctx, agents, timeSec);
   drawFloorMarkers(ctx, showStations);
 
