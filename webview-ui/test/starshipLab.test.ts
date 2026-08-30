@@ -8,6 +8,7 @@ import type { DuctorStatusSnapshot } from '../src/ductor/ductorLabModel.js';
 import {
   applySnapshotToAgents,
   ASSIGNED_WORKSTATIONS,
+  BUILD_MONITOR_RECTS,
   ATTENTION_POINTS,
   clampPointToPolygon,
   createInitialCrew,
@@ -301,19 +302,19 @@ test('defines 3 fixed workstations (Alec, Kevin, Benjamin) with correct labels a
   });
   assert.equal(WORKSTATIONS.Alec.label, 'Alec — Strategy');
 
-  assert.deepEqual(WORKSTATIONS.Kevin.walkPoint, { x: 480, y: 495 });
+  assert.deepEqual(WORKSTATIONS.Kevin.walkPoint, { x: 491, y: 436 });
   assert.equal(WORKSTATIONS.Kevin.facing, 'back');
   assert.deepEqual(WORKSTATIONS.Kevin.screenRect, {
-    x: 399,
-    y: 405,
-    w: 176,
-    h: 54,
+    x: 466,
+    y: 310,
+    w: 246,
+    h: 42,
   });
   assert.deepEqual(WORKSTATIONS.Kevin.deskCutout, {
-    x: 376,
-    y: 454,
-    w: 210,
-    h: 72,
+    x: 474,
+    y: 407,
+    w: 38,
+    h: 32,
   });
   assert.equal(WORKSTATIONS.Kevin.label, 'Kevin — Build');
 
@@ -962,7 +963,11 @@ test('drawWorkstationScreens activates only the painted monitor panels and turns
 
   // Kevin uses three individual monitors instead of one debug rectangle over the desk.
   const kevinFill = fillRectCalls.find(
-    (c) => c.x === 398 && c.y === 397 && c.w === 45 && c.h === 30,
+    (c) =>
+      c.x === BUILD_MONITOR_RECTS[0]?.x &&
+      c.y === BUILD_MONITOR_RECTS[0]?.y &&
+      c.w === BUILD_MONITOR_RECTS[0]?.w &&
+      c.h === BUILD_MONITOR_RECTS[0]?.h,
   );
   assert.ok(kevinFill);
   assert.equal(kevinFill.fillStyle, ROLE_GLOW_COLORS.Kevin);
@@ -1063,7 +1068,7 @@ test('drawWorkstationInteraction restores visible hands on top of each active wo
 
   drawWorkstationInteraction(mockCtx, crew, 0);
 
-  assert.ok(fillRectCalls.some((call) => call.x === 466 && call.y === 463));
+  assert.ok(fillRectCalls.some((call) => call.x === 478 && call.y === 398));
   assert.ok(fillRectCalls.some((call) => call.x === 1064 && call.y === 573));
   assert.ok(fillRectCalls.some((call) => call.x === 540 && call.w === 8));
 });
