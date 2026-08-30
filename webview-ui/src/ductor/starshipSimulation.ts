@@ -222,7 +222,9 @@ export const WORKSTATIONS: Record<DuctorRoleName, WorkstationConfig> = {
     screenRect: { x: 466, y: 310, w: 246, h: 42 },
     // Redraw only the chair pedestal over Kevin's lower legs. A broad cutout
     // would reintroduce visible rectangular patches around the furniture.
-    deskCutout: { x: 474, y: 407, w: 38, h: 32 },
+    // Restore the lower half of the painted chair over the sprite. This masks
+    // the standing legs from the source sheet and creates a true seated pose.
+    deskCutout: { x: 474, y: 384, w: 43, h: 56 },
     stationIndex: 4,
   },
   Benjamin: {
@@ -1148,12 +1150,18 @@ export function drawAgent(
   const sx = col * cw;
   const sy = row * ch;
 
-  // Depth scale based on foot position a.y
-  const scale = getDepthScale(a.y);
+  const atWorkstation = isWorking && isAgentAtStation(a);
+  const isSeated = atWorkstation && (a.name === 'Kevin' || a.name === 'Benjamin');
+  // Kevin's chair is painted almost the same size as the foreground QA chair,
+  // even though its world y would normally shrink the sprite to 80%. Use a
+  // workstation-specific scale so his shoulders and head fit the real chair.
+  const scale = atWorkstation && a.name === 'Kevin' ? 1 : getDepthScale(a.y);
   const BASE_DRAW_H = 92;
   const drawH = BASE_DRAW_H * scale;
   const drawW = drawH * (cw / ch);
-  const bobY = isWorking ? Math.sin(a.bob) * 2 : 0;
+  // Seated operators stay locked to the furniture; only their hands/screens
+  // animate. Whole-body bobbing made them look like standing sprites on chairs.
+  const bobY = isWorking && !isSeated ? Math.sin(a.bob) * 2 : 0;
   const leanY = isWorking ? -1 : 0;
 
   // Foot Anchor: Coordinates (a.x, a.y) = bottom center of character feet.
@@ -1298,6 +1306,33 @@ export function drawDeskCutouts(
 }
 
 /**
+ * Re-composite translucent hardware that is physically in front of an agent.
+ * The hologram glass is part of the flattened background, so without this pass
+ * Alec is painted on top of it instead of operating from behind it.
+ */
+export function drawWorkstationGlassOverlays(
+  ctx: CanvasRenderingContext2D,
+  bgImg: HTMLImageElement,
+  agents: StarshipAgent[],
+): void {
+  const alec = agents.find((agent) => agent.name === 'Alec');
+  if (!alec || !isAgentAtStation(alec)) return;
+  const isOffline = alec.reportedState === 'offline' || alec.state === STATE.OFFLINE;
+  const isWorking =
+    !isOffline &&
+    (alec.state === STATE.WORKING ||
+      alec.reportedState === 'working' ||
+      alec.reportedState === 'review');
+  if (!isWorking) return;
+
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  ctx.globalAlpha = 0.55;
+  ctx.drawImage(bgImg, 499, 470, 120, 81, 499, 470, 120, 81);
+  ctx.restore();
+}
+
+/**
  * Draw the foreground part of each working pose after the desk cutout has
  * occluded the character's lower body. This is what turns a standing sprite
  * behind furniture into a readable seated/operating pose.
@@ -1339,7 +1374,7 @@ export function drawWorkstationInteraction(
     } else {
       // Two pixel gloves sit visibly on the physical keyboard after the desk
       // foreground has been redrawn. They tap in opposite phase.
-      const baseY = agent.name === 'Kevin' ? 398 : 573;
+      const baseY = agent.name === 'Kevin' ? 389 : 573;
       const leftX = agent.name === 'Kevin' ? 478 : 1064;
       const rightX = agent.name === 'Kevin' ? 501 : 1089;
       const leftTap = phase > 0 ? 1 : 0;
@@ -1809,6 +1844,10 @@ export function drawStage(
   for (const a of sorted) {
     drawAgent(ctx, a, sheetImg, timeSec);
   }
+
+  // Put the real hologram glass back in front of Alec before the opaque table
+  // rim masks the lower body.
+  drawWorkstationGlassOverlays(ctx, bgImg, agents);
 
   // Draw desk occlusion cutouts over sitting/standing agents' lower bodies
   drawDeskCutouts(ctx, bgImg, agents);
