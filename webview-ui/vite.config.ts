@@ -31,7 +31,7 @@ function browserMockAssetsPlugin(): Plugin {
   // Default for production builds; configResolved below rewrites this to
   // track the actual build.outDir, so vite build calls that override outDir
   // (e.g. the build-subpath integration test) still receive the JSON sidecars.
-  let distAssetsDir = path.resolve(__dirname, 'dist/assets');
+  let distAssetsDir = path.resolve(__dirname, '../dist/assets');
 
   const cache: DecodedCache = {
     characters: null,
@@ -122,7 +122,7 @@ function browserMockAssetsPlugin(): Plugin {
 export default defineConfig({
   plugins: [tailwindcss(), react(), browserMockAssetsPlugin()],
   build: {
-    outDir: 'dist',
+    outDir: '../dist',
     emptyOutDir: true,
   },
   base: './',
