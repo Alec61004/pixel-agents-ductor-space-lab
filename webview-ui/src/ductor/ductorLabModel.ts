@@ -26,6 +26,35 @@ export interface DuctorStatusSnapshot {
   roles: DuctorRoleStatus[];
 }
 
+// A working/review report is an activity lease, not a permanent state. The
+// source refreshes it while an agent is executing. Expiring the lease in the
+// viewer prevents a missed "turn ended" event from leaving a character working
+// forever.
+export const DUCTOR_ACTIVITY_LEASE_MS = 60_000;
+
+export function expireStaleDuctorActivity(
+  snapshot: DuctorStatusSnapshot,
+  nowMs: number = Date.now(),
+): DuctorStatusSnapshot {
+  let changed = false;
+  const roles = snapshot.roles.map((role) => {
+    const isActive = role.state === 'working' || role.state === 'review';
+    const signalAge = nowMs - Date.parse(role.updatedAt);
+    if (!isActive || signalAge <= DUCTOR_ACTIVITY_LEASE_MS) return role;
+
+    changed = true;
+    return {
+      ...role,
+      state: 'idle' as const,
+      taskLabel: null,
+      derived: true,
+      ...(role.provenance ? { provenance: 'stale-local-report' as const } : {}),
+    };
+  });
+
+  return changed ? { ...snapshot, roles } : snapshot;
+}
+
 export interface DuctorRoleCard extends DuctorRoleStatus {
   duty: 'Coordinator' | 'Implementer' | 'Reviewer';
   station: 'left' | 'center' | 'right';

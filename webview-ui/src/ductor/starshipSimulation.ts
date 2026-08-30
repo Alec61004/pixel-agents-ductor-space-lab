@@ -212,12 +212,12 @@ export const WORKSTATIONS: Record<DuctorRoleName, WorkstationConfig> = {
     roleDescription: 'Build',
     // Use the real port-side chair and monitor bank in the background. The
     // old y≈495 placement left Kevin standing on the floor below the desk.
-    walkPoint: { x: 491, y: 436 },
-    seatPoint: { x: 491, y: 430 },
+    walkPoint: { x: 491, y: 426 },
+    seatPoint: { x: 491, y: 414 },
     tableX: 491,
-    tableY: 436,
+    tableY: 426,
     standingX: 491,
-    standingY: 436,
+    standingY: 414,
     facing: 'back',
     screenRect: { x: 466, y: 310, w: 246, h: 42 },
     // Redraw only the chair pedestal over Kevin's lower legs. A broad cutout
@@ -1152,10 +1152,7 @@ export function drawAgent(
 
   const atWorkstation = isWorking && isAgentAtStation(a);
   const isSeated = atWorkstation && (a.name === 'Kevin' || a.name === 'Benjamin');
-  // Kevin's chair is painted almost the same size as the foreground QA chair,
-  // even though its world y would normally shrink the sprite to 80%. Use a
-  // workstation-specific scale so his shoulders and head fit the real chair.
-  const scale = atWorkstation && a.name === 'Kevin' ? 1 : getDepthScale(a.y);
+  const scale = getDepthScale(a.y);
   const BASE_DRAW_H = 92;
   const drawH = BASE_DRAW_H * scale;
   const drawW = drawH * (cw / ch);
@@ -1303,33 +1300,6 @@ export function drawDeskCutouts(
       ctx.restore();
     }
   }
-}
-
-/**
- * Re-composite translucent hardware that is physically in front of an agent.
- * The hologram glass is part of the flattened background, so without this pass
- * Alec is painted on top of it instead of operating from behind it.
- */
-export function drawWorkstationGlassOverlays(
-  ctx: CanvasRenderingContext2D,
-  bgImg: HTMLImageElement,
-  agents: StarshipAgent[],
-): void {
-  const alec = agents.find((agent) => agent.name === 'Alec');
-  if (!alec || !isAgentAtStation(alec)) return;
-  const isOffline = alec.reportedState === 'offline' || alec.state === STATE.OFFLINE;
-  const isWorking =
-    !isOffline &&
-    (alec.state === STATE.WORKING ||
-      alec.reportedState === 'working' ||
-      alec.reportedState === 'review');
-  if (!isWorking) return;
-
-  ctx.save();
-  ctx.imageSmoothingEnabled = false;
-  ctx.globalAlpha = 0.55;
-  ctx.drawImage(bgImg, 499, 470, 120, 81, 499, 470, 120, 81);
-  ctx.restore();
 }
 
 /**
@@ -1844,10 +1814,6 @@ export function drawStage(
   for (const a of sorted) {
     drawAgent(ctx, a, sheetImg, timeSec);
   }
-
-  // Put the real hologram glass back in front of Alec before the opaque table
-  // rim masks the lower body.
-  drawWorkstationGlassOverlays(ctx, bgImg, agents);
 
   // Draw desk occlusion cutouts over sitting/standing agents' lower bodies
   drawDeskCutouts(ctx, bgImg, agents);
