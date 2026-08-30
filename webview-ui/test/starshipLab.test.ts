@@ -286,7 +286,7 @@ test('defines 3 fixed workstations (Alec, Kevin, Benjamin) with correct labels a
   assert.ok(WORKSTATIONS.Benjamin);
 
   // Calibrated against the painted furniture in the 1600×678 deck image.
-  assert.deepEqual(WORKSTATIONS.Alec.walkPoint, { x: 558, y: 627 });
+  assert.deepEqual(WORKSTATIONS.Alec.walkPoint, { x: 558, y: 570 });
   assert.equal(WORKSTATIONS.Alec.facing, 'back');
   assert.deepEqual(WORKSTATIONS.Alec.screenRect, {
     x: 500,
@@ -296,9 +296,9 @@ test('defines 3 fixed workstations (Alec, Kevin, Benjamin) with correct labels a
   });
   assert.deepEqual(WORKSTATIONS.Alec.deskCutout, {
     x: 500,
-    y: 584,
+    y: 551,
     w: 118,
-    h: 43,
+    h: 76,
   });
   assert.equal(WORKSTATIONS.Alec.label, 'Alec — Strategy');
 
@@ -961,17 +961,31 @@ test('drawWorkstationScreens activates only the painted monitor panels and turns
   // Working crew: screens should be drawn
   drawWorkstationScreens(mockCtx, crew, 0);
 
-  // Kevin uses three individual monitors instead of one debug rectangle over the desk.
-  const kevinFill = fillRectCalls.find(
+  // Kevin animates pixels inside the three painted monitors and never fills
+  // or outlines a fake screen-sized rectangle.
+  const fakeKevinPanel = fillRectCalls.find(
     (c) =>
       c.x === BUILD_MONITOR_RECTS[0]?.x &&
       c.y === BUILD_MONITOR_RECTS[0]?.y &&
       c.w === BUILD_MONITOR_RECTS[0]?.w &&
       c.h === BUILD_MONITOR_RECTS[0]?.h,
   );
-  assert.ok(kevinFill);
-  assert.equal(kevinFill.fillStyle, ROLE_GLOW_COLORS.Kevin);
-  assert.ok(kevinFill.globalAlpha >= 0.08 && kevinFill.globalAlpha <= 0.16);
+  assert.equal(fakeKevinPanel, undefined);
+  assert.equal(
+    strokeRectCalls.some(
+      (c) =>
+        c.x === BUILD_MONITOR_RECTS[0]?.x &&
+        c.y === BUILD_MONITOR_RECTS[0]?.y &&
+        c.w === BUILD_MONITOR_RECTS[0]?.w,
+    ),
+    false,
+  );
+
+  const kevinCodeLine = fillRectCalls.find(
+    (c) => c.x === BUILD_MONITOR_RECTS[0]!.x + 5 && c.y === BUILD_MONITOR_RECTS[0]!.y + 6,
+  );
+  assert.ok(kevinCodeLine);
+  assert.equal(kevinCodeLine.fillStyle, '#d9fbff');
 
   // Benjamin uses the two QA console panels painted behind his chair.
   const benjaminFill = fillRectCalls.find(
