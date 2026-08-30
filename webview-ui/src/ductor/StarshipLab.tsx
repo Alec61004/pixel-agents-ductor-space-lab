@@ -188,10 +188,18 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
     const targetScale = Math.max(rect.width / 1600, rect.height / 678) * targetZoom;
     const centerX = object.rect.x + object.rect.w / 2;
     const centerY = object.rect.y + object.rect.h / 2;
+    const drawWidth = 1600 * targetScale;
+    const drawHeight = 678 * targetScale;
+    const minPanX = Math.min(0, (rect.width - drawWidth) / 2);
+    const maxPanX = Math.max(0, (drawWidth - rect.width) / 2);
+    const minPanY = Math.min(0, (rect.height - drawHeight) / 2);
+    const maxPanY = Math.max(0, (drawHeight - rect.height) / 2);
+    const desiredPanX = targetScale * (800 - centerX);
+    const desiredPanY = targetScale * (339 - centerY);
     cameraTargetRef.current = {
       zoom: targetZoom,
-      panX: targetScale * (800 - centerX),
-      panY: targetScale * (339 - centerY),
+      panX: Math.max(minPanX, Math.min(maxPanX, desiredPanX)),
+      panY: Math.max(minPanY, Math.min(maxPanY, desiredPanY)),
     };
   }, []);
 
