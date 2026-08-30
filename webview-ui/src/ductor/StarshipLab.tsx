@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
 
-import type { DuctorStatusSnapshot } from "./ductorLabModel.js";
-import { ductorAssetUrl } from "./ductorLabModel.js";
+import type { DuctorStatusSnapshot } from './ductorLabModel.js';
+import { ductorAssetUrl } from './ductorLabModel.js';
 import {
   type AgentStatusBubble,
   applyCloudStatus,
@@ -58,7 +58,7 @@ import {
   type WorkstationCutout,
   WORKSTATIONS,
   type WorkstationScreenRect,
-} from "./starshipSimulation.js";
+} from './starshipSimulation.js';
 
 export {
   type AgentStatusBubble,
@@ -127,18 +127,18 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
   const resolvedBgUrl =
     bgUrl ??
     ductorAssetUrl(
-      typeof import.meta !== "undefined" && import.meta.env?.BASE_URL
+      typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL
         ? import.meta.env.BASE_URL
-        : "./",
-      "themes/ductor-space-lab/starship-bg.png",
+        : './',
+      'themes/ductor-space-lab/starship-bg.png',
     );
   const resolvedSheetUrl =
     sheetUrl ??
     ductorAssetUrl(
-      typeof import.meta !== "undefined" && import.meta.env?.BASE_URL
+      typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL
         ? import.meta.env.BASE_URL
-        : "./",
-      "themes/ductor-space-lab/starship-sheet.png",
+        : './',
+      'themes/ductor-space-lab/starship-sheet.png',
     );
 
   const stageWrapRef = useRef<HTMLDivElement | null>(null);
@@ -146,13 +146,9 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
   const starsCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const agentsRef = useRef<StarshipAgent[]>(createInitialCrew(snapshot));
-  const [agentsList, setAgentsList] = useState<StarshipAgent[]>(
-    agentsRef.current,
-  );
+  const [agentsList, setAgentsList] = useState<StarshipAgent[]>(agentsRef.current);
   const [loaded, setLoaded] = useState(false);
-  const [activityText, setActivityText] = useState(
-    "Live agent telemetry connected.",
-  );
+  const [activityText, setActivityText] = useState('Live agent telemetry connected.');
 
   const panRef = useRef({ x: 0, y: 0 });
   const zoomRef = useRef(1);
@@ -177,7 +173,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
   };
 
   useEffect(() => {
-    if (typeof window === "undefined" || typeof Image === "undefined") return;
+    if (typeof window === 'undefined' || typeof Image === 'undefined') return;
 
     let animId: number;
     let disposed = false;
@@ -223,7 +219,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
     };
 
     resize();
-    window.addEventListener("resize", resize);
+    window.addEventListener('resize', resize);
 
     const wrap = stageWrapRef.current;
     const onTouchStart = (e: TouchEvent) => {
@@ -255,10 +251,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
         const dy = e.touches[0].clientY - e.touches[1].clientY;
         const dist = Math.hypot(dx, dy);
         const ratio = dist / touchStateRef.current.dist;
-        zoomRef.current = Math.max(
-          0.5,
-          Math.min(3, touchStateRef.current.zoom * ratio),
-        );
+        zoomRef.current = Math.max(0.5, Math.min(3, touchStateRef.current.zoom * ratio));
         panRef.current.x = touchStateRef.current.panX;
         panRef.current.y = touchStateRef.current.panY;
       }
@@ -268,9 +261,9 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
     };
 
     if (wrap) {
-      wrap.addEventListener("touchstart", onTouchStart, { passive: false });
-      wrap.addEventListener("touchmove", onTouchMove, { passive: false });
-      wrap.addEventListener("touchend", onTouchEnd);
+      wrap.addEventListener('touchstart', onTouchStart, { passive: false });
+      wrap.addEventListener('touchmove', onTouchMove, { passive: false });
+      wrap.addEventListener('touchend', onTouchEnd);
     }
 
     const onWheel = (e: WheelEvent) => {
@@ -279,7 +272,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
       zoomRef.current = Math.max(0.5, Math.min(3, zoomRef.current + delta));
     };
     if (wrap) {
-      wrap.addEventListener("wheel", onWheel, { passive: false });
+      wrap.addEventListener('wheel', onWheel, { passive: false });
     }
 
     const loop = (now: number) => {
@@ -297,7 +290,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
       const starsCanvas = starsCanvasRef.current;
 
       if (wrap && stage && loadedCount >= 2) {
-        const ctx = stage.getContext("2d");
+        const ctx = stage.getContext('2d');
         if (ctx) {
           const rect = wrap.getBoundingClientRect();
           const dpr = window.devicePixelRatio || 1;
@@ -318,7 +311,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
       }
 
       if (wrap && starsCanvas) {
-        const starsCtx = starsCanvas.getContext("2d");
+        const starsCtx = starsCanvas.getContext('2d');
         if (starsCtx) {
           starTime += dt;
           const rect = wrap.getBoundingClientRect();
@@ -339,12 +332,12 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
 
     return () => {
       disposed = true;
-      window.removeEventListener("resize", resize);
+      window.removeEventListener('resize', resize);
       if (wrap) {
-        wrap.removeEventListener("touchstart", onTouchStart);
-        wrap.removeEventListener("touchmove", onTouchMove);
-        wrap.removeEventListener("touchend", onTouchEnd);
-        wrap.removeEventListener("wheel", onWheel);
+        wrap.removeEventListener('touchstart', onTouchStart);
+        wrap.removeEventListener('touchmove', onTouchMove);
+        wrap.removeEventListener('touchend', onTouchEnd);
+        wrap.removeEventListener('wheel', onWheel);
       }
       cancelAnimationFrame(animId);
     };
@@ -521,11 +514,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
           <div className="starship-subtitle">live crew operations</div>
         </div>
 
-        <div
-          className="starship-crew-strip"
-          role="list"
-          aria-label="Ductor crew status"
-        >
+        <div className="starship-crew-strip" role="list" aria-label="Ductor crew status">
           {agentsList.map((agent) => {
             const state = agent.reportedState ?? agent.state;
             const station = WORKSTATIONS[agent.name];
@@ -535,7 +524,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
                 type="button"
                 role="listitem"
                 className={`starship-crew-pill ${state}`}
-                style={{ "--crew-color": agent.skin.tint } as CSSProperties}
+                style={{ '--crew-color': agent.skin.tint } as CSSProperties}
                 onClick={() => handleAgentClick(agent.id)}
                 title={agent.reportedTaskLabel ?? `${agent.name} · ${state}`}
                 data-ductor-agent={agent.name}
@@ -553,12 +542,10 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
         </div>
 
         <div className="starship-stat" role="status">
-          <span
-            className={`starship-link-light ${snapshot?.stale ? "stale" : ""}`}
-          />
+          <span className={`starship-link-light ${snapshot?.stale ? 'stale' : ''}`} />
           <span>
-            {isCloud ? "REMOTE" : "LOCAL"}
-            <b>{snapshot?.stale ? "STALE" : "LIVE"}</b>
+            {isCloud ? 'REMOTE' : 'LOCAL'}
+            <b>{snapshot?.stale ? 'STALE' : 'LIVE'}</b>
           </span>
         </div>
       </header>
@@ -566,18 +553,10 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
       <main className="starship-main">
         <div id="stage-wrap" ref={stageWrapRef} className="starship-stage-wrap">
           <canvas id="stage" ref={stageCanvasRef} className="starship-stage" />
-          <canvas
-            id="stars"
-            ref={starsCanvasRef}
-            className="starship-starfield"
-          />
+          <canvas id="stars" ref={starsCanvasRef} className="starship-starfield" />
           <div className="starship-scanline" />
           <div className="starship-vignette" />
-          <div
-            className="starship-bubbles-layer"
-            aria-hidden="true"
-            style={{ display: "none" }}
-          >
+          <div className="starship-bubbles-layer" aria-hidden="true" style={{ display: 'none' }}>
             {agentsList.map((a) => {
               const bubble = getAgentStatusBubble(a);
               return (
@@ -599,7 +578,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
             <span className="starship-activity-label">LIVE</span>
             <span>{activityText}</span>
           </div>
-          <div className={`starship-loading ${loaded ? "hidden" : ""}`}>
+          <div className={`starship-loading ${loaded ? 'hidden' : ''}`}>
             <div className="starship-spinner" />
             <div className="starship-ltext">LOADING DECK ASSETS…</div>
           </div>
