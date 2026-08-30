@@ -1151,10 +1151,9 @@ export function drawAgent(
     ctx.restore();
   }
 
-  // Status bubble above head (always visible)
-  drawAgentStatusBubble(ctx, a, drawH, bobY);
-
-  // Work particles floating above agent
+  // Identity and status live in the command strip. Keeping text off the deck
+  // lets the character, furniture, and active workstation read as one scene.
+  // Work particles are the only lightweight in-world activity cue.
   drawWorkParticles(ctx, a);
 
   ctx.restore();
@@ -1326,6 +1325,28 @@ export function drawWorkstationScreens(
       }
       ctx.restore();
     }
+
+    // Small role-specific interaction cues make it clear which hardware the
+    // seated agent is operating without painting a translucent debug panel
+    // over the desk.
+    ctx.save();
+    ctx.fillStyle = roleColor;
+    if (agent.name === 'Kevin') {
+      const keyPhase = Math.sin(timeSec * 12) > 0 ? 0 : 5;
+      ctx.globalAlpha = 0.7;
+      ctx.fillRect(451 + keyPhase, 461, 18, 2);
+      ctx.fillRect(488 - keyPhase, 461, 18, 2);
+      ctx.globalAlpha = 0.9;
+      ctx.fillRect(495, 414, 3, 5);
+    } else {
+      const scanY = 554 + ((timeSec * 18) % 19);
+      ctx.globalAlpha = 0.78;
+      ctx.fillRect(1027, scanY, 39, 1);
+      ctx.fillRect(1094, scanY, 43, 1);
+      ctx.globalAlpha = 0.9;
+      ctx.fillRect(1129, 556, 5, 5);
+    }
+    ctx.restore();
   }
   ctx.restore();
 }
@@ -1421,7 +1442,8 @@ export function drawStage(
   // Redraw hologram effect on top of desk cutout for Alec
   drawHologramTopGlow(ctx, agents, timeSec);
 
-  drawWorkstationLabels(ctx, agents);
+  // Workstation identity is already present in the command strip. Avoid
+  // duplicating labels on top of the artwork.
 
   ctx.restore();
 
