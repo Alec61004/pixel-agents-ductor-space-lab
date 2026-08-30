@@ -21,6 +21,7 @@ import {
   drawHologramTopGlow,
   drawWorkParticles,
   drawWorkstationInteraction,
+  drawWorkstationGlassOverlays,
   drawWorkstationLabels,
   drawWorkstationScreens,
   FLOOR_Y_MAX,
@@ -312,9 +313,9 @@ test('defines 3 fixed workstations (Alec, Kevin, Benjamin) with correct labels a
   });
   assert.deepEqual(WORKSTATIONS.Kevin.deskCutout, {
     x: 474,
-    y: 407,
-    w: 38,
-    h: 32,
+    y: 384,
+    w: 43,
+    h: 56,
   });
   assert.equal(WORKSTATIONS.Kevin.label, 'Kevin — Build');
 
@@ -904,6 +905,7 @@ test('drawAgent selects back-facing work frames for all three desk-oriented crew
   assert.ok(kevinCalls.length >= 1);
   const sxKevin = kevinCalls[0].args[1];
   assert.equal(sxKevin, 8 * cw); // column index 8 = back-facing
+  assert.equal(kevinCalls[0].args[8], 92, 'Kevin uses a full-size seated pose at the real chair');
 
   // Frame 3 of back-idle for Kevin: col = 11 (sx = 11 * 32 = 352)
   drawCalls.length = 0;
@@ -1082,9 +1084,32 @@ test('drawWorkstationInteraction restores visible hands on top of each active wo
 
   drawWorkstationInteraction(mockCtx, crew, 0);
 
-  assert.ok(fillRectCalls.some((call) => call.x === 478 && call.y === 398));
+  assert.ok(fillRectCalls.some((call) => call.x === 478 && call.y === 389));
   assert.ok(fillRectCalls.some((call) => call.x === 1064 && call.y === 573));
   assert.ok(fillRectCalls.some((call) => call.x === 540 && call.w === 8));
+});
+
+test('Alec is composited behind the real hologram glass while working', () => {
+  const crew = createInitialCrew(snapshot);
+  const drawImageCalls: any[] = [];
+  const alphaValues: number[] = [];
+  const mockCtx = {
+    save: () => {},
+    restore: () => {},
+    drawImage: (...args: any[]) => {
+      drawImageCalls.push(args);
+      alphaValues.push(mockCtx.globalAlpha);
+    },
+    imageSmoothingEnabled: true,
+    globalAlpha: 1,
+  } as unknown as CanvasRenderingContext2D;
+  const mockBgImg = { width: 1600, height: 678 } as HTMLImageElement;
+
+  drawWorkstationGlassOverlays(mockCtx, mockBgImg, crew);
+
+  assert.equal(drawImageCalls.length, 1);
+  assert.deepEqual(drawImageCalls[0].slice(1), [499, 470, 120, 81, 499, 470, 120, 81]);
+  assert.equal(alphaValues[0], 0.55);
 });
 
 test('drawHologramTopGlow renders pulsing violet hologram ellipse, starmap rings, and star nodes for Alec when working', () => {
