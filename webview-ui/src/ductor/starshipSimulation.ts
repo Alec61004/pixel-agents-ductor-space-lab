@@ -1556,6 +1556,7 @@ function drawHotspotCorners(
   ctx: CanvasRenderingContext2D,
   object: InteractiveDeckObject,
   selected: boolean,
+  engaged: boolean,
   timeSec: number,
 ): void {
   const { rect, color } = object;
@@ -1580,7 +1581,9 @@ function drawHotspotCorners(
   ctx.lineTo(rect.x, rect.y + rect.h - corner);
   ctx.stroke();
 
-  const label = selected ? `${object.system} · ENGAGED` : `INTERACT · ${object.label}`;
+  const label = selected
+    ? `${object.system} · ${engaged ? 'ENGAGED' : 'SELECTED'}`
+    : `INTERACT · ${object.label}`;
   ctx.font = "bold 7px 'JetBrains Mono', monospace";
   const textWidth = ctx.measureText(label).width;
   const labelX = rect.x + rect.w / 2 - textWidth / 2 - 6;
@@ -1715,7 +1718,13 @@ export function drawLivingDeckObjects(
   // stays cinematic until the player points at a system.
   for (const object of INTERACTIVE_DECK_OBJECTS) {
     if (object.id === hoveredId || object.id === selectedId) {
-      drawHotspotCorners(ctx, object, object.id === selectedId, timeSec);
+      drawHotspotCorners(
+        ctx,
+        object,
+        object.id === selectedId,
+        engagedObjects.has(object.id),
+        timeSec,
+      );
     }
   }
 
