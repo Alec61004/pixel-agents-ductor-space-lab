@@ -38,6 +38,7 @@ import {
   STATE,
   STATIONS,
   updateAgent,
+  WAITING_POINTS,
   WALKABLE_POLYGON,
   WORKSTATIONS,
 } from '../src/ductor/StarshipLab.js';
@@ -82,6 +83,7 @@ test('renders StarshipLab without crashing with 2 canvases and 3 agents', () => 
   assert.match(markup, /Alec/);
   assert.match(markup, /Kevin/);
   assert.match(markup, /Benjamin/);
+  assert.match(markup, /Coordinate MVP/);
   assert.match(markup, /Nebula Sentinel/);
   assert.match(markup, /Void Recon Unit/);
   assert.match(markup, /Crimson Hunter-Class/);
@@ -180,6 +182,33 @@ test('maps live status snapshot roles to respective states: working, idle, block
   assert.equal(benjamin.y, OFFLINE_POINTS.Benjamin.y);
 });
 
+test('keeps waiting agents at their hold points with a truthful waiting bubble', () => {
+  const waitingSnapshot: DuctorStatusSnapshot = {
+    ...snapshot,
+    roles: snapshot.roles.map((role) => ({
+      ...role,
+      state: 'waiting',
+      taskLabel: 'Awaiting next instruction',
+    })),
+  };
+
+  const crew = createInitialCrew(waitingSnapshot);
+  for (const agent of crew) {
+    const point = WAITING_POINTS[agent.name];
+    assert.equal(agent.state, STATE.WAITING);
+    assert.deepEqual({ x: agent.x, y: agent.y }, point);
+
+    const bubble = getAgentStatusBubble(agent);
+    assert.equal(bubble.lines[0], WORKSTATIONS[agent.name].label);
+    assert.equal(bubble.lines[1], '⏳ waiting');
+
+    const before = { x: agent.x, y: agent.y };
+    updateAgent(agent, 5, 1, crew);
+    assert.deepEqual({ x: agent.x, y: agent.y }, before);
+    assert.equal(agent.state, STATE.WAITING);
+  }
+});
+
 test('applies live snapshot transitions dynamically to active crew', () => {
   const crew = createInitialCrew(snapshot);
   const kevin = crew.find((a) => a.name === 'Kevin')!;
@@ -236,6 +265,14 @@ test('renders live status badges in roster matching snapshot roles', () => {
 
   assert.match(markup, /<div class="starship-badge badge working">\s*WORKING\s*<\/div>/);
   assert.match(markup, /<div class="starship-badge badge review">\s*REVIEW\s*<\/div>/);
+});
+
+test('shows the reported task beside each live roster status', () => {
+  const markup = renderToStaticMarkup(createElement(StarshipLab, { snapshot }));
+
+  assert.match(markup, /class="starship-task"[^>]*>Coordinate MVP<\/div>/);
+  assert.match(markup, /class="starship-task"[^>]*>Implement bridge<\/div>/);
+  assert.match(markup, /class="starship-task"[^>]*>Review contract<\/div>/);
 });
 
 test('defines 3 fixed workstations (Alec, Kevin, Benjamin) with correct labels and coordinates within walkable polygon', () => {

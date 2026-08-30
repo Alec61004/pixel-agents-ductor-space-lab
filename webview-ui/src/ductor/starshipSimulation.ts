@@ -146,10 +146,17 @@ export const IDLE_POINTS: Record<DuctorRoleName, { x: number; y: number }> = {
   Benjamin: { x: 1120, y: 550 },
 };
 
+export const WAITING_POINTS: Record<DuctorRoleName, { x: number; y: number }> = {
+  Alec: { x: 360, y: 620 },
+  Kevin: { x: 800, y: 620 },
+  Benjamin: { x: 1240, y: 620 },
+};
+
 export const STATE = {
   MOVING: 'moving',
   WORKING: 'working',
   IDLE: 'idle',
+  WAITING: 'waiting',
   BLOCKED: 'blocked',
   OFFLINE: 'offline',
 } as const;
@@ -273,6 +280,7 @@ export interface StarshipAgent {
   name: DuctorRoleName;
   role: string;
   reportedState?: string;
+  reportedTaskLabel?: string | null;
   provenance?: string;
   skin: { row: number; name: string; tint: string };
   x: number;
@@ -343,6 +351,18 @@ export function pickNewTarget(agent: StarshipAgent, agents: StarshipAgent[]): vo
     }
   }
 
+  if (agent.reportedState === 'waiting') {
+    const point = WAITING_POINTS[agent.name];
+    if (point) {
+      agent.stationIndex = null;
+      agent.targetX = point.x;
+      agent.targetY = point.y;
+      agent.currentStation = 'Awaiting instruction';
+      agent.state = STATE.MOVING;
+      return;
+    }
+  }
+
   // Idle wander mode or demo mode: pick among stations with distinct role slot offsets to prevent overlap
   const { stationIndex, slot } = pickStation(agents, agent.id);
   const roleOffset = ROLE_IDLE_SLOT_OFFSETS[agent.name] ?? { dx: 0, dy: 0 };
@@ -397,6 +417,7 @@ export function makeAgent(spec: {
   role: string;
   skin: (typeof SKINS)[number];
   reportedState?: string;
+  reportedTaskLabel?: string | null;
   provenance?: string;
   x: number;
   y: number;
@@ -413,6 +434,7 @@ export function makeAgent(spec: {
     name: spec.name,
     role: spec.role,
     reportedState: spec.reportedState,
+    reportedTaskLabel: spec.reportedTaskLabel,
     provenance: spec.provenance,
     skin: spec.skin,
     x: spec.x,
@@ -490,6 +512,13 @@ export function createInitialCrew(snapshot?: DuctorStatusSnapshot): StarshipAgen
       stationIndex = null;
       currentStation = 'Attention Point';
       initialState = STATE.BLOCKED;
+    } else if (effective === 'waiting') {
+      const pt = WAITING_POINTS[spec.name] ?? { x: 800, y: 620 };
+      x = pt.x;
+      y = pt.y;
+      stationIndex = null;
+      currentStation = 'Awaiting instruction';
+      initialState = STATE.WAITING;
     } else if (effective === 'idle') {
       const pt = IDLE_POINTS[spec.name] ?? { x: 800, y: 560 };
       x = pt.x;
@@ -525,6 +554,7 @@ export function createInitialCrew(snapshot?: DuctorStatusSnapshot): StarshipAgen
         name: spec.name,
         role: spec.role,
         reportedState: roleSnapshot?.state,
+        reportedTaskLabel: roleSnapshot?.taskLabel,
         provenance: roleSnapshot?.provenance,
         skin: spec.skin,
         x,
@@ -550,8 +580,12 @@ export function applySnapshotToAgents(
     for (const a of agents) {
       const wasControlled = Boolean(a.reportedState);
       a.reportedState = undefined;
+      a.reportedTaskLabel = undefined;
       a.provenance = undefined;
-      if (wasControlled && (a.state === STATE.OFFLINE || a.state === STATE.BLOCKED)) {
+      if (
+        wasControlled &&
+        (a.state === STATE.OFFLINE || a.state === STATE.BLOCKED || a.state === STATE.WAITING)
+      ) {
         pickNewTarget(a, agents);
       }
     }
@@ -570,6 +604,7 @@ export function applySnapshotToAgents(
         : a.reportedState;
 
     a.reportedState = role.state;
+    a.reportedTaskLabel = role.taskLabel;
     a.provenance = role.provenance;
 
     if (effective === prevEffective && a.state !== STATE.MOVING) {
@@ -618,6 +653,14 @@ export function applySnapshotToAgents(
       a.targetY = pt.y;
       a.state = Math.hypot(a.x - pt.x, a.y - pt.y) < 3 ? STATE.IDLE : STATE.MOVING;
       if (pushLog) pushLog(`${a.name} on standby.`);
+    } else if (effective === 'waiting') {
+      const pt = WAITING_POINTS[a.name] ?? WAITING_POINTS.Kevin;
+      a.stationIndex = null;
+      a.currentStation = 'Awaiting instruction';
+      a.targetX = pt.x;
+      a.targetY = pt.y;
+      a.state = Math.hypot(a.x - pt.x, a.y - pt.y) < 3 ? STATE.WAITING : STATE.MOVING;
+      if (pushLog) pushLog(`${a.name} is waiting for the next instruction.`);
     }
   }
 }
@@ -640,7 +683,9 @@ export function updateAgent(
         a.state = STATE.OFFLINE;
       } else if (a.reportedState === 'blocked') {
         a.state = STATE.BLOCKED;
-      } else if (a.reportedState === 'idle' || a.reportedState === 'waiting') {
+      } else if (a.reportedState === 'waiting') {
+        a.state = STATE.WAITING;
+      } else if (a.reportedState === 'idle') {
         a.state = STATE.IDLE;
         a.stateTimer = 2 + Math.random() * 2;
       } else {
@@ -707,6 +752,12 @@ export function updateAgent(
         a.stateTimer = 2 + Math.random() * 2;
         a.animFrame = 0;
       }
+    }
+  } else if (a.state === STATE.WAITING) {
+    a.animTimer += dt;
+    if (a.animTimer > 0.8) {
+      a.animTimer = 0;
+      a.animFrame = (a.animFrame + 1) % 4;
     }
   } else if (a.state === STATE.IDLE) {
     a.stateTimer -= dt * speedMult;
@@ -837,6 +888,10 @@ export function getAgentStatusBubble(agent: StarshipAgent): AgentStatusBubble {
     statusText = '⚠️ blocked';
     color = STARSHIP_CRIMSON_TINT;
     borderColor = STARSHIP_CRIMSON_TINT;
+  } else if (agent.state === STATE.WAITING || agent.reportedState === 'waiting') {
+    statusText = '⏳ waiting';
+    color = STARSHIP_AMBER;
+    borderColor = STARSHIP_AMBER;
   }
 
   const ws = WORKSTATIONS[agent.name];

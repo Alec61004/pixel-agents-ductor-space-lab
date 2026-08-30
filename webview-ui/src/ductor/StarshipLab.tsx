@@ -50,6 +50,7 @@ import {
   STATION_SLOTS,
   STATIONS,
   updateAgent,
+  WAITING_POINTS,
   WALKABLE_POLYGON,
   type WorkParticle,
   type WorkstationConfig,
@@ -106,6 +107,7 @@ export {
   STATION_SLOTS,
   STATIONS,
   updateAgent,
+  WAITING_POINTS,
   WALKABLE_POLYGON,
   type WorkParticle,
   type WorkstationConfig,
@@ -536,6 +538,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
         .starship-meta { min-width: 0; flex: 1; }
         .starship-name { font-size: 11px; color: #fff; font-weight: 600; letter-spacing: .2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .starship-role { font-size: 9.5px; color: var(--dim); margin-top: 2px; }
+        .starship-task { font-size: 9px; color: var(--text); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .starship-badge {
           font-size: 8.5px; padding: 2px 6px; border-radius: 10px; letter-spacing: .5px; white-space: nowrap; flex: 0 0 auto; text-transform: uppercase;
         }
@@ -725,6 +728,14 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
                         <div className="starship-role role">
                           {a.role} · {a.skin.name}
                           {a.provenance ? ` · ${a.provenance.replaceAll('-', ' ')}` : ''}
+                        </div>
+                        <div className="starship-task">
+                          {a.reportedTaskLabel ??
+                            (a.reportedState === 'offline'
+                              ? 'No active task'
+                              : a.provenance
+                                ? 'Presence detected · activity unobserved'
+                                : 'No task reported')}
                         </div>
                       </div>
                       <div className={`starship-badge badge ${badgeState.toLowerCase()}`}>
