@@ -66,6 +66,15 @@ export interface WorkstationScreenRect {
   h: number;
 }
 
+// Pixel-calibrated to the three physical displays already painted into
+// starship-bg.png. Keeping these as one source of truth prevents the live
+// terminal layer from drifting down onto the floor again.
+export const BUILD_MONITOR_RECTS: readonly WorkstationScreenRect[] = [
+  { x: 466, y: 311, w: 58, h: 39 },
+  { x: 550, y: 310, w: 64, h: 42 },
+  { x: 650, y: 310, w: 62, h: 40 },
+];
+
 export type DeckObjectId =
   | 'strategy-map'
   | 'build-console'
@@ -103,7 +112,7 @@ export const INTERACTIVE_DECK_OBJECTS: InteractiveDeckObject[] = [
     description: 'Inspect build lanes, terminal activity, and deployment health.',
     owner: 'Kevin',
     color: '#5ce1ff',
-    rect: { x: 372, y: 382, w: 224, h: 150 },
+    rect: { x: 392, y: 294, w: 342, h: 154 },
     actionLabel: 'Boost compiler',
   },
   {
@@ -198,15 +207,19 @@ export const WORKSTATIONS: Record<DuctorRoleName, WorkstationConfig> = {
     agentName: 'Kevin',
     label: 'Kevin — Build',
     roleDescription: 'Build',
-    walkPoint: { x: 480, y: 495 },
-    seatPoint: { x: 480, y: 489 },
-    tableX: 480,
-    tableY: 495,
-    standingX: 480,
-    standingY: 495,
+    // Use the real port-side chair and monitor bank in the background. The
+    // old y≈495 placement left Kevin standing on the floor below the desk.
+    walkPoint: { x: 491, y: 436 },
+    seatPoint: { x: 491, y: 430 },
+    tableX: 491,
+    tableY: 436,
+    standingX: 491,
+    standingY: 436,
     facing: 'back',
-    screenRect: { x: 399, y: 405, w: 176, h: 54 },
-    deskCutout: { x: 376, y: 454, w: 210, h: 72 },
+    screenRect: { x: 466, y: 310, w: 246, h: 42 },
+    // Redraw only the chair pedestal over Kevin's lower legs. A broad cutout
+    // would reintroduce visible rectangular patches around the furniture.
+    deskCutout: { x: 474, y: 407, w: 38, h: 32 },
     stationIndex: 4,
   },
   Benjamin: {
@@ -271,6 +284,11 @@ export const WALKABLE_POLYGON: Point2D[] = [
   { x: 50, y: 510 },
   { x: 260, y: 510 },
   { x: 340, y: 490 },
+  // Narrow access bay to the real build-console chair.
+  { x: 450, y: 490 },
+  { x: 450, y: 410 },
+  { x: 530, y: 410 },
+  { x: 530, y: 490 },
   { x: 600, y: 490 },
   { x: 700, y: 490 },
   { x: 920, y: 490 },
@@ -1318,9 +1336,9 @@ export function drawWorkstationInteraction(
     } else {
       // Two pixel gloves sit visibly on the physical keyboard after the desk
       // foreground has been redrawn. They tap in opposite phase.
-      const baseY = agent.name === 'Kevin' ? 463 : 573;
-      const leftX = agent.name === 'Kevin' ? 466 : 1064;
-      const rightX = agent.name === 'Kevin' ? 489 : 1089;
+      const baseY = agent.name === 'Kevin' ? 398 : 573;
+      const leftX = agent.name === 'Kevin' ? 478 : 1064;
+      const rightX = agent.name === 'Kevin' ? 501 : 1089;
       const leftTap = phase > 0 ? 1 : 0;
       const rightTap = phase < 0 ? 1 : 0;
 
@@ -1448,13 +1466,9 @@ export function drawWorkstationScreens(
     // Match the actual illuminated displays painted into the background. The
     // previous implementation filled one large rectangle across the desk and
     // character, which made the crew look pasted on top of a debug overlay.
-    const displays: WorkstationScreenRect[] =
+    const displays: readonly WorkstationScreenRect[] =
       agent.name === 'Kevin'
-        ? [
-            { x: 398, y: 397, w: 45, h: 30 },
-            { x: 459, y: 390, w: 51, h: 34 },
-            { x: 526, y: 401, w: 46, h: 29 },
-          ]
+        ? BUILD_MONITOR_RECTS
         : [
             { x: 1018, y: 550, w: 49, h: 29 },
             { x: 1091, y: 550, w: 49, h: 29 },
@@ -1490,7 +1504,7 @@ export function drawWorkstationScreens(
       // Cursor response in the center build monitor; hands are rendered in the
       // foreground after the desk occlusion pass.
       ctx.globalAlpha = 0.9;
-      ctx.fillRect(495, 414, 3, 5);
+      ctx.fillRect(582, 329, 3, 5);
     } else {
       const scanY = 554 + ((timeSec * 18) % 19);
       ctx.globalAlpha = 0.78;
@@ -1628,17 +1642,30 @@ export function drawLivingDeckObjects(
   // terminal rows and a cursor that crosses between monitors.
   const buildBoost = intensity('build-console');
   ctx.fillStyle = '#5ce1ff';
-  for (let monitor = 0; monitor < 3; monitor++) {
-    const x = 402 + monitor * 64;
-    const width = monitor === 1 ? 47 : 41;
+  for (let monitor = 0; monitor < BUILD_MONITOR_RECTS.length; monitor++) {
+    const rect = BUILD_MONITOR_RECTS[monitor];
+    if (!rect) continue;
     for (let line = 0; line < 4; line++) {
-      const y = 402 + ((line * 6 + timeSec * (8 + monitor)) % 25);
+      const y = rect.y + 5 + ((line * 6 + timeSec * (8 + monitor)) % (rect.h - 10));
       ctx.globalAlpha = 0.12 + buildBoost * 0.18;
-      ctx.fillRect(x + 4, y, width * (0.45 + ((line + monitor) % 3) * 0.17), 1);
+      ctx.fillRect(
+        rect.x + 5,
+        y,
+        (rect.w - 10) * (0.45 + ((line + monitor) % 3) * 0.17),
+        1,
+      );
     }
   }
   ctx.globalAlpha = 0.45 + buildBoost * 0.35;
-  ctx.fillRect(399 + ((timeSec * 26) % 168), 435, 3, 2);
+  const cursorMonitor = BUILD_MONITOR_RECTS[Math.floor(timeSec * 0.8) % BUILD_MONITOR_RECTS.length];
+  if (cursorMonitor) {
+    ctx.fillRect(
+      cursorMonitor.x + 5 + ((timeSec * 26) % (cursorMonitor.w - 12)),
+      cursorMonitor.y + cursorMonitor.h - 7,
+      3,
+      2,
+    );
+  }
 
   // QA console: twin scanners sweep in opposite directions even when nobody
   // is seated. Engaged mode adds a confirmation pulse.
