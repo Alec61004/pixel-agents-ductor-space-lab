@@ -19,6 +19,7 @@ import {
   drawFloorMarkers,
   drawHologramTopGlow,
   drawWorkParticles,
+  drawWorkstationInteraction,
   drawWorkstationLabels,
   drawWorkstationScreens,
   FLOOR_Y_MAX,
@@ -282,8 +283,8 @@ test('defines 3 fixed workstations (Alec, Kevin, Benjamin) with correct labels a
   assert.ok(WORKSTATIONS.Benjamin);
 
   // Calibrated against the painted furniture in the 1600×678 deck image.
-  assert.deepEqual(WORKSTATIONS.Alec.walkPoint, { x: 558, y: 585 });
-  assert.equal(WORKSTATIONS.Alec.facing, 'front');
+  assert.deepEqual(WORKSTATIONS.Alec.walkPoint, { x: 558, y: 627 });
+  assert.equal(WORKSTATIONS.Alec.facing, 'back');
   assert.deepEqual(WORKSTATIONS.Alec.screenRect, {
     x: 500,
     y: 515,
@@ -292,9 +293,9 @@ test('defines 3 fixed workstations (Alec, Kevin, Benjamin) with correct labels a
   });
   assert.deepEqual(WORKSTATIONS.Alec.deskCutout, {
     x: 500,
-    y: 545,
+    y: 584,
     w: 118,
-    h: 82,
+    h: 43,
   });
   assert.equal(WORKSTATIONS.Alec.label, 'Alec — Strategy');
 
@@ -368,7 +369,7 @@ test('agent working state positions agent at their own assigned workstation seat
   // Alec must be at Alec's desk seatPoint facing front
   assert.equal(alec.x, WORKSTATIONS.Alec.seatPoint.x);
   assert.equal(alec.y, WORKSTATIONS.Alec.seatPoint.y);
-  assert.equal(alec.facing, 'front');
+  assert.equal(alec.facing, 'back');
   assert.equal(alec.currentStation, 'Alec — Strategy');
   assert.notEqual(alec.x, WORKSTATIONS.Kevin.seatPoint.x);
   assert.notEqual(alec.x, WORKSTATIONS.Benjamin.seatPoint.x);
@@ -822,7 +823,7 @@ test('2 working agents do not share coordinates with distance > 20px', () => {
   }
 });
 
-test('drawAgent selects front-idle frames for Alec (facing front) and back-idle frames for Kevin/Benjamin (facing back) with 8Hz typing bob', () => {
+test('drawAgent selects back-facing work frames for all three desk-oriented crew with 8Hz typing bob', () => {
   const crew = createInitialCrew(snapshot);
   const alec = crew.find((a) => a.name === 'Alec')!;
   const kevin = crew.find((a) => a.name === 'Kevin')!;
@@ -864,13 +865,13 @@ test('drawAgent selects front-idle frames for Alec (facing front) and back-idle 
   const mockImg = { width: 512, height: 256 } as HTMLImageElement;
   const cw = 512 / 16; // 32
 
-  // Alec facing front: col = 0..3 (sx = 0 * 32 = 0)
+  // Alec faces the hologram table: col = 8..11 (sx = 8 * 32 = 256)
   alec.animFrame = 0;
   drawAgent(mockCtx, alec, mockImg);
   const alecCalls = drawCalls.filter((c) => c.type === 'drawImage');
   assert.ok(alecCalls.length >= 1);
   const sxAlec = alecCalls[0].args[1];
-  assert.equal(sxAlec, 0 * cw); // column index 0 = front-facing
+  assert.equal(sxAlec, 8 * cw); // column index 8 = back-facing
 
   // Kevin facing back: col = 8..11 (sx = 8 * 32 = 256)
   drawCalls.length = 0;
@@ -1024,6 +1025,25 @@ test('drawDeskCutouts renders desk cutout slices from bgImg to occlude agent low
     (c) => c[1] === WORKSTATIONS.Alec.deskCutout.x && c[2] === WORKSTATIONS.Alec.deskCutout.y,
   );
   assert.equal(alecIdleCutout, undefined);
+});
+
+test('drawWorkstationInteraction restores visible hands on top of each active workstation', () => {
+  const crew = createInitialCrew(snapshot);
+  const fillRectCalls: Array<{ x: number; y: number; w: number; h: number }> = [];
+  const mockCtx = {
+    save: () => {},
+    restore: () => {},
+    fillRect: (x: number, y: number, w: number, h: number) => fillRectCalls.push({ x, y, w, h }),
+    fillStyle: '',
+    globalAlpha: 1,
+    globalCompositeOperation: 'source-over',
+  } as unknown as CanvasRenderingContext2D;
+
+  drawWorkstationInteraction(mockCtx, crew, 0);
+
+  assert.ok(fillRectCalls.some((call) => call.x === 466 && call.y === 463));
+  assert.ok(fillRectCalls.some((call) => call.x === 1064 && call.y === 573));
+  assert.ok(fillRectCalls.some((call) => call.x === 540 && call.w === 8));
 });
 
 test('drawHologramTopGlow renders pulsing violet hologram ellipse, starmap rings, and star nodes for Alec when working', () => {

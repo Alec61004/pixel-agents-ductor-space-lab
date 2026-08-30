@@ -92,15 +92,15 @@ export const WORKSTATIONS: Record<DuctorRoleName, WorkstationConfig> = {
     // The strategy station is the raised star-map table, not the specimen jars
     // immediately to its left. Alec approaches from the bridge floor and works
     // from behind the projection so the table can correctly occlude his legs.
-    walkPoint: { x: 558, y: 585 },
-    seatPoint: { x: 558, y: 574 },
+    walkPoint: { x: 558, y: 627 },
+    seatPoint: { x: 558, y: 620 },
     tableX: 558,
     tableY: 575,
     standingX: 558,
-    standingY: 574,
-    facing: 'front',
+    standingY: 620,
+    facing: 'back',
     screenRect: { x: 500, y: 515, w: 118, h: 78 },
-    deskCutout: { x: 500, y: 545, w: 118, h: 82 },
+    deskCutout: { x: 500, y: 584, w: 118, h: 43 },
     stationIndex: 1,
   },
   Kevin: {
@@ -1151,10 +1151,9 @@ export function drawAgent(
     ctx.restore();
   }
 
-  // Status bubble above head (always visible)
-  drawAgentStatusBubble(ctx, a, drawH, bobY);
-
-  // Work particles floating above agent
+  // Identity and status live in the command strip. Keeping text off the deck
+  // lets the character, furniture, and active workstation read as one scene.
+  // Work particles are the only lightweight in-world activity cue.
   drawWorkParticles(ctx, a);
 
   ctx.restore();
@@ -1183,6 +1182,70 @@ export function drawDeskCutouts(
       ctx.drawImage(bgImg, c.x, c.y, c.w, c.h, c.x, c.y, c.w, c.h);
       ctx.restore();
     }
+  }
+}
+
+/**
+ * Draw the foreground part of each working pose after the desk cutout has
+ * occluded the character's lower body. This is what turns a standing sprite
+ * behind furniture into a readable seated/operating pose.
+ */
+export function drawWorkstationInteraction(
+  ctx: CanvasRenderingContext2D,
+  agents: StarshipAgent[],
+  timeSec: number = Date.now() / 1000,
+): void {
+  for (const agent of agents) {
+    if (!isAgentAtStation(agent)) continue;
+    const isOffline = agent.reportedState === 'offline' || agent.state === STATE.OFFLINE;
+    const isWorking =
+      !isOffline &&
+      (agent.state === STATE.WORKING ||
+        agent.reportedState === 'working' ||
+        agent.reportedState === 'review');
+    if (!isWorking) continue;
+
+    const roleColor = ROLE_GLOW_COLORS[agent.name] ?? agent.skin.tint;
+    const phase = Math.sin(timeSec * 12);
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+
+    if (agent.name === 'Alec') {
+      // Forearms and gloves rest on the near edge of the hologram table. The
+      // alternating highlights make the gesture read as active manipulation.
+      ctx.fillStyle = '#25253d';
+      ctx.fillRect(agent.x - 15, agent.y - 39, 5, 15);
+      ctx.fillRect(agent.x + 10, agent.y - 39, 5, 15);
+      ctx.fillStyle = roleColor;
+      ctx.globalAlpha = 0.72 + Math.abs(phase) * 0.2;
+      ctx.fillRect(agent.x - 18, agent.y - 43 - Math.max(0, phase * 2), 8, 5);
+      ctx.fillRect(agent.x + 10, agent.y - 43 + Math.min(0, phase * 2), 8, 5);
+
+      ctx.globalAlpha = 0.28;
+      ctx.fillRect(agent.x - 14, agent.y - 53, 2, 11);
+      ctx.fillRect(agent.x + 13, agent.y - 53, 2, 11);
+    } else {
+      // Two pixel gloves sit visibly on the physical keyboard after the desk
+      // foreground has been redrawn. They tap in opposite phase.
+      const baseY = agent.name === 'Kevin' ? 463 : 573;
+      const leftX = agent.name === 'Kevin' ? 466 : 1064;
+      const rightX = agent.name === 'Kevin' ? 489 : 1089;
+      const leftTap = phase > 0 ? 1 : 0;
+      const rightTap = phase < 0 ? 1 : 0;
+
+      ctx.fillStyle = '#202132';
+      ctx.globalAlpha = 0.95;
+      ctx.fillRect(leftX + 1, baseY - 7, 4, 8);
+      ctx.fillRect(rightX + 1, baseY - 7, 4, 8);
+      ctx.fillStyle = '#aab4c8';
+      ctx.fillRect(leftX, baseY + leftTap, 7, 4);
+      ctx.fillRect(rightX, baseY + rightTap, 7, 4);
+      ctx.fillStyle = roleColor;
+      ctx.globalAlpha = 0.9;
+      ctx.fillRect(leftX + 1, baseY + leftTap, 5, 1);
+      ctx.fillRect(rightX + 1, baseY + rightTap, 5, 1);
+    }
+    ctx.restore();
   }
 }
 
@@ -1326,6 +1389,26 @@ export function drawWorkstationScreens(
       }
       ctx.restore();
     }
+
+    // Small role-specific interaction cues make it clear which hardware the
+    // seated agent is operating without painting a translucent debug panel
+    // over the desk.
+    ctx.save();
+    ctx.fillStyle = roleColor;
+    if (agent.name === 'Kevin') {
+      // Cursor response in the center build monitor; hands are rendered in the
+      // foreground after the desk occlusion pass.
+      ctx.globalAlpha = 0.9;
+      ctx.fillRect(495, 414, 3, 5);
+    } else {
+      const scanY = 554 + ((timeSec * 18) % 19);
+      ctx.globalAlpha = 0.78;
+      ctx.fillRect(1027, scanY, 39, 1);
+      ctx.fillRect(1094, scanY, 43, 1);
+      ctx.globalAlpha = 0.9;
+      ctx.fillRect(1129, 556, 5, 5);
+    }
+    ctx.restore();
   }
   ctx.restore();
 }
@@ -1418,10 +1501,15 @@ export function drawStage(
   // Draw desk occlusion cutouts over sitting/standing agents' lower bodies
   drawDeskCutouts(ctx, bgImg, agents);
 
+  // Restore hands and controls on top of the desk so the active pose reads as
+  // operating the workstation instead of merely standing behind it.
+  drawWorkstationInteraction(ctx, agents, timeSec);
+
   // Redraw hologram effect on top of desk cutout for Alec
   drawHologramTopGlow(ctx, agents, timeSec);
 
-  drawWorkstationLabels(ctx, agents);
+  // Workstation identity is already present in the command strip. Avoid
+  // duplicating labels on top of the artwork.
 
   ctx.restore();
 
