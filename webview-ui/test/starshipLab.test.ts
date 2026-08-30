@@ -26,7 +26,9 @@ import {
   FLOOR_Y_MIN,
   getAgentStatusBubble,
   getDepthScale,
+  hitTestDeckObject,
   IDLE_POINTS,
+  INTERACTIVE_DECK_OBJECTS,
   isPointInPolygon,
   makeAgent,
   OFFLINE_POINTS,
@@ -358,6 +360,26 @@ test('defines 3 fixed workstations (Alec, Kevin, Benjamin) with correct labels a
   assert.equal(isPointInPolygon(WORKSTATIONS.Alec.walkPoint, WALKABLE_POLYGON), true);
   assert.equal(isPointInPolygon(WORKSTATIONS.Kevin.walkPoint, WALKABLE_POLYGON), true);
   assert.equal(isPointInPolygon(WORKSTATIONS.Benjamin.walkPoint, WALKABLE_POLYGON), true);
+});
+
+test('game layer exposes six precise interactive systems and hit-tests their hotspots', () => {
+  assert.equal(INTERACTIVE_DECK_OBJECTS.length, 6);
+  for (const object of INTERACTIVE_DECK_OBJECTS) {
+    const centerX = object.rect.x + object.rect.w / 2;
+    const centerY = object.rect.y + object.rect.h / 2;
+    assert.equal(hitTestDeckObject(centerX, centerY)?.id, object.id);
+    assert.ok(object.actionLabel.length > 0);
+    assert.ok(object.description.length > 20);
+  }
+  assert.equal(hitTestDeckObject(10, 10), null);
+});
+
+test('render exposes game controls without covering the deck before a system is selected', () => {
+  const markup = renderToStaticMarkup(createElement(StarshipLab, { snapshot }));
+  assert.match(markup, /Hover/);
+  assert.match(markup, /Click/);
+  assert.match(markup, /Wheel/);
+  assert.doesNotMatch(markup, /<aside/);
 });
 
 test('agent working state positions agent at their own assigned workstation seatPoint and facing matches workstation config', () => {
