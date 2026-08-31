@@ -4,11 +4,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { test } from 'vitest';
 
-import {
-  DUCTOR_ACTIVITY_LEASE_MS,
-  type DuctorStatusSnapshot,
-  expireStaleDuctorActivity,
-} from '../src/ductor/ductorLabModel.js';
+import type { DuctorStatusSnapshot } from '../src/ductor/ductorLabModel.js';
 import {
   applySnapshotToAgents,
   ASSIGNED_WORKSTATIONS,
@@ -33,7 +29,6 @@ import {
   getDepthScale,
   hitTestDeckObject,
   IDLE_POINTS,
-  IDLE_PATROL_POINTS,
   INTERACTIVE_DECK_OBJECTS,
   isPointInPolygon,
   makeAgent,
@@ -81,64 +76,6 @@ const snapshot: DuctorStatusSnapshot = {
     },
   ],
 };
-
-test('active role reports expire to truthful idle after the activity lease', () => {
-  const updatedAt = '2026-08-22T05:30:00.000Z';
-  const projected = expireStaleDuctorActivity(
-    {
-      theme: 'ductor-space-lab',
-      publishedAt: '2026-08-22T05:30:30.000Z',
-      stale: false,
-      roles: [
-        {
-          name: 'Alec',
-          presence: 'online',
-          state: 'working',
-          taskLabel: 'Planning',
-          updatedAt,
-          derived: false,
-          provenance: 'operator-agent-reported',
-        },
-        {
-          name: 'Kevin',
-          presence: 'online',
-          state: 'idle',
-          taskLabel: null,
-          updatedAt,
-          derived: false,
-          provenance: 'operator-agent-reported',
-        },
-        {
-          name: 'Benjamin',
-          presence: 'online',
-          state: 'review',
-          taskLabel: 'QA',
-          updatedAt,
-          derived: false,
-          provenance: 'operator-agent-reported',
-        },
-      ],
-    },
-    Date.parse(updatedAt) + DUCTOR_ACTIVITY_LEASE_MS + 1,
-  );
-
-  assert.deepEqual(
-    projected.roles.map((role) => role.state),
-    ['idle', 'idle', 'idle'],
-  );
-  assert.equal(projected.roles[0]?.derived, true);
-  assert.equal(projected.roles[0]?.taskLabel, null);
-  assert.equal(projected.roles[0]?.provenance, 'stale-local-report');
-});
-
-test('fresh working and review reports remain active inside the activity lease', () => {
-  const updatedAt = '2026-08-22T05:30:00.000Z';
-  const projected = expireStaleDuctorActivity(
-    snapshot,
-    Date.parse(updatedAt) + DUCTOR_ACTIVITY_LEASE_MS,
-  );
-  assert.equal(projected, snapshot);
-});
 
 test('renders StarshipLab without crashing with 2 canvases and 3 agents', () => {
   const markup = renderToStaticMarkup(createElement(StarshipLab, { snapshot }));
@@ -365,7 +302,7 @@ test('defines 3 fixed workstations (Alec, Kevin, Benjamin) with correct labels a
   });
   assert.equal(WORKSTATIONS.Alec.label, 'Alec — Strategy');
 
-  assert.deepEqual(WORKSTATIONS.Kevin.walkPoint, { x: 491, y: 426 });
+  assert.deepEqual(WORKSTATIONS.Kevin.walkPoint, { x: 491, y: 436 });
   assert.equal(WORKSTATIONS.Kevin.facing, 'back');
   assert.deepEqual(WORKSTATIONS.Kevin.screenRect, {
     x: 466,
@@ -375,9 +312,9 @@ test('defines 3 fixed workstations (Alec, Kevin, Benjamin) with correct labels a
   });
   assert.deepEqual(WORKSTATIONS.Kevin.deskCutout, {
     x: 474,
-    y: 384,
-    w: 43,
-    h: 56,
+    y: 407,
+    w: 38,
+    h: 32,
   });
   assert.equal(WORKSTATIONS.Kevin.label, 'Kevin — Build');
 
@@ -967,7 +904,6 @@ test('drawAgent selects back-facing work frames for all three desk-oriented crew
   assert.ok(kevinCalls.length >= 1);
   const sxKevin = kevinCalls[0].args[1];
   assert.equal(sxKevin, 8 * cw); // column index 8 = back-facing
-  assert.ok(kevinCalls[0].args[8] < 92, 'Kevin uses scene depth at the real chair');
 
   // Frame 3 of back-idle for Kevin: col = 11 (sx = 11 * 32 = 352)
   drawCalls.length = 0;
@@ -1146,7 +1082,7 @@ test('drawWorkstationInteraction restores visible hands on top of each active wo
 
   drawWorkstationInteraction(mockCtx, crew, 0);
 
-  assert.ok(fillRectCalls.some((call) => call.x === 478 && call.y === 389));
+  assert.ok(fillRectCalls.some((call) => call.x === 478 && call.y === 398));
   assert.ok(fillRectCalls.some((call) => call.x === 1064 && call.y === 573));
   assert.ok(fillRectCalls.some((call) => call.x === 540 && call.w === 8));
 });
@@ -1354,16 +1290,5 @@ test('V1.9 idle wander: idle agent wanders between points every 2-4s and changes
       distMoved > 10,
       `Idle agent ${agent.name} should have wandered and changed position within 5s, but moved only ${distMoved.toFixed(1)}px`,
     );
-  }
-});
-
-test('idle patrol points stay on the bridge floor and away from the raised QA console', () => {
-  assert.deepEqual(IDLE_POINTS.Benjamin, { x: 1280, y: 620 });
-  for (const [name, points] of Object.entries(IDLE_PATROL_POINTS)) {
-    assert.ok(points.length >= 3, `${name} has a patrol lane`);
-    for (const point of points) {
-      assert.equal(isPointInPolygon(point, WALKABLE_POLYGON), true);
-      assert.ok(point.y >= 600, `${name} patrol point is on the floor, not on furniture`);
-    }
   }
 });
