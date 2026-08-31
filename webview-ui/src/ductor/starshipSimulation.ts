@@ -212,19 +212,17 @@ export const WORKSTATIONS: Record<DuctorRoleName, WorkstationConfig> = {
     roleDescription: 'Build',
     // Use the real port-side chair and monitor bank in the background. The
     // old y≈495 placement left Kevin standing on the floor below the desk.
-    walkPoint: { x: 491, y: 426 },
-    seatPoint: { x: 491, y: 414 },
+    walkPoint: { x: 491, y: 436 },
+    seatPoint: { x: 491, y: 430 },
     tableX: 491,
-    tableY: 426,
+    tableY: 436,
     standingX: 491,
-    standingY: 414,
+    standingY: 436,
     facing: 'back',
     screenRect: { x: 466, y: 310, w: 246, h: 42 },
     // Redraw only the chair pedestal over Kevin's lower legs. A broad cutout
     // would reintroduce visible rectangular patches around the furniture.
-    // Restore the lower half of the painted chair over the sprite. This masks
-    // the standing legs from the source sheet and creates a true seated pose.
-    deskCutout: { x: 474, y: 384, w: 43, h: 56 },
+    deskCutout: { x: 474, y: 407, w: 38, h: 32 },
     stationIndex: 4,
   },
   Benjamin: {
@@ -253,33 +251,9 @@ export const OFFLINE_POINTS: Record<DuctorRoleName, { x: number; y: number }> = 
 };
 
 export const IDLE_POINTS: Record<DuctorRoleName, { x: number; y: number }> = {
-  Alec: { x: 430, y: 620 },
-  Kevin: { x: 800, y: 610 },
-  Benjamin: { x: 1280, y: 620 },
-};
-
-// Safe floor-only patrol lanes. The decorative station coordinates include
-// raised furniture (notably the QA console), so idle agents must never use
-// those as foot anchors.
-export const IDLE_PATROL_POINTS: Record<
-  DuctorRoleName,
-  readonly { x: number; y: number }[]
-> = {
-  Alec: [
-    { x: 360, y: 620 },
-    { x: 460, y: 635 },
-    { x: 590, y: 615 },
-  ],
-  Kevin: [
-    { x: 720, y: 620 },
-    { x: 820, y: 635 },
-    { x: 920, y: 615 },
-  ],
-  Benjamin: [
-    { x: 1220, y: 620 },
-    { x: 1340, y: 635 },
-    { x: 1460, y: 615 },
-  ],
+  Alec: { x: 500, y: 550 },
+  Kevin: { x: 800, y: 560 },
+  Benjamin: { x: 1120, y: 550 },
 };
 
 export const WAITING_POINTS: Record<DuctorRoleName, { x: number; y: number }> = {
@@ -502,19 +476,6 @@ export function pickNewTarget(agent: StarshipAgent, agents: StarshipAgent[]): vo
       agent.state = STATE.MOVING;
       return;
     }
-  }
-
-  if (agent.reportedState === 'idle') {
-    const patrol = IDLE_PATROL_POINTS[agent.name];
-    const distant = patrol.filter((point) => Math.hypot(agent.x - point.x, agent.y - point.y) > 40);
-    const candidates = distant.length > 0 ? distant : patrol;
-    const point = candidates[Math.floor(Math.random() * candidates.length)] ?? IDLE_POINTS[agent.name];
-    agent.stationIndex = null;
-    agent.targetX = point.x;
-    agent.targetY = point.y;
-    agent.currentStation = 'Bridge Floor';
-    agent.state = STATE.MOVING;
-    return;
   }
 
   // Idle wander mode or demo mode: pick among stations with distinct role slot offsets to prevent overlap
@@ -1187,15 +1148,12 @@ export function drawAgent(
   const sx = col * cw;
   const sy = row * ch;
 
-  const atWorkstation = isWorking && isAgentAtStation(a);
-  const isSeated = atWorkstation && (a.name === 'Kevin' || a.name === 'Benjamin');
+  // Depth scale based on foot position a.y
   const scale = getDepthScale(a.y);
   const BASE_DRAW_H = 92;
   const drawH = BASE_DRAW_H * scale;
   const drawW = drawH * (cw / ch);
-  // Seated operators stay locked to the furniture; only their hands/screens
-  // animate. Whole-body bobbing made them look like standing sprites on chairs.
-  const bobY = isWorking && !isSeated ? Math.sin(a.bob) * 2 : 0;
+  const bobY = isWorking ? Math.sin(a.bob) * 2 : 0;
   const leanY = isWorking ? -1 : 0;
 
   // Foot Anchor: Coordinates (a.x, a.y) = bottom center of character feet.
@@ -1381,7 +1339,7 @@ export function drawWorkstationInteraction(
     } else {
       // Two pixel gloves sit visibly on the physical keyboard after the desk
       // foreground has been redrawn. They tap in opposite phase.
-      const baseY = agent.name === 'Kevin' ? 389 : 573;
+      const baseY = agent.name === 'Kevin' ? 398 : 573;
       const leftX = agent.name === 'Kevin' ? 478 : 1064;
       const rightX = agent.name === 'Kevin' ? 501 : 1089;
       const leftTap = phase > 0 ? 1 : 0;
