@@ -3,7 +3,7 @@
   "framework": null,
   "buildCommand": "npm run build:webview",
   "installCommand": "npm ci --ignore-scripts",
-  "outputDirectory": "dist",
+  "outputDirectory": "dist/webview",
   "headers": [
     {
       "source": "/(.*)",
