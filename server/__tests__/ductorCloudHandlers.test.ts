@@ -2,7 +2,7 @@ import { createHmac } from 'node:crypto';
 
 import { describe, expect, it, vi } from 'vitest';
 
-import type { CloudStoredEnvelope } from '../../api/_lib/ductorCloud.js';
+import { acceptCloudWrite, type CloudStoredEnvelope } from '../../api/_lib/ductorCloud.js';
 import {
   type CloudStatusStore,
   createCloudHeartbeatHandler,
@@ -12,10 +12,10 @@ import {
 const now = new Date('2026-08-22T06:00:00.000Z');
 const secret = 'w'.repeat(64);
 
-function body(): string {
+function body(publishedAt: Date = now): string {
   return JSON.stringify({
     version: 1,
-    publishedAt: now.toISOString(),
+    publishedAt: publishedAt.toISOString(),
     roles: [
       ['Alec', 'working', 'Plan'],
       ['Kevin', 'waiting', 'Build'],
@@ -25,7 +25,7 @@ function body(): string {
       presence: 'online',
       state,
       taskLabel,
-      updatedAt: now.toISOString(),
+      updatedAt: publishedAt.toISOString(),
       derived: false,
       provenance: 'operator-agent-reported',
     })),
@@ -62,10 +62,14 @@ function request(
 
 function fakeStore(current: CloudStoredEnvelope | null = null): CloudStatusStore & {
   read: ReturnType<typeof vi.fn>;
+  readForWrite: ReturnType<typeof vi.fn>;
+  writeIfCurrent: ReturnType<typeof vi.fn>;
   write: ReturnType<typeof vi.fn>;
 } {
   return {
     read: vi.fn(async () => current),
+    readForWrite: vi.fn(async () => ({ envelope: current, etag: current ? 'etag' : null })),
+    writeIfCurrent: vi.fn(async () => undefined),
     write: vi.fn(async () => undefined),
   };
 }
@@ -80,8 +84,8 @@ describe('Ductor cloud handlers', () => {
     })(request());
 
     expect(response.status).toBe(204);
-    expect(store.write).toHaveBeenCalledOnce();
-    const envelope = store.write.mock.calls[0]?.[0] as CloudStoredEnvelope;
+    expect(store.writeIfCurrent).toHaveBeenCalledOnce();
+    const envelope = store.writeIfCurrent.mock.calls[0]?.[0] as CloudStoredEnvelope;
     expect(envelope.snapshot.roles.map((role) => role.name)).toEqual(['Alec', 'Kevin', 'Benjamin']);
     expect(JSON.stringify(envelope)).not.toMatch(/token|secret|prompt|message|result|path/i);
   });
@@ -128,7 +132,86 @@ describe('Ductor cloud handlers', () => {
 
     expect(response.status).toBe(413);
     expect(store.read).not.toHaveBeenCalled();
-    expect(store.write).not.toHaveBeenCalled();
+    expect(store.writeIfCurrent).not.toHaveBeenCalled();
+  });
+
+  it('rejects the losing writer when two requests use the same ETag', async () => {
+    const previousAt = new Date(now.getTime() - 2_000);
+    const previousBody = body(previousAt);
+    const current = acceptCloudWrite({
+      body: previousBody,
+      current: null,
+      issuedAt: previousAt.getTime(),
+      nonce: 'c'.repeat(32),
+      now,
+      secret,
+      signature: createHmac('sha256', secret)
+        .update(`${previousAt.getTime()}.` + `${'c'.repeat(32)}.${previousBody}`)
+        .digest('hex'),
+    });
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let reads = 0;
+    let currentEtag = 'old-etag';
+    const store: CloudStatusStore = {
+      read: vi.fn(async () => current),
+      readForWrite: vi.fn(async () => {
+        reads += 1;
+        if (reads === 2) release();
+        await gate;
+        return { envelope: current, etag: 'old-etag' };
+      }),
+      writeIfCurrent: vi.fn(async (_envelope, etag) => {
+        if (etag !== currentEtag) throw new Error('conflict');
+        currentEtag = 'new-etag';
+      }),
+      write: vi.fn(async () => undefined),
+    };
+
+    const handler = createCloudHeartbeatHandler({ now: () => now, secret, store });
+    const responses = await Promise.all([
+      handler(request({ nonce: 'd'.repeat(32) })),
+      handler(request({ nonce: 'e'.repeat(32) })),
+    ]);
+
+    expect(responses.map((response) => response.status).sort()).toEqual([204, 409]);
+    expect(store.writeIfCurrent).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects the losing creator when two requests see a missing blob', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let reads = 0;
+    let created = false;
+    const writeIfCurrent = vi.fn(async (_envelope: CloudStoredEnvelope, etag: string | null) => {
+      if (etag !== null || created) throw new Error('conflict');
+      created = true;
+    });
+    const store: CloudStatusStore = {
+      read: vi.fn(async () => null),
+      readForWrite: vi.fn(async () => {
+        reads += 1;
+        if (reads === 2) release();
+        await gate;
+        return { envelope: null, etag: null };
+      }),
+      writeIfCurrent,
+      write: vi.fn(async () => undefined),
+    };
+
+    const handler = createCloudHeartbeatHandler({ now: () => now, secret, store });
+    const responses = await Promise.all([
+      handler(request({ nonce: 'f'.repeat(32) })),
+      handler(request({ nonce: '1'.repeat(32) })),
+    ]);
+
+    expect(responses.map((response) => response.status).sort()).toEqual([204, 409]);
+    expect(writeIfCurrent).toHaveBeenCalledTimes(2);
+    expect(writeIfCurrent.mock.calls.every((call) => call[1] === null)).toBe(true);
   });
 
   it('returns stale offline data on missing/storage failure and never exposes write auth', async () => {

@@ -99,7 +99,7 @@ describe('Ductor localhost status bridge', () => {
               {
                 state: states[index],
                 taskLabel: `${role} live`,
-                updatedAt: '2026-08-22T05:30:00.000Z',
+                updatedAt: new Date().toISOString(),
               },
             ]),
           ),

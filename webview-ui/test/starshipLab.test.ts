@@ -8,7 +8,6 @@ import type { DuctorStatusSnapshot } from '../src/ductor/ductorLabModel.js';
 import {
   applySnapshotToAgents,
   ASSIGNED_WORKSTATIONS,
-  BUILD_MONITOR_RECTS,
   ATTENTION_POINTS,
   clampPointToPolygon,
   createInitialCrew,
@@ -20,16 +19,13 @@ import {
   drawFloorMarkers,
   drawHologramTopGlow,
   drawWorkParticles,
-  drawWorkstationInteraction,
   drawWorkstationLabels,
   drawWorkstationScreens,
   FLOOR_Y_MAX,
   FLOOR_Y_MIN,
   getAgentStatusBubble,
   getDepthScale,
-  hitTestDeckObject,
   IDLE_POINTS,
-  INTERACTIVE_DECK_OBJECTS,
   isPointInPolygon,
   makeAgent,
   OFFLINE_POINTS,
@@ -83,14 +79,14 @@ test('renders StarshipLab without crashing with 2 canvases and 3 agents', () => 
   assert.match(markup, /data-starship-lab="true"/);
   assert.match(markup, /id="stage"/);
   assert.match(markup, /id="stars"/);
-  assert.match(markup, /DUCTOR SPACE LAB/);
+  assert.match(markup, /STARSHIP AGENTS/);
   assert.match(markup, /Alec/);
   assert.match(markup, /Kevin/);
   assert.match(markup, /Benjamin/);
   assert.match(markup, /Coordinate MVP/);
-  assert.match(markup, /Strategy/);
-  assert.match(markup, /Build/);
-  assert.match(markup, /QA/);
+  assert.match(markup, /Nebula Sentinel/);
+  assert.match(markup, /Void Recon Unit/);
+  assert.match(markup, /Crimson Hunter-Class/);
 });
 
 test('spawns exactly 3 initial agents with distinct skins matching Alec, Kevin, Benjamin', () => {
@@ -203,7 +199,8 @@ test('keeps waiting agents at their hold points with a truthful waiting bubble',
     assert.deepEqual({ x: agent.x, y: agent.y }, point);
 
     const bubble = getAgentStatusBubble(agent);
-    assert.deepEqual(bubble.lines, [`${agent.name.toUpperCase()}  ·  WAITING`]);
+    assert.equal(bubble.lines[0], WORKSTATIONS[agent.name].label);
+    assert.equal(bubble.lines[1], '⏳ waiting');
 
     const before = { x: agent.x, y: agent.y };
     updateAgent(agent, 5, 1, crew);
@@ -263,21 +260,19 @@ test('falls back cleanly to random behavior when snapshot is missing or disconne
   }
 });
 
-test('renders compact live crew pills matching snapshot roles', () => {
+test('renders live status badges in roster matching snapshot roles', () => {
   const markup = renderToStaticMarkup(createElement(StarshipLab, { snapshot }));
 
-  assert.match(markup, /class="starship-crew-pill working"/);
-  assert.match(markup, /class="starship-crew-pill review"/);
-  assert.match(markup, /class="starship-crew-state">working<\/span>/);
-  assert.match(markup, /class="starship-crew-state">review<\/span>/);
+  assert.match(markup, /<div class="starship-badge badge working">\s*WORKING\s*<\/div>/);
+  assert.match(markup, /<div class="starship-badge badge review">\s*REVIEW\s*<\/div>/);
 });
 
 test('shows the reported task beside each live roster status', () => {
   const markup = renderToStaticMarkup(createElement(StarshipLab, { snapshot }));
 
-  assert.match(markup, /title="Coordinate MVP"/);
-  assert.match(markup, /title="Implement bridge"/);
-  assert.match(markup, /title="Review contract"/);
+  assert.match(markup, /class="starship-task"[^>]*>Coordinate MVP<\/div>/);
+  assert.match(markup, /class="starship-task"[^>]*>Implement bridge<\/div>/);
+  assert.match(markup, /class="starship-task"[^>]*>Review contract<\/div>/);
 });
 
 test('defines 3 fixed workstations (Alec, Kevin, Benjamin) with correct labels and coordinates within walkable polygon', () => {
@@ -285,53 +280,33 @@ test('defines 3 fixed workstations (Alec, Kevin, Benjamin) with correct labels a
   assert.ok(WORKSTATIONS.Kevin);
   assert.ok(WORKSTATIONS.Benjamin);
 
-  // Calibrated against the painted furniture in the 1600×678 deck image.
-  assert.deepEqual(WORKSTATIONS.Alec.walkPoint, { x: 558, y: 570 });
-  assert.equal(WORKSTATIONS.Alec.facing, 'back');
-  assert.deepEqual(WORKSTATIONS.Alec.screenRect, {
-    x: 500,
-    y: 515,
-    w: 118,
-    h: 78,
-  });
-  assert.deepEqual(WORKSTATIONS.Alec.deskCutout, {
-    x: 500,
-    y: 551,
-    w: 118,
-    h: 76,
-  });
+  // New device-anchored coordinates matching actual painted devices in starship-bg.png
+  assert.deepEqual(WORKSTATIONS.Alec.approachPoint, { x: 480, y: 575 });
+  assert.deepEqual(WORKSTATIONS.Alec.interactionPoint, { x: 480, y: 570 });
+  assert.equal(WORKSTATIONS.Alec.facing, 'front');
+  assert.deepEqual(WORKSTATIONS.Alec.displayBounds, { x: 505, y: 442, w: 140, h: 98 });
+  assert.deepEqual(WORKSTATIONS.Alec.displayAreas, [{ x: 505, y: 442, w: 140, h: 98 }]);
+  assert.deepEqual(WORKSTATIONS.Alec.occlusionBounds, { x: 500, y: 525, w: 145, h: 65 });
   assert.equal(WORKSTATIONS.Alec.label, 'Alec — Strategy');
 
-  assert.deepEqual(WORKSTATIONS.Kevin.walkPoint, { x: 491, y: 436 });
+  assert.deepEqual(WORKSTATIONS.Kevin.approachPoint, { x: 450, y: 490 });
+  assert.deepEqual(WORKSTATIONS.Kevin.interactionPoint, { x: 450, y: 455 });
   assert.equal(WORKSTATIONS.Kevin.facing, 'back');
-  assert.deepEqual(WORKSTATIONS.Kevin.screenRect, {
-    x: 466,
-    y: 310,
-    w: 246,
-    h: 42,
-  });
-  assert.deepEqual(WORKSTATIONS.Kevin.deskCutout, {
-    x: 474,
-    y: 407,
-    w: 38,
-    h: 32,
-  });
+  assert.deepEqual(WORKSTATIONS.Kevin.displayBounds, { x: 460, y: 318, w: 250, h: 32 });
+  assert.deepEqual(WORKSTATIONS.Kevin.displayAreas, [
+    { x: 460, y: 318, w: 60, h: 30 },
+    { x: 536, y: 318, w: 70, h: 30 },
+    { x: 648, y: 318, w: 60, h: 30 },
+  ]);
+  assert.deepEqual(WORKSTATIONS.Kevin.occlusionBounds, { x: 405, y: 420, w: 340, h: 40 });
   assert.equal(WORKSTATIONS.Kevin.label, 'Kevin — Build');
 
-  assert.deepEqual(WORKSTATIONS.Benjamin.walkPoint, { x: 1080, y: 595 });
+  assert.deepEqual(WORKSTATIONS.Benjamin.approachPoint, { x: 1060, y: 585 });
+  assert.deepEqual(WORKSTATIONS.Benjamin.interactionPoint, { x: 1060, y: 580 });
   assert.equal(WORKSTATIONS.Benjamin.facing, 'back');
-  assert.deepEqual(WORKSTATIONS.Benjamin.screenRect, {
-    x: 1024,
-    y: 548,
-    w: 112,
-    h: 42,
-  });
-  assert.deepEqual(WORKSTATIONS.Benjamin.deskCutout, {
-    x: 998,
-    y: 566,
-    w: 176,
-    h: 70,
-  });
+  assert.deepEqual(WORKSTATIONS.Benjamin.displayBounds, { x: 1010, y: 520, w: 110, h: 55 });
+  assert.deepEqual(WORKSTATIONS.Benjamin.displayAreas, [{ x: 1010, y: 520, w: 110, h: 55 }]);
+  assert.deepEqual(WORKSTATIONS.Benjamin.occlusionBounds, { x: 1010, y: 570, w: 120, h: 55 });
   assert.equal(WORKSTATIONS.Benjamin.label, 'Benjamin — QA');
 
   assert.equal(typeof drawWorkstationLabels, 'function');
@@ -340,78 +315,46 @@ test('defines 3 fixed workstations (Alec, Kevin, Benjamin) with correct labels a
   assert.equal(typeof drawHologramTopGlow, 'function');
   assert.equal(typeof drawFloorMarkers, 'function');
 
-  // Walk points must be inside deskCutout y range for desk occlusion
-  assert.ok(
-    WORKSTATIONS.Alec.walkPoint.y >= WORKSTATIONS.Alec.deskCutout.y &&
-      WORKSTATIONS.Alec.walkPoint.y <=
-        WORKSTATIONS.Alec.deskCutout.y + WORKSTATIONS.Alec.deskCutout.h,
-  );
-  assert.ok(
-    WORKSTATIONS.Kevin.walkPoint.y >= WORKSTATIONS.Kevin.deskCutout.y &&
-      WORKSTATIONS.Kevin.walkPoint.y <=
-        WORKSTATIONS.Kevin.deskCutout.y + WORKSTATIONS.Kevin.deskCutout.h,
-  );
-  assert.ok(
-    WORKSTATIONS.Benjamin.walkPoint.y >= WORKSTATIONS.Benjamin.deskCutout.y &&
-      WORKSTATIONS.Benjamin.walkPoint.y <=
-        WORKSTATIONS.Benjamin.deskCutout.y + WORKSTATIONS.Benjamin.deskCutout.h,
-  );
+  // Approach points must be inside walkable polygon
+  assert.equal(isPointInPolygon(WORKSTATIONS.Alec.approachPoint, WALKABLE_POLYGON), true);
+  assert.equal(isPointInPolygon(WORKSTATIONS.Kevin.approachPoint, WALKABLE_POLYGON), true);
+  assert.equal(isPointInPolygon(WORKSTATIONS.Benjamin.approachPoint, WALKABLE_POLYGON), true);
 
-  // Walk points must be inside walkable polygon
-  assert.equal(isPointInPolygon(WORKSTATIONS.Alec.walkPoint, WALKABLE_POLYGON), true);
-  assert.equal(isPointInPolygon(WORKSTATIONS.Kevin.walkPoint, WALKABLE_POLYGON), true);
-  assert.equal(isPointInPolygon(WORKSTATIONS.Benjamin.walkPoint, WALKABLE_POLYGON), true);
+  // Interaction points must be inside walkable polygon
+  assert.equal(isPointInPolygon(WORKSTATIONS.Alec.interactionPoint, WALKABLE_POLYGON), true);
+  assert.equal(isPointInPolygon(WORKSTATIONS.Kevin.interactionPoint, WALKABLE_POLYGON), true);
+  assert.equal(isPointInPolygon(WORKSTATIONS.Benjamin.interactionPoint, WALKABLE_POLYGON), true);
 });
 
-test('game layer exposes six precise interactive systems and hit-tests their hotspots', () => {
-  assert.equal(INTERACTIVE_DECK_OBJECTS.length, 6);
-  for (const object of INTERACTIVE_DECK_OBJECTS) {
-    const centerX = object.rect.x + object.rect.w / 2;
-    const centerY = object.rect.y + object.rect.h / 2;
-    assert.equal(hitTestDeckObject(centerX, centerY)?.id, object.id);
-    assert.ok(object.actionLabel.length > 0);
-    assert.ok(object.description.length > 20);
-  }
-  assert.equal(hitTestDeckObject(10, 10), null);
-});
-
-test('render exposes game controls without covering the deck before a system is selected', () => {
-  const markup = renderToStaticMarkup(createElement(StarshipLab, { snapshot }));
-  assert.match(markup, /Hover/);
-  assert.match(markup, /Click/);
-  assert.match(markup, /Wheel/);
-  assert.doesNotMatch(markup, /<aside/);
-});
-
-test('agent working state positions agent at their own assigned workstation seatPoint and facing matches workstation config', () => {
+test('agent working state positions agent at their own assigned workstation interactionPoint and facing matches workstation config', () => {
   const crew = createInitialCrew(snapshot);
   const alec = crew.find((a) => a.name === 'Alec')!;
   const kevin = crew.find((a) => a.name === 'Kevin')!;
   const benjamin = crew.find((a) => a.name === 'Benjamin')!;
 
-  // Alec must be at Alec's desk seatPoint facing front
-  assert.equal(alec.x, WORKSTATIONS.Alec.seatPoint.x);
-  assert.equal(alec.y, WORKSTATIONS.Alec.seatPoint.y);
-  assert.equal(alec.facing, 'back');
+  // Alec must be at Alec's desk interactionPoint facing front
+  assert.equal(alec.x, WORKSTATIONS.Alec.interactionPoint.x);
+  assert.equal(alec.y, WORKSTATIONS.Alec.interactionPoint.y);
+  assert.equal(alec.facing, 'front');
   assert.equal(alec.currentStation, 'Alec — Strategy');
-  assert.notEqual(alec.x, WORKSTATIONS.Kevin.seatPoint.x);
-  assert.notEqual(alec.x, WORKSTATIONS.Benjamin.seatPoint.x);
+  assert.notEqual(alec.x, WORKSTATIONS.Kevin.interactionPoint.x);
+  assert.notEqual(alec.x, WORKSTATIONS.Benjamin.interactionPoint.x);
 
-  // Kevin must be at Kevin's desk seatPoint facing back
-  assert.equal(kevin.x, WORKSTATIONS.Kevin.seatPoint.x);
-  assert.equal(kevin.y, WORKSTATIONS.Kevin.seatPoint.y);
+  // Kevin must be at Kevin's desk interactionPoint facing front
+  assert.equal(kevin.x, WORKSTATIONS.Kevin.interactionPoint.x);
+  assert.equal(kevin.y, WORKSTATIONS.Kevin.interactionPoint.y);
   assert.equal(kevin.facing, 'back');
   assert.equal(kevin.currentStation, 'Kevin — Build');
-  assert.notEqual(kevin.x, WORKSTATIONS.Alec.seatPoint.x);
-  assert.notEqual(kevin.x, WORKSTATIONS.Benjamin.seatPoint.x);
+  assert.notEqual(kevin.x, WORKSTATIONS.Alec.interactionPoint.x);
+  assert.notEqual(kevin.x, WORKSTATIONS.Benjamin.interactionPoint.x);
 
-  // Benjamin must be at Benjamin's desk seatPoint facing back
-  assert.equal(benjamin.x, WORKSTATIONS.Benjamin.seatPoint.x);
-  assert.equal(benjamin.y, WORKSTATIONS.Benjamin.seatPoint.y);
+  // Benjamin must be at Benjamin's desk interactionPoint facing front
+  assert.equal(benjamin.x, WORKSTATIONS.Benjamin.interactionPoint.x);
+  assert.equal(benjamin.y, WORKSTATIONS.Benjamin.interactionPoint.y);
   assert.equal(benjamin.facing, 'back');
   assert.equal(benjamin.currentStation, 'Benjamin — QA');
-  assert.notEqual(benjamin.x, WORKSTATIONS.Alec.seatPoint.x);
-  assert.notEqual(benjamin.x, WORKSTATIONS.Kevin.seatPoint.x);
+  assert.notEqual(benjamin.x, WORKSTATIONS.Alec.interactionPoint.x);
+  assert.notEqual(benjamin.x, WORKSTATIONS.Kevin.interactionPoint.x);
 });
 
 test('simulation 10-second run: idle/demo crew changes position at least 2 times and changes state at least 1 time (fails if agents stand still)', () => {
@@ -488,11 +431,11 @@ test('clampPointToPolygon preserves interior points and projects outside points 
   assert.equal(clampedInside.x, insidePt.x);
   assert.equal(clampedInside.y, insidePt.y);
 
-  // Ceiling point clamped to top floor boundary
+  // Ceiling point clamped to top floor boundary (monitor aisle y=450-490)
   const ceilingPt = { x: 800, y: 100 };
   const clampedCeiling = clampPointToPolygon(ceilingPt, WALKABLE_POLYGON);
   assert.equal(isPointInPolygon(clampedCeiling, WALKABLE_POLYGON), true);
-  assert.ok(clampedCeiling.y >= 490 && clampedCeiling.y <= 500);
+  assert.ok(clampedCeiling.y >= 450 && clampedCeiling.y <= 490);
 
   // Below floor point clamped to bottom floor boundary
   const bottomPt = { x: 800, y: 900 };
@@ -641,16 +584,16 @@ test('drawAgent disables imageSmoothingEnabled, sets role shadowColor rim glow, 
   // Must have executed at least 2 drawImage passes (base + lighter brightness boost)
   assert.ok(drawCalls.length >= 2);
 
-  // First sprite draw: pixel smoothing disabled with a restrained role rim glow.
+  // First sprite draw: pixel smoothing disabled, rim glow with role color, shadowBlur = 8
   const basePass = drawCalls[0];
   assert.equal(basePass.imageSmoothingEnabled, false);
   assert.equal(basePass.shadowColor, '#5ce1ff');
-  assert.equal(basePass.shadowBlur, 3);
+  assert.equal(basePass.shadowBlur, 8);
 
-  // Second sprite draw: subtle lighter pass keeps the sprite integrated with the room.
+  // Second sprite draw: lighter composite mode with alpha 0.22 to boost sprite brightness
   const boostPass = drawCalls[1];
   assert.equal(boostPass.globalCompositeOperation, 'lighter');
-  assert.equal(boostPass.globalAlpha, 0.12);
+  assert.equal(boostPass.globalAlpha, 0.22);
 });
 
 test('getAgentStatusBubble generates correct text and role colors for working, idle, blocked, and offline states', () => {
@@ -682,19 +625,19 @@ test('getAgentStatusBubble generates correct text and role colors for working, i
     state: STATE.WORKING,
   });
 
-  // The in-world label is deliberately compact so it does not cover equipment.
+  // Working state - name always shows in line 1, status in line 2
   const alecBubble = getAgentStatusBubble(alec);
-  assert.equal(alecBubble.text, 'ALEC  ·  WORKING');
+  assert.equal(alecBubble.text, 'Alec — Strategy\n⚙ đang làm việc');
   assert.equal(alecBubble.color, '#c98bff');
   assert.equal(alecBubble.borderColor, '#c98bff');
 
   const kevinBubble = getAgentStatusBubble(kevin);
-  assert.equal(kevinBubble.text, 'KEVIN  ·  WORKING');
+  assert.equal(kevinBubble.text, 'Kevin — Build\n⚙ đang làm việc');
   assert.equal(kevinBubble.color, '#5ce1ff');
   assert.equal(kevinBubble.borderColor, '#5ce1ff');
 
   const benjaminBubble = getAgentStatusBubble(benjamin);
-  assert.equal(benjaminBubble.text, 'BENJAMIN  ·  WORKING');
+  assert.equal(benjaminBubble.text, 'Benjamin — QA\n⚙ đang làm việc');
   assert.equal(benjaminBubble.color, '#ff5c5c');
   assert.equal(benjaminBubble.borderColor, '#ff5c5c');
 
@@ -702,19 +645,19 @@ test('getAgentStatusBubble generates correct text and role colors for working, i
   alec.state = STATE.IDLE;
   alec.reportedState = 'idle';
   const idleBubble = getAgentStatusBubble(alec);
-  assert.equal(idleBubble.text, 'ALEC  ·  IDLE');
+  assert.equal(idleBubble.text, 'Alec — Strategy\n💤 idle');
 
   // Offline state - name always shows in line 1
   kevin.state = STATE.OFFLINE;
   kevin.reportedState = 'offline';
   const offlineBubble = getAgentStatusBubble(kevin);
-  assert.equal(offlineBubble.text, 'KEVIN  ·  OFFLINE');
+  assert.equal(offlineBubble.text, 'Kevin — Build\n⚫ offline');
 
   // Blocked state - name always shows in line 1
   benjamin.state = STATE.BLOCKED;
   benjamin.reportedState = 'blocked';
   const blockedBubble = getAgentStatusBubble(benjamin);
-  assert.equal(blockedBubble.text, 'BENJAMIN  ·  BLOCKED');
+  assert.equal(blockedBubble.text, 'Benjamin — QA\n⚠️ blocked');
 });
 
 test('work particles spawn every ~0.9s for working agents with role-specific icons and float upward', () => {
@@ -723,7 +666,7 @@ test('work particles spawn every ~0.9s for working agents with role-specific ico
   const kevin = crew.find((a) => a.name === 'Kevin')!;
   const benjamin = crew.find((a) => a.name === 'Benjamin')!;
 
-  assert.equal(ROLE_PARTICLE_ICONS.Alec, '✦');
+  assert.equal(ROLE_PARTICLE_ICONS.Alec, '⌨');
   assert.equal(ROLE_PARTICLE_ICONS.Kevin, '</>');
   assert.equal(ROLE_PARTICLE_ICONS.Benjamin, '✓');
 
@@ -738,7 +681,7 @@ test('work particles spawn every ~0.9s for working agents with role-specific ico
   updateAgent(alec, 0.5, 1, crew);
   assert.equal(alec.particles?.length, 1);
   const p1 = alec.particles![0]!;
-  assert.equal(p1.icon, '✦');
+  assert.equal(p1.icon, '⌨');
   assert.equal(p1.color, '#c98bff');
   assert.ok(p1.vy < 0); // upward velocity
 
@@ -819,9 +762,11 @@ test('drawAgentStatusBubble and drawWorkParticles execute without errors on 2D c
 test('render snapshot contains status text bubbles in markup', () => {
   const markup = renderToStaticMarkup(createElement(StarshipLab, { snapshot }));
 
-  assert.match(markup, /ALEC  ·  WORKING/);
-  assert.match(markup, /KEVIN  ·  WORKING/);
-  assert.match(markup, /BENJAMIN  ·  REVIEWING/);
+  // Markup must include status text bubbles for agents (name in line 1, status in line 2)
+  assert.match(markup, /Alec — Strategy/);
+  assert.match(markup, /Kevin — Build/);
+  assert.match(markup, /Benjamin — QA/);
+  assert.match(markup, /đang làm việc/);
 });
 
 test('2 working agents do not share coordinates with distance > 20px', () => {
@@ -846,7 +791,7 @@ test('2 working agents do not share coordinates with distance > 20px', () => {
   }
 });
 
-test('drawAgent selects back-facing work frames for all three desk-oriented crew with 8Hz typing bob', () => {
+test('drawAgent selects front-idle frames for Alec (facing front) and back-idle frames for Kevin/Benjamin (facing back) with 8Hz typing bob', () => {
   const crew = createInitialCrew(snapshot);
   const alec = crew.find((a) => a.name === 'Alec')!;
   const kevin = crew.find((a) => a.name === 'Kevin')!;
@@ -888,13 +833,13 @@ test('drawAgent selects back-facing work frames for all three desk-oriented crew
   const mockImg = { width: 512, height: 256 } as HTMLImageElement;
   const cw = 512 / 16; // 32
 
-  // Alec faces the hologram table: col = 8..11 (sx = 8 * 32 = 256)
+  // Alec facing front: col = 0..3 (sx = 0 * 32 = 0)
   alec.animFrame = 0;
   drawAgent(mockCtx, alec, mockImg);
   const alecCalls = drawCalls.filter((c) => c.type === 'drawImage');
   assert.ok(alecCalls.length >= 1);
   const sxAlec = alecCalls[0].args[1];
-  assert.equal(sxAlec, 8 * cw); // column index 8 = back-facing
+  assert.equal(sxAlec, 0 * cw); // column index 0 = front-facing
 
   // Kevin facing back: col = 8..11 (sx = 8 * 32 = 256)
   drawCalls.length = 0;
@@ -920,16 +865,16 @@ test('drawAgent selects back-facing work frames for all three desk-oriented crew
   assert.ok(bobY >= -2.0 && bobY <= 2.0);
 });
 
-test('drawWorkstationScreens activates only the painted monitor panels and turns them off when idle', () => {
+test('drawWorkstationScreens draws low-alpha glow only inside painted display areas, and turns off when idle', () => {
   const crew = createInitialCrew(snapshot);
   const fillRectCalls: any[] = [];
-  const strokeRectCalls: any[] = [];
 
   const mockCtx = {
     save: () => {},
     restore: () => {},
     beginPath: () => {},
-    ellipse: () => {},
+    rect: () => {},
+    clip: () => {},
     fill: () => {},
     stroke: () => {},
     fillRect: (x: number, y: number, w: number, h: number) => {
@@ -942,74 +887,54 @@ test('drawWorkstationScreens activates only the painted monitor panels and turns
         globalAlpha: mockCtx.globalAlpha,
       });
     },
-    strokeRect: (x: number, y: number, w: number, h: number) => {
-      strokeRectCalls.push({
-        x,
-        y,
-        w,
-        h,
-        strokeStyle: mockCtx.strokeStyle,
-        globalAlpha: mockCtx.globalAlpha,
-      });
-    },
     fillStyle: '',
-    strokeStyle: '',
     globalAlpha: 1.0,
-    lineWidth: 1,
   } as unknown as CanvasRenderingContext2D;
 
   // Working crew: screens should be drawn
   drawWorkstationScreens(mockCtx, crew, 0);
 
-  // Kevin animates pixels inside the three painted monitors and never fills
-  // or outlines a fake screen-sized rectangle.
-  const fakeKevinPanel = fillRectCalls.find(
-    (c) =>
-      c.x === BUILD_MONITOR_RECTS[0]?.x &&
-      c.y === BUILD_MONITOR_RECTS[0]?.y &&
-      c.w === BUILD_MONITOR_RECTS[0]?.w &&
-      c.h === BUILD_MONITOR_RECTS[0]?.h,
-  );
-  assert.equal(fakeKevinPanel, undefined);
-  assert.equal(
-    strokeRectCalls.some(
-      (c) =>
-        c.x === BUILD_MONITOR_RECTS[0]?.x &&
-        c.y === BUILD_MONITOR_RECTS[0]?.y &&
-        c.w === BUILD_MONITOR_RECTS[0]?.w,
+  // Verify every real Kevin monitor display area
+  const kevinDisplayFills = fillRectCalls.filter((c) =>
+    WORKSTATIONS.Kevin.displayAreas.some(
+      (area) => c.x === area.x && c.y === area.y && c.w === area.w && c.h === area.h,
     ),
-    false,
   );
+  assert.equal(kevinDisplayFills.length, WORKSTATIONS.Kevin.displayAreas.length);
 
-  const kevinCodeLine = fillRectCalls.find(
-    (c) => c.x === BUILD_MONITOR_RECTS[0]!.x + 5 && c.y === BUILD_MONITOR_RECTS[0]!.y + 6,
-  );
-  assert.ok(kevinCodeLine);
-  assert.equal(kevinCodeLine.fillStyle, '#d9fbff');
+  const kevinFill = kevinDisplayFills[0];
+  assert.ok(kevinFill);
+  assert.equal(kevinFill.fillStyle, ROLE_GLOW_COLORS.Kevin);
+  assert.ok(kevinFill.globalAlpha >= 0.12 && kevinFill.globalAlpha <= 0.22);
 
-  // Benjamin uses the two QA console panels painted behind his chair.
+  // Verify Benjamin display area
   const benjaminFill = fillRectCalls.find(
-    (c) => c.x === 1018 && c.y === 550 && c.w === 49 && c.h === 29,
+    (c) =>
+      c.x === WORKSTATIONS.Benjamin.displayAreas[0].x &&
+      c.y === WORKSTATIONS.Benjamin.displayAreas[0].y &&
+      c.w === WORKSTATIONS.Benjamin.displayAreas[0].w &&
+      c.h === WORKSTATIONS.Benjamin.displayAreas[0].h,
   );
   assert.ok(benjaminFill);
   assert.equal(benjaminFill.fillStyle, ROLE_GLOW_COLORS.Benjamin);
-  assert.ok(benjaminFill.globalAlpha >= 0.08 && benjaminFill.globalAlpha <= 0.16);
+  assert.ok(benjaminFill.globalAlpha >= 0.12 && benjaminFill.globalAlpha <= 0.22);
 
   // Test idle state: screen turns off (no rect drawn for idle agent)
   fillRectCalls.length = 0;
-  strokeRectCalls.length = 0;
   const kevin = crew.find((a) => a.name === 'Kevin')!;
   kevin.state = STATE.IDLE;
   kevin.reportedState = 'idle';
 
   drawWorkstationScreens(mockCtx, crew, 0);
 
-  // Kevin's three screen fills must not be drawn when idle.
-  const kevinIdleFill = fillRectCalls.find((c) => c.x === 398 && c.y === 397);
+  // Kevin's displayBounds must NOT be drawn when idle
+  const kevinIdleFill = fillRectCalls.find(
+    (c) => c.x === WORKSTATIONS.Kevin.displayBounds.x && c.y === WORKSTATIONS.Kevin.displayBounds.y,
+  );
   assert.equal(kevinIdleFill, undefined);
 });
 
-test('drawDeskCutouts renders desk cutout slices from bgImg to occlude agent lower bodies when working at desk', () => {
+test('drawDeskCutouts renders occlusion bounds from bgImg to occlude agent lower bodies when working at desk', () => {
   const crew = createInitialCrew(snapshot);
   const drawImageCalls: any[] = [];
 
@@ -1026,35 +951,39 @@ test('drawDeskCutouts renders desk cutout slices from bgImg to occlude agent low
 
   drawDeskCutouts(mockCtx, mockBgImg, crew);
 
-  // All 3 working agents must have their desk cutouts drawn
+  // All 3 working agents must have their occlusion bounds drawn
   assert.equal(drawImageCalls.length, 3);
 
-  // Alec desk cutout
+  // Alec occlusion bounds
   const alecCutout = drawImageCalls.find(
-    (c) => c[1] === WORKSTATIONS.Alec.deskCutout.x && c[2] === WORKSTATIONS.Alec.deskCutout.y,
+    (c) =>
+      c[1] === WORKSTATIONS.Alec.occlusionBounds.x && c[2] === WORKSTATIONS.Alec.occlusionBounds.y,
   );
   assert.ok(alecCutout);
-  assert.equal(alecCutout[3], WORKSTATIONS.Alec.deskCutout.w);
-  assert.equal(alecCutout[4], WORKSTATIONS.Alec.deskCutout.h);
+  assert.equal(alecCutout[3], WORKSTATIONS.Alec.occlusionBounds.w);
+  assert.equal(alecCutout[4], WORKSTATIONS.Alec.occlusionBounds.h);
 
-  // Kevin desk cutout
+  // Kevin occlusion bounds
   const kevinCutout = drawImageCalls.find(
-    (c) => c[1] === WORKSTATIONS.Kevin.deskCutout.x && c[2] === WORKSTATIONS.Kevin.deskCutout.y,
+    (c) =>
+      c[1] === WORKSTATIONS.Kevin.occlusionBounds.x &&
+      c[2] === WORKSTATIONS.Kevin.occlusionBounds.y,
   );
   assert.ok(kevinCutout);
-  assert.equal(kevinCutout[3], WORKSTATIONS.Kevin.deskCutout.w);
-  assert.equal(kevinCutout[4], WORKSTATIONS.Kevin.deskCutout.h);
+  assert.equal(kevinCutout[3], WORKSTATIONS.Kevin.occlusionBounds.w);
+  assert.equal(kevinCutout[4], WORKSTATIONS.Kevin.occlusionBounds.h);
 
-  // Benjamin desk cutout
+  // Benjamin occlusion bounds
   const benjaminCutout = drawImageCalls.find(
     (c) =>
-      c[1] === WORKSTATIONS.Benjamin.deskCutout.x && c[2] === WORKSTATIONS.Benjamin.deskCutout.y,
+      c[1] === WORKSTATIONS.Benjamin.occlusionBounds.x &&
+      c[2] === WORKSTATIONS.Benjamin.occlusionBounds.y,
   );
   assert.ok(benjaminCutout);
-  assert.equal(benjaminCutout[3], WORKSTATIONS.Benjamin.deskCutout.w);
-  assert.equal(benjaminCutout[4], WORKSTATIONS.Benjamin.deskCutout.h);
+  assert.equal(benjaminCutout[3], WORKSTATIONS.Benjamin.occlusionBounds.w);
+  assert.equal(benjaminCutout[4], WORKSTATIONS.Benjamin.occlusionBounds.h);
 
-  // When agent is idle, their desk cutout is not drawn
+  // When agent is idle, their occlusion bounds are not drawn
   drawImageCalls.length = 0;
   const alec = crew.find((a) => a.name === 'Alec')!;
   alec.state = STATE.IDLE;
@@ -1063,28 +992,10 @@ test('drawDeskCutouts renders desk cutout slices from bgImg to occlude agent low
   drawDeskCutouts(mockCtx, mockBgImg, crew);
   assert.equal(drawImageCalls.length, 2);
   const alecIdleCutout = drawImageCalls.find(
-    (c) => c[1] === WORKSTATIONS.Alec.deskCutout.x && c[2] === WORKSTATIONS.Alec.deskCutout.y,
+    (c) =>
+      c[1] === WORKSTATIONS.Alec.occlusionBounds.x && c[2] === WORKSTATIONS.Alec.occlusionBounds.y,
   );
   assert.equal(alecIdleCutout, undefined);
-});
-
-test('drawWorkstationInteraction restores visible hands on top of each active workstation', () => {
-  const crew = createInitialCrew(snapshot);
-  const fillRectCalls: Array<{ x: number; y: number; w: number; h: number }> = [];
-  const mockCtx = {
-    save: () => {},
-    restore: () => {},
-    fillRect: (x: number, y: number, w: number, h: number) => fillRectCalls.push({ x, y, w, h }),
-    fillStyle: '',
-    globalAlpha: 1,
-    globalCompositeOperation: 'source-over',
-  } as unknown as CanvasRenderingContext2D;
-
-  drawWorkstationInteraction(mockCtx, crew, 0);
-
-  assert.ok(fillRectCalls.some((call) => call.x === 478 && call.y === 398));
-  assert.ok(fillRectCalls.some((call) => call.x === 1064 && call.y === 573));
-  assert.ok(fillRectCalls.some((call) => call.x === 540 && call.w === 8));
 });
 
 test('drawHologramTopGlow renders pulsing violet hologram ellipse, starmap rings, and star nodes for Alec when working', () => {
@@ -1096,8 +1007,6 @@ test('drawHologramTopGlow renders pulsing violet hologram ellipse, starmap rings
     save: () => {},
     restore: () => {},
     beginPath: () => {},
-    moveTo: () => {},
-    lineTo: () => {},
     ellipse: (...args: any[]) => {
       ellipseCalls.push(args);
     },
@@ -1118,8 +1027,8 @@ test('drawHologramTopGlow renders pulsing violet hologram ellipse, starmap rings
   assert.ok(ellipseCalls.length >= 2);
   assert.ok(arcCalls.length >= 4);
 
-  // Ellipse center must be at Alec table center
-  const r = WORKSTATIONS.Alec.screenRect;
+  // Ellipse center must be at Alec displayBounds center
+  const r = WORKSTATIONS.Alec.displayBounds;
   const expectedCx = r.x + r.w / 2;
   const expectedCy = r.y + r.h / 2;
   assert.equal(ellipseCalls[0][0], expectedCx);
@@ -1142,13 +1051,8 @@ test('V1.9 typing effects: drawAgent renders 2 typing arms (3x2px) in role color
   const kevin = crew.find((a) => a.name === 'Kevin')!;
   assert.equal(kevin.state, STATE.WORKING);
 
-  const fillRectCalls: Array<{
-    x: number;
-    y: number;
-    w: number;
-    h: number;
-    fillStyle: string;
-  }> = [];
+  const fillRectCalls: Array<{ x: number; y: number; w: number; h: number; fillStyle: string }> =
+    [];
   const mockCtx = {
     save: () => {},
     restore: () => {},
@@ -1162,13 +1066,7 @@ test('V1.9 typing effects: drawAgent renders 2 typing arms (3x2px) in role color
     fillText: () => {},
     drawImage: () => {},
     fillRect: (x: number, y: number, w: number, h: number) => {
-      fillRectCalls.push({
-        x,
-        y,
-        w,
-        h,
-        fillStyle: mockCtx.fillStyle as string,
-      });
+      fillRectCalls.push({ x, y, w, h, fillStyle: mockCtx.fillStyle as string });
     },
     imageSmoothingEnabled: true,
     shadowColor: '',
@@ -1203,7 +1101,7 @@ test('V1.9 typing effects: drawAgent renders 2 typing arms (3x2px) in role color
   assert.ok(rightArmQ.y < rightArm.y, 'Right arm moves up (opposite phase)');
 });
 
-test('compact status label keeps the working agent role color without a distracting pulse', () => {
+test('V1.9 typing effects: drawAgentStatusBubble renders yellow pulsating border for working agents', () => {
   const crew = createInitialCrew(snapshot);
   const kevin = crew.find((a) => a.name === 'Kevin')!;
   assert.equal(kevin.state, STATE.WORKING);
@@ -1227,10 +1125,11 @@ test('compact status label keeps the working agent role color without a distract
     globalCompositeOperation: 'source-over',
   } as unknown as CanvasRenderingContext2D;
 
+  // With a.bob at peak phase -> stroke is STARSHIP_AMBER (#ffcf6e)
   kevin.bob = Math.PI / 3;
   drawAgentStatusBubble(mockCtx, kevin, 80, 0);
   assert.ok(strokes.length >= 1);
-  assert.equal(strokes[0], ROLE_GLOW_COLORS.Kevin);
+  assert.equal(strokes[0], '#ffcf6e');
 });
 
 test('V1.9 idle wander: idle agent wanders between points every 2-4s and changes position within 5s', () => {
@@ -1265,12 +1164,7 @@ test('V1.9 idle wander: idle agent wanders between points every 2-4s and changes
   };
 
   const crew = createInitialCrew(idleSnapshot);
-  const startPositions = crew.map((a) => ({
-    id: a.id,
-    name: a.name,
-    x: a.x,
-    y: a.y,
-  }));
+  const startPositions = crew.map((a) => ({ id: a.id, name: a.name, x: a.x, y: a.y }));
 
   // Simulate 5 seconds in steps of 0.05s (100 steps)
   const dt = 0.05;

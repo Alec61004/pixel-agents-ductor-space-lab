@@ -4,6 +4,7 @@ import { type DuctorStatusSnapshot, isDuctorStatusSnapshot } from './ductorLabMo
 
 const VISIBLE_STATUS_POLL_MS = 5_000;
 const HIDDEN_STATUS_POLL_MS = 60_000;
+const MAX_CONSECUTIVE_FAILURES = 3;
 
 export function useDuctorLabStatus(): DuctorStatusSnapshot | null | undefined {
   const [snapshot, setSnapshot] = useState<DuctorStatusSnapshot | null | undefined>(undefined);
@@ -11,6 +12,7 @@ export function useDuctorLabStatus(): DuctorStatusSnapshot | null | undefined {
   useEffect(() => {
     let disposed = false;
     let timer: number | null = null;
+    let failureCount = 0;
 
     const schedule = (): void => {
       if (disposed) return;
@@ -24,16 +26,40 @@ export function useDuctorLabStatus(): DuctorStatusSnapshot | null | undefined {
       try {
         const response = await fetch('/api/ductor/status', { cache: 'no-store' });
         if (!response.ok) {
-          if (!disposed) setSnapshot((current) => (current === undefined ? null : current));
+          failureCount++;
+          if (!disposed) {
+            if (failureCount >= MAX_CONSECUTIVE_FAILURES) {
+              setSnapshot(null);
+            } else {
+              setSnapshot((current) => (current === undefined ? null : current));
+            }
+          }
           return;
         }
         const candidate: unknown = await response.json();
-        if (!disposed && isDuctorStatusSnapshot(candidate)) {
-          setSnapshot(candidate);
+        if (!disposed) {
+          if (isDuctorStatusSnapshot(candidate)) {
+            failureCount = 0;
+            setSnapshot(candidate);
+          } else {
+            failureCount++;
+            if (failureCount >= MAX_CONSECUTIVE_FAILURES) {
+              setSnapshot(null);
+            } else {
+              setSnapshot((current) => (current === undefined ? null : current));
+            }
+          }
         }
       } catch {
         // Upstream office and Vite mock modes intentionally have no Ductor endpoint.
-        if (!disposed) setSnapshot((current) => (current === undefined ? null : current));
+        failureCount++;
+        if (!disposed) {
+          if (failureCount >= MAX_CONSECUTIVE_FAILURES) {
+            setSnapshot(null);
+          } else {
+            setSnapshot((current) => (current === undefined ? null : current));
+          }
+        }
       } finally {
         schedule();
       }

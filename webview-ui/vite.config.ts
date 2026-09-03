@@ -122,7 +122,7 @@ function browserMockAssetsPlugin(): Plugin {
 export default defineConfig({
   plugins: [tailwindcss(), react(), browserMockAssetsPlugin()],
   build: {
-    outDir: '../dist',
+    outDir: '../dist/webview',
     emptyOutDir: true,
   },
   base: './',

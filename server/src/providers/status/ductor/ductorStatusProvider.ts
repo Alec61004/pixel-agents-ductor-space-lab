@@ -58,6 +58,8 @@ const STATE_ALIASES: Readonly<Record<string, DuctorRoleState>> = {
   working: 'working',
 };
 
+const LOCAL_STATUS_FRESHNESS_MS = 45 * 60_000;
+
 export function mapDuctorState(rawState: unknown, present: boolean): DuctorRoleState {
   if (!present) return 'offline';
   if (typeof rawState !== 'string') return 'idle';
@@ -71,6 +73,15 @@ function publicTaskLabel(value: unknown): string | null {
 function publicTimestamp(value: unknown, fallback: string): string {
   if (typeof value !== 'string' || Number.isNaN(Date.parse(value))) return fallback;
   return new Date(value).toISOString();
+}
+
+function isFreshReport(value: unknown, observedAt: string): boolean {
+  if (typeof value !== 'string') return false;
+  const reportTime = Date.parse(value);
+  const observedTime = Date.parse(observedAt);
+  if (Number.isNaN(reportTime) || Number.isNaN(observedTime)) return false;
+  const age = observedTime - reportTime;
+  return age >= 0 && age <= LOCAL_STATUS_FRESHNESS_MS;
 }
 
 function isReportedState(value: unknown): boolean {
@@ -91,14 +102,17 @@ export function normalizeDuctorRoles(
     theme: 'ductor-space-lab',
     roles: DUCTOR_ROLE_NAMES.map((name): DuctorRoleStatus => {
       const raw = rawRoles[name] ?? {};
-      const present = presence[name];
-      const reported = present && isReportedState(raw.state);
+      const present = Boolean(presence[name]);
+      const state = mapDuctorState(raw.state, present);
+      const reported =
+        present && isReportedState(raw.state) && isFreshReport(raw.updatedAt, observedAt);
+      const isOnline = reported && state !== 'offline';
       return {
         name,
-        presence: present ? 'online' : 'offline',
-        state: mapDuctorState(raw.state, present),
-        taskLabel: reported ? publicTaskLabel(raw.taskLabel) : null,
-        updatedAt: reported ? publicTimestamp(raw.updatedAt, observedAt) : observedAt,
+        presence: isOnline ? 'online' : 'offline',
+        state: reported ? state : 'offline',
+        taskLabel: reported && isOnline ? publicTaskLabel(raw.taskLabel) : null,
+        updatedAt: publicTimestamp(raw.updatedAt, observedAt),
         derived: !reported,
       };
     }),

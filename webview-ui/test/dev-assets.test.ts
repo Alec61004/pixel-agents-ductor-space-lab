@@ -24,7 +24,7 @@ async function startDevServer(base: string, port: number): Promise<ViteDevServer
   const server = await createServer({
     configFile: path.resolve(root, 'vite.config.ts'),
     base,
-    server: { port, strictPort: false },
+    server: { host: '127.0.0.1', port, strictPort: false },
     logLevel: 'silent',
   });
   await server.listen();

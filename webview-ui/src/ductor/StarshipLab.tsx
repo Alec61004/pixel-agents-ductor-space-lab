@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { CSSProperties } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-import type { DuctorStatusSnapshot } from './ductorLabModel.js';
+import type { DuctorRoleName, DuctorStatusSnapshot } from './ductorLabModel.js';
 import { ductorAssetUrl } from './ductorLabModel.js';
 import {
   type AgentStatusBubble,
@@ -10,32 +9,28 @@ import {
   ASSIGNED_WORKSTATIONS,
   type AssignedWorkstation,
   ATTENTION_POINTS,
-  BUILD_MONITOR_RECTS,
+  CH,
   clampPointToPolygon,
   createInitialCrew,
+  CW,
   DEPTH_SCALE_MAX,
   DEPTH_SCALE_MIN,
-  type DeckObjectId,
+  type DeviceBounds,
   drawAgent,
   drawAgentStatusBubble,
   drawDeskCutouts,
   drawFloorMarkers,
   drawHologramTopGlow,
-  drawLivingDeckObjects,
   drawStage,
   drawStarsLayer,
   drawWorkParticles,
-  drawWorkstationInteraction,
   drawWorkstationLabels,
   drawWorkstationScreens,
   FLOOR_Y_MAX,
   FLOOR_Y_MIN,
   getAgentStatusBubble,
   getDepthScale,
-  hitTestDeckObject,
   IDLE_POINTS,
-  INTERACTIVE_DECK_OBJECTS,
-  type InteractiveDeckObject,
   isAgentAtStation,
   isPointInPolygon,
   makeAgent,
@@ -62,9 +57,7 @@ import {
   WALKABLE_POLYGON,
   type WorkParticle,
   type WorkstationConfig,
-  type WorkstationCutout,
   WORKSTATIONS,
-  type WorkstationScreenRect,
 } from './starshipSimulation.js';
 
 export {
@@ -74,32 +67,26 @@ export {
   ASSIGNED_WORKSTATIONS,
   type AssignedWorkstation,
   ATTENTION_POINTS,
-  BUILD_MONITOR_RECTS,
   clampPointToPolygon,
   createInitialCrew,
   DEPTH_SCALE_MAX,
   DEPTH_SCALE_MIN,
-  type DeckObjectId,
+  type DeviceBounds,
   drawAgent,
   drawAgentStatusBubble,
   drawDeskCutouts,
   drawFloorMarkers,
   drawHologramTopGlow,
-  drawLivingDeckObjects,
   drawStage,
   drawStarsLayer,
   drawWorkParticles,
-  drawWorkstationInteraction,
   drawWorkstationLabels,
   drawWorkstationScreens,
   FLOOR_Y_MAX,
   FLOOR_Y_MIN,
   getAgentStatusBubble,
   getDepthScale,
-  hitTestDeckObject,
   IDLE_POINTS,
-  INTERACTIVE_DECK_OBJECTS,
-  type InteractiveDeckObject,
   isAgentAtStation,
   isPointInPolygon,
   makeAgent,
@@ -126,9 +113,7 @@ export {
   WALKABLE_POLYGON,
   type WorkParticle,
   type WorkstationConfig,
-  type WorkstationCutout,
   WORKSTATIONS,
-  type WorkstationScreenRect,
 };
 
 export interface StarshipLabProps {
@@ -136,6 +121,8 @@ export interface StarshipLabProps {
   bgUrl?: string;
   sheetUrl?: string;
 }
+
+const CANONICAL_ROLES: DuctorRoleName[] = ['Alec', 'Kevin', 'Benjamin'];
 
 export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
   const resolvedBgUrl =
@@ -162,122 +149,78 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
   const agentsRef = useRef<StarshipAgent[]>(createInitialCrew(snapshot));
   const [agentsList, setAgentsList] = useState<StarshipAgent[]>(agentsRef.current);
   const [loaded, setLoaded] = useState(false);
-  const [activityText, setActivityText] = useState('Live agent telemetry connected.');
-  const [hoveredObjectId, setHoveredObjectId] = useState<DeckObjectId | null>(null);
-  const [selectedObjectId, setSelectedObjectId] = useState<DeckObjectId | null>(null);
-  const [engagedObjects, setEngagedObjects] = useState<Set<DeckObjectId>>(new Set());
+  const [speedMult, setSpeedMult] = useState(1);
+  const [showStations, setShowStations] = useState(false);
+  const [rosterCollapsed, setRosterCollapsed] = useState(false);
+  const [logText, setLogText] = useState('Bridge systems online. Crew assigned to stations.');
 
+  const speedMultRef = useRef(speedMult);
+  speedMultRef.current = speedMult;
+
+  const showStationsRef = useRef(showStations);
+  showStationsRef.current = showStations;
+
+  const lastTransformRef = useRef({ scale: 1, offX: 0, offY: 0 });
   const panRef = useRef({ x: 0, y: 0 });
   const zoomRef = useRef(1);
-  const hoveredObjectRef = useRef<DeckObjectId | null>(null);
-  const selectedObjectRef = useRef<DeckObjectId | null>(null);
-  const engagedObjectsRef = useRef<Set<DeckObjectId>>(new Set());
-  const stageTransformRef = useRef({ scale: 1, offX: 0, offY: 0 });
-  const cameraTargetRef = useRef<{ zoom: number; panX: number; panY: number } | null>(null);
-  const touchStateRef = useRef<{
-    dist: number;
-    zoom: number;
-    panX: number;
-    panY: number;
-  } | null>(null);
-  const pushLog = useCallback((msg: string) => setActivityText(msg), []);
-
-  const focusObject = useCallback((object: InteractiveDeckObject) => {
-    const wrap = stageWrapRef.current;
-    if (!wrap) return;
-    const rect = wrap.getBoundingClientRect();
-    const targetZoom = 1.42;
-    const targetScale = Math.max(rect.width / 1600, rect.height / 678) * targetZoom;
-    const centerX = object.rect.x + object.rect.w / 2;
-    const centerY = object.rect.y + object.rect.h / 2;
-    const drawWidth = 1600 * targetScale;
-    const drawHeight = 678 * targetScale;
-    const minPanX = Math.min(0, (rect.width - drawWidth) / 2);
-    const maxPanX = Math.max(0, (drawWidth - rect.width) / 2);
-    const minPanY = Math.min(0, (rect.height - drawHeight) / 2);
-    const maxPanY = Math.max(0, (drawHeight - rect.height) / 2);
-    const desiredPanX = targetScale * (800 - centerX);
-    const desiredPanY = targetScale * (339 - centerY);
-    cameraTargetRef.current = {
-      zoom: targetZoom,
-      panX: Math.max(minPanX, Math.min(maxPanX, desiredPanX)),
-      panY: Math.max(minPanY, Math.min(maxPanY, desiredPanY)),
-    };
-  }, []);
-
-  const selectObject = useCallback(
-    (object: InteractiveDeckObject) => {
-      selectedObjectRef.current = object.id;
-      setSelectedObjectId(object.id);
-      setActivityText(`${object.system} selected · ${object.actionLabel}.`);
-      focusObject(object);
-    },
-    [focusObject],
+  const touchStateRef = useRef<{ dist: number; zoom: number; panX: number; panY: number } | null>(
+    null,
   );
+  const logQueueRef = useRef<string[]>(['Bridge systems online. Crew assigned to stations.']);
 
-  const handleStagePointerMove = useCallback((event: React.PointerEvent<HTMLCanvasElement>) => {
-    const wrap = stageWrapRef.current;
-    if (!wrap) return;
-    const bounds = wrap.getBoundingClientRect();
-    const transform = stageTransformRef.current;
-    const worldX = (event.clientX - bounds.left - transform.offX) / transform.scale;
-    const worldY = (event.clientY - bounds.top - transform.offY) / transform.scale;
-    const hit = hitTestDeckObject(worldX, worldY);
-    const nextId = hit?.id ?? null;
-    if (nextId !== hoveredObjectRef.current) {
-      hoveredObjectRef.current = nextId;
-      setHoveredObjectId(nextId);
-    }
-  }, []);
-
-  const handleStageClick = useCallback(
-    (event: React.MouseEvent<HTMLCanvasElement>) => {
-      const wrap = stageWrapRef.current;
-      if (!wrap) return;
-      const bounds = wrap.getBoundingClientRect();
-      const transform = stageTransformRef.current;
-      const worldX = (event.clientX - bounds.left - transform.offX) / transform.scale;
-      const worldY = (event.clientY - bounds.top - transform.offY) / transform.scale;
-      const hit = hitTestDeckObject(worldX, worldY);
-      if (hit) selectObject(hit);
-      else {
-        selectedObjectRef.current = null;
-        setSelectedObjectId(null);
-      }
-    },
-    [selectObject],
-  );
-
-  const toggleSelectedObject = useCallback(() => {
-    if (!selectedObjectRef.current) return;
-    const id = selectedObjectRef.current;
-    setEngagedObjects((current) => {
-      const next = new Set(current);
-      if (next.has(id)) {
-        next.delete(id);
-        pushLog(`${id} returned to autonomous mode.`);
-      } else {
-        next.add(id);
-        const object = INTERACTIVE_DECK_OBJECTS.find((candidate) => candidate.id === id);
-        pushLog(`${object?.system ?? id} engaged by operator.`);
-      }
-      engagedObjectsRef.current = next;
-      return next;
-    });
-  }, [pushLog]);
+  const pushLog = (msg: string) => {
+    logQueueRef.current.push(msg);
+    if (logQueueRef.current.length > 20) logQueueRef.current.shift();
+    setLogText(msg);
+  };
 
   useEffect(() => {
     applySnapshotToAgents(agentsRef.current, snapshot, pushLog);
     setAgentsList([...agentsRef.current]);
-  }, [pushLog, snapshot]);
+    if (snapshot) {
+      if (snapshot.stale) {
+        pushLog('Cloud heartbeat stale · holding in berth.');
+      } else if (snapshot.publishedAt) {
+        pushLog('Cloud telemetry synchronized.');
+      } else {
+        pushLog('Local bridge telemetry synchronized.');
+      }
+    }
+  }, [snapshot]);
 
   const handleAgentClick = (agentId: string) => {
-    const a = agentsRef.current.find((ag) => ag.id === agentId);
+    const a = agentsRef.current.find((ag) => ag.id === agentId || ag.name === agentId);
     if (a) {
-      a.flash = 2.0;
-      const object = INTERACTIVE_DECK_OBJECTS.find((candidate) => candidate.owner === a.name);
-      if (object) selectObject(object);
+      a.flash = 2.5;
+      const wrap = stageWrapRef.current;
+      if (wrap) {
+        const rect = wrap.getBoundingClientRect();
+        const baseScale = Math.max(rect.width / CW, rect.height / CH);
+        const scale = baseScale * zoomRef.current;
+        panRef.current = {
+          x: (CW / 2 - a.x) * scale,
+          y: (CH / 2 - a.y) * scale,
+        };
+      }
+      pushLog(`Focus lock: ${a.name} [${a.currentStation || a.role}].`);
     }
+  };
+
+  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = stageCanvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const { scale, offX, offY } = lastTransformRef.current;
+    const px = (mx - offX) / (scale || 1);
+    const py = (my - offY) / (scale || 1);
+    const clamped = clampPointToPolygon({ x: px, y: py }, WALKABLE_POLYGON);
+    routeToPoint(agentsRef.current, clamped.x, clamped.y, pushLog);
+  };
+
+  const handleSpeedToggle = () => {
+    setSpeedMult((prev) => (prev === 1 ? 2.5 : prev === 2.5 ? 0.4 : 1));
   };
 
   useEffect(() => {
@@ -331,7 +274,6 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
 
     const wrap = stageWrapRef.current;
     const onTouchStart = (e: TouchEvent) => {
-      cameraTargetRef.current = null;
       if (e.touches.length === 1) {
         touchStateRef.current = {
           dist: 0,
@@ -377,7 +319,6 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      cameraTargetRef.current = null;
       const delta = -e.deltaY * 0.001;
       zoomRef.current = Math.max(0.5, Math.min(3, zoomRef.current + delta));
     };
@@ -390,24 +331,9 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
       const dt = Math.min((now - lastTime) / 1000, 0.1);
       lastTime = now;
 
-      const cameraTarget = cameraTargetRef.current;
-      if (cameraTarget) {
-        const ease = Math.min(1, dt * 5);
-        zoomRef.current += (cameraTarget.zoom - zoomRef.current) * ease;
-        panRef.current.x += (cameraTarget.panX - panRef.current.x) * ease;
-        panRef.current.y += (cameraTarget.panY - panRef.current.y) * ease;
-        if (
-          Math.abs(cameraTarget.zoom - zoomRef.current) < 0.002 &&
-          Math.abs(cameraTarget.panX - panRef.current.x) < 0.5 &&
-          Math.abs(cameraTarget.panY - panRef.current.y) < 0.5
-        ) {
-          cameraTargetRef.current = null;
-        }
-      }
-
       const currentAgents = agentsRef.current;
       for (const a of currentAgents) {
-        updateAgent(a, dt, 1, currentAgents, pushLog);
+        updateAgent(a, dt, speedMultRef.current, currentAgents, pushLog);
       }
 
       const wrap = stageWrapRef.current;
@@ -419,21 +345,18 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
         if (ctx) {
           const rect = wrap.getBoundingClientRect();
           const dpr = window.devicePixelRatio || 1;
-          stageTransformRef.current = drawStage(
+          lastTransformRef.current = drawStage(
             ctx,
             bgImg,
             sheetImg,
             currentAgents,
-            false,
+            showStationsRef.current,
             rect,
             dpr,
             now / 1000,
             panRef.current.x,
             panRef.current.y,
             zoomRef.current,
-            hoveredObjectRef.current,
-            selectedObjectRef.current,
-            engagedObjectsRef.current,
           );
         }
       }
@@ -469,14 +392,23 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
       }
       cancelAnimationFrame(animId);
     };
-  }, [pushLog, resolvedBgUrl, resolvedSheetUrl]);
+  }, [resolvedBgUrl, resolvedSheetUrl]);
 
   const isCloud = Boolean(snapshot?.publishedAt);
-  const selectedObject = INTERACTIVE_DECK_OBJECTS.find((object) => object.id === selectedObjectId);
-  const selectedOperator = selectedObject?.owner
-    ? agentsList.find((agent) => agent.name === selectedObject.owner)
-    : undefined;
-  const selectedEngaged = selectedObject ? engagedObjects.has(selectedObject.id) : false;
+  const isStale = Boolean(snapshot?.stale);
+
+  const onlineCount =
+    snapshot && !snapshot.stale && snapshot.roles
+      ? snapshot.roles.filter((r) => r.presence === 'online' && r.state !== 'offline').length
+      : 0;
+
+  const latestEvidence =
+    snapshot?.publishedAt ??
+    snapshot?.roles?.reduce<string | null>((acc, r) => {
+      if (!r.updatedAt) return acc;
+      if (!acc) return r.updatedAt;
+      return new Date(r.updatedAt) > new Date(acc) ? r.updatedAt : acc;
+    }, null);
 
   return (
     <div
@@ -561,168 +493,160 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
         }
         @keyframes starship-spin { to { transform: rotate(360deg); } }
         .starship-ltext { font-size: 10px; color: var(--dim); letter-spacing: 1px; }
-        /* Ductor command strip: status stays readable without covering the deck. */
-        .starship-header {
-          min-height: 58px;
-          display: grid;
-          grid-template-columns: minmax(170px, 0.75fr) minmax(480px, 2fr) minmax(92px, 0.45fr);
-          gap: 16px;
-          padding: 8px 16px;
-          background: linear-gradient(180deg, rgba(18,14,34,.97), rgba(10,8,22,.94));
-          border-bottom-color: rgba(110,231,255,.18);
+        .starship-log-banner {
+          position: absolute; left: 14px; bottom: 14px; font-size: 10.5px; color: var(--cyan);
+          background: rgba(11,10,23,0.78); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+          border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+          padding: 6px 12px; max-width: 60%; letter-spacing: .3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+          z-index: 8; pointer-events: auto;
         }
-        .starship-brand-lockup { min-width: 0; }
-        .starship-header h1 { font-size: 11px; letter-spacing: .8px; }
-        .starship-subtitle { margin-top: 3px; font-size: 8px; text-transform: uppercase; letter-spacing: 1.2px; }
-        .starship-crew-strip {
-          min-width: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px;
+        .starship-log-tag { color: var(--amber); margin-right: 6px; }
+        .starship-aside {
+          position: absolute; top: 14px; right: 14px; width: 300px; max-height: calc(100% - 28px);
+          background: rgba(20,15,38,0.82); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+          border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.55), 0 0 0 1px rgba(110,231,255,0.08);
+          display: flex; flex-direction: column; overflow: hidden; z-index: 10;
+          transition: max-height .25s ease, width .25s ease, opacity .2s ease;
         }
-        .starship-crew-pill {
-          --crew-color: var(--cyan);
-          min-width: 0; height: 40px; display: grid; grid-template-columns: 8px minmax(0,1fr) auto;
-          align-items: center; gap: 8px; padding: 5px 9px;
-          color: var(--text); text-align: left; font: inherit;
-          border: 1px solid rgba(255,255,255,.09); border-radius: 5px;
-          background: rgba(255,255,255,.025); cursor: pointer;
-          transition: border-color .18s ease, background .18s ease, transform .18s ease;
+        .starship-aside.collapsed {
+          width: auto; min-width: 140px; max-height: 42px;
         }
-        .starship-crew-pill:hover {
-          transform: translateY(-1px); border-color: color-mix(in srgb, var(--crew-color) 58%, transparent);
-          background: color-mix(in srgb, var(--crew-color) 8%, transparent);
+        .starship-roster-head {
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 10px 14px; border: none; border-bottom: 1px solid var(--line); font-size: 10px;
+          letter-spacing: 1.5px; color: var(--dim); text-transform: uppercase;
+          cursor: pointer; user-select: none; background: transparent; width: 100%;
+          font-family: inherit; text-align: left;
         }
-        .starship-crew-pill.offline { opacity: .48; }
-        .starship-crew-pill.blocked { border-color: rgba(255,92,92,.55); }
-        .starship-crew-signal {
-          width: 6px; height: 6px; border-radius: 50%; background: var(--crew-color);
-          box-shadow: 0 0 7px var(--crew-color);
+        .starship-roster-head:focus-visible {
+          outline: 2px solid var(--cyan);
+          outline-offset: -2px;
         }
-        .starship-crew-pill.offline .starship-crew-signal { background: #625d78; box-shadow: none; }
-        .starship-crew-copy { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-        .starship-crew-copy strong { color: #fff; font-size: 9px; line-height: 1; }
-        .starship-crew-copy small {
-          color: var(--dim); font-size: 7px; line-height: 1; text-transform: uppercase;
-          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        .starship-aside.collapsed .starship-roster-head { border-bottom: none; }
+        .starship-roster-toggle {
+          background: rgba(255,255,255,0.04); border: 1px solid var(--line); color: var(--cyan);
+          border-radius: 4px; font-size: 10px; padding: 2px 6px; pointer-events: none;
+          display: inline-flex; align-items: center; justify-content: center; line-height: 1;
         }
-        .starship-crew-state {
-          color: var(--crew-color); font-size: 7px; line-height: 1; text-transform: uppercase;
-          letter-spacing: .6px;
+        .starship-roster { flex: 1 1 auto; overflow-y: auto; padding: 8px; }
+        .starship-card {
+          display: flex; gap: 10px; align-items: center; padding: 9px 10px; margin-bottom: 6px;
+          border: 1px solid var(--line); border-radius: 6px; background: rgba(255,255,255,0.02);
+          transition: border-color .3s, background .3s, opacity .3s; cursor: pointer;
+          width: 100%; text-align: left; font-family: inherit; color: inherit;
         }
-        .starship-stat {
-          display: flex; align-items: center; justify-content: flex-end; gap: 7px;
-          font-size: 7px; letter-spacing: .7px; text-transform: uppercase;
+        .starship-card:hover { background: rgba(255,255,255,0.05); border-color: var(--amber); }
+        .starship-card.active { border-color: var(--cyan); }
+        .starship-card.blocked { border-color: #ff5c5c; }
+        .starship-card.offline { opacity: 0.55; }
+        .starship-card:focus-visible {
+          outline: 2px solid var(--cyan);
+          outline-offset: 2px;
         }
-        .starship-stat > span:last-child { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
-        .starship-stat b { font-size: 9px; }
-        .starship-link-light {
-          width: 6px; height: 6px; border-radius: 50%; background: #55efb0;
-          box-shadow: 0 0 8px rgba(85,239,176,.85);
+        .starship-swatch {
+          width: 34px; height: 34px; flex: 0 0 34px; border-radius: 6px;
+          border: 1px solid var(--line); image-rendering: pixelated;
+          background-color: rgba(255,255,255,0.03); display: flex; align-items: center; justify-content: center;
         }
-        .starship-link-light.stale { background: var(--amber); box-shadow: 0 0 8px rgba(255,207,110,.75); }
-        .starship-stage { cursor: default; }
-        .starship-stage.interactive { cursor: pointer; }
-        .starship-activity {
-          position: absolute; left: 12px; bottom: 11px; z-index: 8;
-          max-width: min(460px, 55%); display: flex; align-items: center; gap: 8px;
-          padding: 5px 9px; border: 1px solid rgba(110,231,255,.16); border-radius: 4px;
-          color: rgba(217,211,240,.72); background: rgba(8,7,18,.68);
-          backdrop-filter: blur(8px); font-size: 8px; white-space: nowrap;
-          overflow: hidden; text-overflow: ellipsis; pointer-events: none;
+        .starship-meta { min-width: 0; flex: 1; }
+        .starship-name { font-size: 11px; color: #fff; font-weight: 600; letter-spacing: .2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .starship-role { font-size: 9.5px; color: var(--dim); margin-top: 2px; }
+        .starship-task { font-size: 9px; color: var(--text); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .starship-badge {
+          font-size: 8.5px; padding: 2px 6px; border-radius: 10px; letter-spacing: .5px; white-space: nowrap; flex: 0 0 auto; text-transform: uppercase;
         }
-        .starship-activity-label { color: var(--cyan); font-weight: 700; letter-spacing: .9px; }
-        .starship-game-hint {
-          position: absolute; right: 12px; bottom: 11px; z-index: 8;
-          display: flex; gap: 9px; align-items: center; padding: 5px 9px;
-          color: rgba(217,211,240,.58); background: rgba(8,7,18,.68);
-          border: 1px solid rgba(185,139,255,.16); border-radius: 4px;
-          backdrop-filter: blur(8px); font-size: 7px; pointer-events: none;
-          text-transform: uppercase; letter-spacing: .55px;
+        .starship-badge.working,
+        .starship-badge.review { background: rgba(110,231,255,0.12); color: var(--cyan); border: 1px solid rgba(110,231,255,0.4); }
+        .starship-badge.moving { background: rgba(185,139,255,0.12); color: var(--violet); border: 1px solid rgba(185,139,255,0.4); }
+        .starship-badge.idle { background: rgba(255,207,110,0.1); color: var(--amber); border: 1px solid rgba(255,207,110,0.35); }
+        .starship-badge.waiting { background: rgba(255,207,110,0.1); color: var(--amber); border: 1px solid rgba(255,207,110,0.35); }
+        .starship-badge.blocked { background: rgba(255,92,92,0.15); color: #ff5c5c; border: 1px solid rgba(255,92,92,0.4); }
+        .starship-badge.offline { background: rgba(122,114,163,0.12); color: var(--dim); border: 1px solid rgba(122,114,163,0.3); }
+        .starship-roster-foot {
+          padding: 10px 14px; border-top: 1px solid var(--line); font-size: 9px; color: var(--dim); line-height: 1.6;
         }
-        .starship-game-hint b { color: var(--violet); }
-        .starship-object-panel {
-          --object-color: var(--cyan);
-          position: absolute; top: 14px; right: 14px; z-index: 12;
-          width: min(300px, calc(100% - 28px)); padding: 14px;
-          color: var(--text); background: linear-gradient(145deg, rgba(12,10,25,.95), rgba(22,16,42,.91));
-          border: 1px solid color-mix(in srgb, var(--object-color) 55%, transparent);
-          border-radius: 7px; box-shadow: 0 18px 55px rgba(0,0,0,.42), 0 0 28px color-mix(in srgb, var(--object-color) 12%, transparent);
-          backdrop-filter: blur(14px);
+        .starship-roster-foot b { color: var(--text); }
+        .starship-footer {
+          flex: 0 0 auto; display: flex; align-items: center; gap: 14px; padding: 10px 18px;
+          border-top: 1px solid var(--line); background: rgba(11,10,23,0.85); font-size: 10px; color: var(--dim);
         }
-        .starship-object-head { display: flex; justify-content: space-between; gap: 12px; }
-        .starship-object-kicker { color: var(--object-color); font-size: 7px; letter-spacing: 1.25px; text-transform: uppercase; }
-        .starship-object-panel h2 { margin: 6px 0 0; color: #fff; font-size: 12px; line-height: 1.25; }
-        .starship-object-close {
-          width: 25px; height: 25px; border: 1px solid rgba(255,255,255,.1); border-radius: 4px;
-          color: var(--dim); background: rgba(255,255,255,.025); cursor: pointer;
+        .starship-btn {
+          font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: .5px;
+          background: var(--panel); border: 1px solid var(--line); color: var(--text);
+          padding: 6px 12px; border-radius: 5px; cursor: pointer;
         }
-        .starship-object-panel p { margin: 12px 0; color: #9e96bd; font-size: 8px; line-height: 1.6; }
-        .starship-object-readout {
-          display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px;
+        .starship-btn:hover { border-color: var(--cyan); color: #fff; }
+        .starship-btn.active { border-color: var(--magenta); color: var(--magenta); }
+        .starship-btn:focus-visible {
+          outline: 2px solid var(--cyan);
+          outline-offset: 2px;
         }
-        .starship-object-readout div { padding: 8px; border: 1px solid rgba(255,255,255,.07); background: rgba(255,255,255,.025); }
-        .starship-object-readout span { display: block; color: #6f688e; font-size: 6px; text-transform: uppercase; letter-spacing: .7px; }
-        .starship-object-readout strong { display: block; margin-top: 4px; color: #fff; font-size: 8px; text-transform: uppercase; }
-        .starship-object-actions { display: grid; grid-template-columns: 1fr auto; gap: 7px; }
-        .starship-object-actions button {
-          min-height: 31px; padding: 0 11px; border: 1px solid rgba(255,255,255,.1); border-radius: 4px;
-          color: #cfc8e9; background: rgba(255,255,255,.03); font: 700 7px 'JetBrains Mono', monospace;
-          text-transform: uppercase; letter-spacing: .6px; cursor: pointer;
+        @media (max-width: 768px) {
+          .starship-header {
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 10px 14px;
+          }
+          .starship-header h1 { font-size: 11px; }
+          .starship-stat { font-size: 9.5px; text-align: left; }
+          .starship-aside { top: 8px; right: 8px; width: min(280px, calc(100vw - 16px)); max-width: calc(100vw - 16px); }
+          .starship-footer { padding: 8px 12px; font-size: 9px; flex-wrap: wrap; gap: 8px; }
         }
-        .starship-object-actions .primary {
-          border-color: color-mix(in srgb, var(--object-color) 62%, transparent);
-          color: #070812; background: var(--object-color);
-        }
-        @media (max-width: 760px) {
-          .starship-header { grid-template-columns: auto 1fr auto; gap: 8px; padding: 7px 9px; }
-          .starship-brand-lockup .starship-subtitle, .starship-crew-copy small { display: none; }
-          .starship-crew-pill { height: 34px; grid-template-columns: 6px 1fr; padding: 4px 6px; gap: 5px; }
-          .starship-crew-state { display: none; }
-          .starship-stat > span:last-child { display: none; }
-          .starship-header h1 { font-size: 8px; }
+        @media (max-width: 480px) {
+          .starship-header {
+            flex-direction: column;
+            align-items: flex-start;
+            padding: 8px 12px;
+          }
+          .starship-brand h1 { font-size: 10px; }
+          .starship-aside { top: 6px; right: 6px; width: calc(100vw - 12px); max-width: calc(100vw - 12px); }
+          .starship-log-banner { max-width: calc(100vw - 24px); left: 12px; bottom: 8px; font-size: 9px; }
+          .starship-footer { font-size: 8.5px; padding: 6px 10px; }
         }
       `}</style>
 
       <header className="starship-header">
-        <div className="starship-brand-lockup">
+        <div>
           <div className="starship-brand">
             <div className="starship-dot" />
-            <h1>DUCTOR SPACE LAB</h1>
+            <h1>STARSHIP AGENTS — v1.9</h1>
           </div>
-          <div className="starship-subtitle">live crew operations</div>
+          <div className="starship-subtitle">live crew deck · Ductor Space Lab</div>
         </div>
-
-        <div className="starship-crew-strip" role="list" aria-label="Ductor crew status">
-          {agentsList.map((agent) => {
-            const state = agent.reportedState ?? agent.state;
-            const station = WORKSTATIONS[agent.name];
-            return (
-              <button
-                key={agent.id}
-                type="button"
-                role="listitem"
-                className={`starship-crew-pill ${state}`}
-                style={{ '--crew-color': agent.skin.tint } as CSSProperties}
-                onClick={() => handleAgentClick(agent.id)}
-                title={agent.reportedTaskLabel ?? `${agent.name} · ${state}`}
-                data-ductor-agent={agent.name}
-                data-state={state}
-              >
-                <span className="starship-crew-signal" aria-hidden="true" />
-                <span className="starship-crew-copy">
-                  <strong>{agent.name}</strong>
-                  <small>{station?.roleDescription ?? agent.role}</small>
-                </span>
-                <span className="starship-crew-state">{state}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="starship-stat" role="status">
-          <span className={`starship-link-light ${snapshot?.stale ? 'stale' : ''}`} />
-          <span>
-            {isCloud ? 'REMOTE' : 'LOCAL'}
-            <b>{snapshot?.stale ? 'STALE' : 'LIVE'}</b>
-          </span>
+        <div className="starship-stat" role="status" aria-live="polite">
+          {isCloud ? (
+            <>
+              HEARTBEAT: <b>REMOTE HEARTBEAT</b>
+              <br />
+              STATUS: <b>{isStale ? 'Cloud heartbeat stale · agents inactive' : 'Live'}</b>
+              <br />
+              SYNC:{' '}
+              <time dateTime={snapshot?.publishedAt}>
+                <b>{snapshot?.publishedAt ?? 'STANDBY'}</b>
+              </time>
+            </>
+          ) : (
+            <>
+              SHIP: <b>ISV KESTREL-7</b>
+              <br />
+              SIGNAL: <b>{snapshot ? '127.0.0.1 · LIVE ENGINE' : 'LOCAL STANDBY'}</b>
+              <br />
+              {latestEvidence ? (
+                <>
+                  LAST EVIDENCE:{' '}
+                  <time dateTime={latestEvidence}>
+                    <b>{latestEvidence}</b>
+                  </time>
+                </>
+              ) : (
+                <>
+                  STATUS: <b>{snapshot ? 'Live' : 'Standby'}</b>
+                </>
+              )}
+            </>
+          )}
+          <br />
+          CREW ONLINE: <b>{onlineCount}</b>
         </div>
       </header>
 
@@ -731,13 +655,8 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
           <canvas
             id="stage"
             ref={stageCanvasRef}
-            className={`starship-stage ${hoveredObjectId ? 'interactive' : ''}`}
-            onPointerMove={handleStagePointerMove}
-            onPointerLeave={() => {
-              hoveredObjectRef.current = null;
-              setHoveredObjectId(null);
-            }}
-            onClick={handleStageClick}
+            className="starship-stage"
+            onClick={handleCanvasClick}
           />
           <canvas id="stars" ref={starsCanvasRef} className="starship-starfield" />
           <div className="starship-scanline" />
@@ -760,73 +679,184 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
               );
             })}
           </div>
-          <div className="starship-activity" role="status" aria-live="polite">
-            <span className="starship-activity-label">LIVE</span>
-            <span>{activityText}</span>
+          <div id="log-banner" className="starship-log-banner">
+            <span className="starship-log-tag">LOG</span>
+            <span id="log-text">{logText}</span>
           </div>
-          <div className="starship-game-hint" aria-hidden="true">
-            <span>
-              <b>Hover</b> systems
-            </span>
-            <span>
-              <b>Click</b> interact
-            </span>
-            <span>
-              <b>Wheel</b> zoom
-            </span>
-          </div>
-          {selectedObject && (
-            <aside
-              className="starship-object-panel"
-              style={{ '--object-color': selectedObject.color } as CSSProperties}
-              aria-label={`${selectedObject.label} controls`}
-            >
-              <div className="starship-object-head">
-                <div>
-                  <div className="starship-object-kicker">{selectedObject.system}</div>
-                  <h2>{selectedObject.label}</h2>
-                </div>
-                <button
-                  type="button"
-                  className="starship-object-close"
-                  aria-label="Close system panel"
-                  onClick={() => {
-                    selectedObjectRef.current = null;
-                    setSelectedObjectId(null);
-                  }}
-                >
-                  ×
-                </button>
-              </div>
-              <p>{selectedObject.description}</p>
-              <div className="starship-object-readout">
-                <div>
-                  <span>Operator</span>
-                  <strong>{selectedObject.owner ?? 'AUTOMATED'}</strong>
-                </div>
-                <div>
-                  <span>System state</span>
-                  <strong>
-                    {selectedEngaged ? 'ENGAGED' : (selectedOperator?.reportedState ?? 'STANDBY')}
-                  </strong>
-                </div>
-              </div>
-              <div className="starship-object-actions">
-                <button type="button" className="primary" onClick={toggleSelectedObject}>
-                  {selectedEngaged ? 'Disengage' : selectedObject.actionLabel}
-                </button>
-                <button type="button" onClick={() => focusObject(selectedObject)}>
-                  Focus
-                </button>
-              </div>
-            </aside>
-          )}
           <div className={`starship-loading ${loaded ? 'hidden' : ''}`}>
             <div className="starship-spinner" />
             <div className="starship-ltext">LOADING DECK ASSETS…</div>
           </div>
         </div>
+
+        <aside className={`starship-aside ${rosterCollapsed ? 'collapsed' : ''}`}>
+          <button
+            type="button"
+            className="starship-roster-head"
+            onClick={() => setRosterCollapsed((c) => !c)}
+            aria-expanded={!rosterCollapsed}
+            aria-controls="roster"
+          >
+            <span>Crew Roster</span>
+            <span className="starship-roster-toggle" aria-hidden="true">
+              {rosterCollapsed ? '▼' : '▲'}
+            </span>
+          </button>
+          {!rosterCollapsed && (
+            <>
+              <div
+                id="roster"
+                className="starship-roster"
+                role="list"
+                aria-label="Ductor crew roster"
+              >
+                {CANONICAL_ROLES.map((roleName) => {
+                  const a =
+                    agentsList.find((ag) => ag.name === roleName) ??
+                    agentsRef.current.find((ag) => ag.name === roleName);
+                  const roleStatus = snapshot?.roles?.find((r) => r.name === roleName);
+
+                  const isRoleOffline =
+                    isStale ||
+                    roleStatus?.presence === 'offline' ||
+                    roleStatus?.state === 'offline' ||
+                    (roleStatus === undefined && a?.state === STATE.OFFLINE);
+
+                  const displayState = isRoleOffline
+                    ? 'offline'
+                    : (roleStatus?.state ??
+                      a?.reportedState ??
+                      (a?.state === STATE.MOVING
+                        ? 'moving'
+                        : a?.state === STATE.WORKING
+                          ? 'working'
+                          : a?.state === STATE.BLOCKED
+                            ? 'blocked'
+                            : 'idle'));
+
+                  const badgeState = displayState;
+                  const isWorking = badgeState === 'working' || badgeState === 'review';
+                  const isBlocked = badgeState === 'blocked';
+                  const isOffline = badgeState === 'offline';
+                  const badgeText = badgeState.toUpperCase();
+
+                  const provenance = isStale
+                    ? 'stale-cloud-heartbeat'
+                    : (roleStatus?.provenance ??
+                      a?.provenance ??
+                      (roleStatus?.derived
+                        ? 'derived'
+                        : roleStatus
+                          ? 'operator-agent-reported'
+                          : undefined));
+
+                  const taskLabel = isRoleOffline
+                    ? (roleStatus?.taskLabel ?? 'No active task')
+                    : (roleStatus?.taskLabel ??
+                      a?.reportedTaskLabel ??
+                      (provenance
+                        ? 'Presence detected · activity unobserved'
+                        : 'No task reported'));
+
+                  const duty =
+                    roleName === 'Alec'
+                      ? 'Planner / Architect'
+                      : roleName === 'Kevin'
+                        ? 'Builder / Implementer'
+                        : 'Independent QA / Reviewer';
+
+                  const skinName =
+                    a?.skin?.name ??
+                    (roleName === 'Alec'
+                      ? 'Nebula Sentinel'
+                      : roleName === 'Kevin'
+                        ? 'Void Recon Unit'
+                        : 'Crimson Hunter-Class');
+
+                  const skinTint =
+                    a?.skin?.tint ??
+                    (roleName === 'Alec'
+                      ? '#b98bff'
+                      : roleName === 'Kevin'
+                        ? '#6ee7ff'
+                        : '#ff5c5c');
+
+                  return (
+                    <button
+                      type="button"
+                      key={a?.id ?? roleName}
+                      className={`starship-card card ${isWorking ? 'active' : ''} ${isBlocked ? 'blocked' : ''} ${isOffline ? 'offline' : ''}`}
+                      data-id={a?.id ?? roleName}
+                      data-ductor-agent={roleName}
+                      data-state={displayState}
+                      role="listitem"
+                      aria-label={`${roleName}, ${duty}, ${displayState}`}
+                      onClick={() => {
+                        handleAgentClick(a?.id ?? roleName);
+                      }}
+                    >
+                      <div
+                        className="starship-swatch swatch"
+                        style={{
+                          borderLeft: `3px solid ${skinTint}`,
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: '50%',
+                            backgroundColor: skinTint,
+                            boxShadow: `0 0 6px ${skinTint}`,
+                          }}
+                        />
+                      </div>
+                      <div className="starship-meta meta">
+                        <div className="starship-name name">{roleName}</div>
+                        <div className="starship-role role">
+                          {duty} · {skinName}
+                          {provenance ? ` · ${provenance.replaceAll('-', ' ')}` : ''}
+                        </div>
+                        <div className="starship-task">{taskLabel}</div>
+                      </div>
+                      <div className={`starship-badge badge ${badgeState.toLowerCase()}`}>
+                        {badgeText}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="starship-roster-foot">
+                Click a station on the deck to <b>summon</b> the nearest free agent.
+                <br />
+                Signals marked derived are presence-based; no message, prompt, or token is read.
+              </div>
+            </>
+          )}
+        </aside>
       </main>
+
+      <footer className="starship-footer">
+        <button
+          type="button"
+          id="btn-speed"
+          className={`starship-btn ${speedMult !== 1 ? 'active' : ''}`}
+          onClick={handleSpeedToggle}
+        >
+          Speed: <span id="speed-label">{speedMult}x</span>
+        </button>
+        <button
+          type="button"
+          id="btn-grid"
+          className={`starship-btn ${showStations ? 'active' : ''}`}
+          onClick={() => setShowStations((v) => !v)}
+        >
+          Toggle station markers
+        </button>
+        <span style={{ marginLeft: 'auto' }}>
+          deck plan is illustrative — click anywhere to route the nearest agent there
+        </span>
+      </footer>
     </div>
   );
 }

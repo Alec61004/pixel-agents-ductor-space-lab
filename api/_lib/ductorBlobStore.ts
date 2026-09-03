@@ -1,5 +1,6 @@
 import {
   BlobNotFoundError,
+  BlobPreconditionFailedError,
   get as getBlob,
   type GetCommandOptions,
   put as putBlob,
@@ -21,7 +22,7 @@ interface BlobClient {
   ): Promise<{
     statusCode: 200 | 304;
     stream: ReadableStream<Uint8Array> | null;
-    blob: { size: number | null };
+    blob: { size: number | null; etag: string };
   } | null>;
   put(pathname: string, body: string, options: PutCommandOptions): Promise<PutBlobResult | void>;
 }
@@ -30,6 +31,13 @@ const defaultClient: BlobClient = { get: getBlob, put: putBlob };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isBlobWriteConflict(error: unknown): boolean {
+  return (
+    error instanceof BlobPreconditionFailedError ||
+    (error instanceof Error && error.name === 'BlobAlreadyExistsError')
+  );
 }
 
 function canonicalTimestamp(value: unknown): string | null {
@@ -96,24 +104,41 @@ async function readBoundedStream(stream: ReadableStream<Uint8Array>): Promise<st
 }
 
 export function createBlobCloudStatusStore(client: BlobClient = defaultClient): CloudStatusStore {
+  async function readStored(): Promise<{
+    envelope: CloudStoredEnvelope | null;
+    etag: string | null;
+  }> {
+    try {
+      const result = await client.get(BLOB_STATUS_PATHNAME, {
+        access: 'private',
+        useCache: false,
+      });
+      if (result === null) return { envelope: null, etag: null };
+      if (result.statusCode !== 200 || !result.stream) throw new Error('invalid stored status');
+      if (result.blob.size === null || result.blob.size > STORED_STATUS_MAX_BYTES) {
+        throw new Error('invalid stored status');
+      }
+      return {
+        envelope: parseStoredEnvelope(await readBoundedStream(result.stream)),
+        etag: result.blob.etag,
+      };
+    } catch (error) {
+      if (error instanceof BlobNotFoundError) return { envelope: null, etag: null };
+      if (error instanceof Error && error.message === 'invalid stored status') throw error;
+      throw new Error('status storage unavailable');
+    }
+  }
+
   return {
     async read(): Promise<CloudStoredEnvelope | null> {
-      try {
-        const result = await client.get(BLOB_STATUS_PATHNAME, {
-          access: 'private',
-          useCache: false,
-        });
-        if (result === null) return null;
-        if (result.statusCode !== 200 || !result.stream) throw new Error('invalid stored status');
-        if (result.blob.size === null || result.blob.size > STORED_STATUS_MAX_BYTES) {
-          throw new Error('invalid stored status');
-        }
-        return parseStoredEnvelope(await readBoundedStream(result.stream));
-      } catch (error) {
-        if (error instanceof BlobNotFoundError) return null;
-        if (error instanceof Error && error.message === 'invalid stored status') throw error;
-        throw new Error('status storage unavailable');
-      }
+      return (await readStored()).envelope;
+    },
+
+    async readForWrite(): Promise<{
+      envelope: CloudStoredEnvelope | null;
+      etag: string | null;
+    }> {
+      return readStored();
     },
 
     async write(envelope: CloudStoredEnvelope): Promise<void> {
@@ -125,6 +150,23 @@ export function createBlobCloudStatusStore(client: BlobClient = defaultClient): 
         cacheControlMaxAge: 60,
         contentType: 'application/json',
       });
+    },
+
+    async writeIfCurrent(envelope: CloudStoredEnvelope, etag: string | null): Promise<void> {
+      const strictEnvelope = parseStoredEnvelope(JSON.stringify(envelope));
+      try {
+        await client.put(BLOB_STATUS_PATHNAME, JSON.stringify(strictEnvelope), {
+          access: 'private',
+          addRandomSuffix: false,
+          allowOverwrite: etag !== null,
+          cacheControlMaxAge: 60,
+          contentType: 'application/json',
+          ...(etag === null ? {} : { ifMatch: etag }),
+        });
+      } catch (error) {
+        if (isBlobWriteConflict(error)) throw new Error('conflict');
+        throw error;
+      }
     },
   };
 }

@@ -1,4 +1,4 @@
-import { BlobNotFoundError } from '@vercel/blob';
+import { BlobNotFoundError, BlobPreconditionFailedError } from '@vercel/blob';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -50,7 +50,7 @@ describe('Ductor private Blob store', () => {
     const get = vi.fn(async () => ({
       statusCode: 200 as const,
       stream: stream(JSON.stringify(current)),
-      blob: { size: JSON.stringify(current).length },
+      blob: { size: JSON.stringify(current).length, etag: 'etag-1' },
     }));
     const store = createBlobCloudStatusStore({ get, put: vi.fn() });
 
@@ -85,6 +85,54 @@ describe('Ductor private Blob store', () => {
     });
   });
 
+  it('uses the read ETag for conditional heartbeat writes', async () => {
+    const put = vi.fn(async () => undefined);
+    const store = createBlobCloudStatusStore({ get: vi.fn(), put });
+    const current = envelope();
+
+    await store.writeIfCurrent(current, 'etag-1');
+
+    expect(put).toHaveBeenCalledWith(
+      BLOB_STATUS_PATHNAME,
+      JSON.stringify(current),
+      expect.objectContaining({ allowOverwrite: true, ifMatch: 'etag-1' }),
+    );
+  });
+
+  it('uses create-only semantics when no prior ETag exists', async () => {
+    const put = vi.fn(async () => undefined);
+    const store = createBlobCloudStatusStore({ get: vi.fn(), put });
+    const current = envelope();
+
+    await store.writeIfCurrent(current, null);
+
+    expect(put).toHaveBeenCalledWith(
+      BLOB_STATUS_PATHNAME,
+      JSON.stringify(current),
+      expect.objectContaining({ allowOverwrite: false }),
+    );
+  });
+
+  it('normalizes a conditional-create precondition failure as a conflict', async () => {
+    const put = vi.fn(async () => {
+      throw new BlobPreconditionFailedError();
+    });
+    const store = createBlobCloudStatusStore({ get: vi.fn(), put });
+
+    await expect(store.writeIfCurrent(envelope(), null)).rejects.toThrow('conflict');
+  });
+
+  it('normalizes a conditional-create already-exists failure as a conflict', async () => {
+    const put = vi.fn(async () => {
+      const error = new Error('blob already exists');
+      error.name = 'BlobAlreadyExistsError';
+      throw error;
+    });
+    const store = createBlobCloudStatusStore({ get: vi.fn(), put });
+
+    await expect(store.writeIfCurrent(envelope(), null)).rejects.toThrow('conflict');
+  });
+
   it.each([
     ['malformed', '{'],
     ['arbitrary property', JSON.stringify({ ...envelope(), secret: 'never' })],
@@ -100,7 +148,7 @@ describe('Ductor private Blob store', () => {
     const get = vi.fn(async () => ({
       statusCode: 200 as const,
       stream: stream(raw),
-      blob: { size: raw.length },
+      blob: { size: raw.length, etag: 'etag-1' },
     }));
     const store = createBlobCloudStatusStore({ get, put: vi.fn() });
 

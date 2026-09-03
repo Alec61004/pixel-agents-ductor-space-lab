@@ -256,7 +256,20 @@ export function projectCloudStatus(
 ): CloudStatusSnapshot {
   if (!envelope) return createOfflineCloudSnapshot(now, 'cloud-unavailable');
   if (now.getTime() - Date.parse(envelope.receivedAt) > CLOUD_STALE_MS) {
-    return createOfflineCloudSnapshot(now, 'stale-cloud-heartbeat');
+    return {
+      theme: 'ductor-space-lab',
+      publishedAt: envelope.snapshot.publishedAt,
+      stale: true,
+      roles: envelope.snapshot.roles.map((role) => ({
+        name: role.name,
+        presence: 'offline' as const,
+        state: 'offline' as const,
+        taskLabel: null,
+        updatedAt: role.updatedAt,
+        derived: true,
+        provenance: 'stale-cloud-heartbeat' as const,
+      })),
+    };
   }
   return {
     theme: 'ductor-space-lab',

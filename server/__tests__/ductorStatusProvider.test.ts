@@ -36,6 +36,7 @@ describe('Ductor status normalization', () => {
         DUCTOR_HOME: '/safe/ductor',
         PIXEL_AGENTS_DUCTOR_ALEC_STATE: 'working',
         PIXEL_AGENTS_DUCTOR_ALEC_TASK: 'Verify Space Lab',
+        PIXEL_AGENTS_DUCTOR_ALEC_UPDATED_AT: observedAt,
       },
       exists: (filePath) => {
         observedPaths.push(filePath);
@@ -86,7 +87,7 @@ describe('Ductor status normalization', () => {
     );
 
     expect(result.roles.map((role) => role.name)).toEqual(['Alec', 'Kevin', 'Benjamin']);
-    expect(result.roles.map((role) => role.state)).toEqual(['idle', 'idle', 'idle']);
+    expect(result.roles.map((role) => role.state)).toEqual(['offline', 'offline', 'offline']);
     expect(result.roles.every((role) => role.derived)).toBe(true);
   });
 
@@ -144,7 +145,11 @@ describe('Ductor status normalization', () => {
       now: () => new Date(observedAt),
     });
 
-    expect(provider.snapshot().roles.map((role) => role.state)).toEqual(['idle', 'idle', 'idle']);
+    expect(provider.snapshot().roles.map((role) => role.state)).toEqual([
+      'offline',
+      'offline',
+      'offline',
+    ]);
 
     writeStatus({
       version: 1,
@@ -254,7 +259,7 @@ describe('Ductor status normalization', () => {
 
     const snapshot = provider.snapshot();
 
-    expect(snapshot.roles.map((role) => role.state)).toEqual(['idle', 'idle', 'idle']);
+    expect(snapshot.roles.map((role) => role.state)).toEqual(['offline', 'offline', 'offline']);
     expect(snapshot.roles.every((role) => role.derived)).toBe(true);
     expect(JSON.stringify(snapshot)).not.toMatch(/never-return-this|private message|token|prompt/i);
   });
@@ -276,7 +281,11 @@ describe('Ductor status normalization', () => {
       now: () => new Date(observedAt),
     });
 
-    expect(provider.snapshot().roles.map((role) => role.state)).toEqual(['idle', 'idle', 'idle']);
+    expect(provider.snapshot().roles.map((role) => role.state)).toEqual([
+      'offline',
+      'offline',
+      'offline',
+    ]);
   });
 
   it('rejects a configured status path that escapes its allowlisted root', () => {
@@ -293,6 +302,37 @@ describe('Ductor status normalization', () => {
       now: () => new Date(observedAt),
     });
 
-    expect(provider.snapshot().roles.map((role) => role.state)).toEqual(['idle', 'idle', 'idle']);
+    expect(provider.snapshot().roles.map((role) => role.state)).toEqual([
+      'offline',
+      'offline',
+      'offline',
+    ]);
+  });
+
+  it.each([
+    ['missing report', undefined],
+    ['invalid timestamp', 'not-a-timestamp'],
+    ['expired report', new Date(Date.parse(observedAt) - 45 * 60_000 - 1).toISOString()],
+  ])('fails closed for %s', (_name, updatedAt) => {
+    const provider = new DuctorStatusProvider({
+      statusFile,
+      statusRoot: tempRoot,
+      exists: () => true,
+      now: () => new Date(observedAt),
+    });
+    if (updatedAt !== undefined) {
+      writeStatus({
+        version: 1,
+        roles: { Alec: { state: 'working', taskLabel: 'must hide', updatedAt } },
+      });
+    }
+
+    const alec = provider.snapshot().roles[0];
+    expect(alec).toMatchObject({
+      presence: 'offline',
+      state: 'offline',
+      taskLabel: null,
+      derived: true,
+    });
   });
 });

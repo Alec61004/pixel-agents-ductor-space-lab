@@ -7,6 +7,11 @@ import {
 
 export interface CloudStatusStore {
   read(): Promise<CloudStoredEnvelope | null>;
+  readForWrite(): Promise<{
+    envelope: CloudStoredEnvelope | null;
+    etag: string | null;
+  }>;
+  writeIfCurrent(envelope: CloudStoredEnvelope, etag: string | null): Promise<void>;
   write(envelope: CloudStoredEnvelope): Promise<void>;
 }
 
@@ -91,7 +96,7 @@ export function createCloudHeartbeatHandler(options: {
     }
 
     try {
-      const current = await options.store.read();
+      const { envelope: current, etag } = await options.store.readForWrite();
       const accepted = current
         ? acceptCloudWrite({
             body,
@@ -103,7 +108,7 @@ export function createCloudHeartbeatHandler(options: {
             signature,
           })
         : authenticated;
-      await options.store.write(accepted);
+      await options.store.writeIfCurrent(accepted, etag);
       return response(204);
     } catch (error) {
       const message = error instanceof Error ? error.message : '';

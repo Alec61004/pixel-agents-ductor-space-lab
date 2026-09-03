@@ -203,7 +203,7 @@ export async function sendCloudSnapshot(
     redirect: 'error',
     signal: AbortSignal.timeout(options.timeoutMs ?? 5_000),
   });
-  if (!response.ok) throw new Error('cloud heartbeat rejected');
+  if (!response.ok) throw new Error(`cloud heartbeat rejected (${response.status.toString()})`);
 }
 
 export interface CloudPublisherState {
