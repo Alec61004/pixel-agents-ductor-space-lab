@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Bridge real bot activity (ductor agent.log) into the Space Lab status file.
 
-Watches ~/.ductor/logs/agent.log for per-agent CLI streaming start/complete events
+Watches ~/.ductor/logs/agent.log for per-agent CLI lifecycle start/complete events
 and maintains .ductor-space-lab/status.json.
 Tracks active stream IDs per role to prevent out-of-order completions from hiding
 active streams, preserves truthful evidence timestamps, and handles restart/rotation.
@@ -26,6 +26,8 @@ CTX_RE = re.compile(r'\[([a-z]+):msg(?::([^\]\s]+))?\]')
 START_RE = re.compile(r'CLI streaming starting label=')
 DONE_RE = re.compile(r'CLI streaming completed label=')
 FAIL_RE = re.compile(r'CLI streaming (?:failed|error|cancelled|timed out) label=')
+EXECUTE_START_RE = re.compile(r'CLI execute starting label=')
+EXECUTE_DONE_RE = re.compile(r'CLI main \[(?:ok|error)\]')
 
 KEEPALIVE_S = 240  # 4 min keepalive check interval
 ACTIVE_STREAM_TIMEOUT_S = 45 * 60  # 45 min max active stream duration before fail-closed idle
@@ -91,14 +93,14 @@ def parse_lifecycle_event(line):
 
     stream_id = cm.group(2) or 'default'
 
-    if START_RE.search(line):
+    if START_RE.search(line) or EXECUTE_START_RE.search(line):
         return {
             'role': role,
             'state': 'working',
             'stream_id': stream_id,
             'event': 'start',
         }
-    if DONE_RE.search(line) or FAIL_RE.search(line):
+    if DONE_RE.search(line) or FAIL_RE.search(line) or EXECUTE_DONE_RE.search(line):
         return {
             'role': role,
             'state': 'idle',

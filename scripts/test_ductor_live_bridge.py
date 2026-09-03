@@ -37,6 +37,26 @@ class TestRoleFromLine(unittest.TestCase):
         self.assertEqual(role, "Kevin")
         self.assertEqual(state, "working")
 
+    def test_execute_start_line(self):
+        """Current Ductor executor start events also mark the context role working."""
+        line = (
+            "2026-09-04 01:38:59 [INFO] ductor_bot.cli.service:service.py:199: "
+            "[main:msg:chat:stream] CLI execute starting label=main model=gpt-5.6-luna"
+        )
+        role, state = bridge.parse_line(line)
+        self.assertEqual(role, "Alec")
+        self.assertEqual(state, "working")
+
+    def test_execute_done_line(self):
+        """Current Ductor executor terminal events mark the context role idle."""
+        line = (
+            "2026-09-04 01:40:21 [INFO] ductor_bot.cli.service:service.py:425: "
+            "[main:msg:chat:stream] CLI main [ok] cost=$0.0000 tokens=1 duration_ms=1"
+        )
+        role, state = bridge.parse_line(line)
+        self.assertEqual(role, "Alec")
+        self.assertEqual(state, "idle")
+
     def test_kevin_complete_line(self):
         """[kevin:msg:...] CLI streaming completed label=main -> Kevin idle."""
         line = (
