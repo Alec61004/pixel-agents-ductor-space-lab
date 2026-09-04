@@ -1554,10 +1554,11 @@ test('Alec uses intact original typing frames with a keyboard and enlarged cyan 
   for (const state of ['idle', 'waiting', 'blocked', 'offline']) {
     Object.assign(alec, { state, reportedState: state });
     const calls = frame(0);
-    assert.equal(
-      calls.some((c) => c[0] === 'drawImage' && c[1] === bgImg),
-      false,
-      state,
+    const map = calls.find((c) => c[0] === 'drawImage' && c[1] === bgImg);
+    assert.deepEqual(map?.slice(8, 10), [106, 71], `${state}: same map at resting size`);
+    assert.ok(
+      calls.some((c) => c[0] === 'createRadialGradient'),
+      `${state}: render the new field`,
     );
     assert.equal(
       calls.some((c) => c[0] === 'drawImage' && c[1] === keyboardSprite),
@@ -1570,4 +1571,21 @@ test('Alec uses intact original typing frames with a keyboard and enlarged cyan 
     frame(0).some((c) => c[0] === 'drawImage' && c[1] === keyboardSprite),
     false,
   );
+  Object.assign(alec, WORKSTATIONS.Alec.interactionPoint, {
+    state: STATE.WORKING,
+    reportedState: 'working',
+    hologramExpansion: 0,
+  });
+  for (let i = 0; i < 10; i++) updateAgent(alec, 0.1, 1, crew);
+  const expanded = frame(1).find((c) => c[0] === 'drawImage' && c[1] === bgImg);
+  assert.ok(Math.abs(expanded![8] - 106 * 1.65) < 0.001);
+  const sceneTime = alec.hologramSceneTime;
+  Object.assign(alec, { state: STATE.IDLE, reportedState: 'idle', stateTimer: 10 });
+  updateAgent(alec, 0.2, 1, crew);
+  const shrinking = frame(0).find((c) => c[0] === 'drawImage' && c[1] === bgImg);
+  assert.ok(shrinking![8] > 106 && shrinking![8] < expanded![8], 'smoothly shrink on work end');
+  for (let i = 0; i < 8; i++) updateAgent(alec, 0.1, 1, crew);
+  const resting = frame(0).find((c) => c[0] === 'drawImage' && c[1] === bgImg);
+  assert.equal(resting![8], 106);
+  assert.ok(alec.hologramSceneTime! > sceneTime!, 'ambient field keeps moving while idle');
 });

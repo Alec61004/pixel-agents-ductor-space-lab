@@ -297,6 +297,8 @@ export interface StarshipAgent {
   currentStation: string;
   flash?: number;
   hologramTime?: number;
+  hologramSceneTime?: number;
+  hologramExpansion?: number;
   particleTimer?: number;
   particles?: WorkParticle[];
 }
@@ -807,12 +809,15 @@ export function updateAgent(
 
   const isOffline = a.reportedState === 'offline' || a.state === STATE.OFFLINE;
 
-  // One clock drives Alec's original typing frames, lit keys and star motion.
-  if (isAlecUsingHologram(a)) {
-    a.hologramTime = (a.hologramTime ?? 0) + dt * speedMult;
-  } else {
-    a.hologramTime = 0;
+  // Ambient map motion persists while the console's typing clock remains work-only.
+  const usingHologram = isAlecUsingHologram(a);
+  if (a.name === 'Alec') {
+    a.hologramSceneTime = (a.hologramSceneTime ?? 0) + dt * speedMult;
+    const expansion = a.hologramExpansion ?? 0;
+    const change = (dt * speedMult) / 0.6;
+    a.hologramExpansion = Math.max(0, Math.min(1, expansion + (usingHologram ? change : -change)));
   }
+  a.hologramTime = usingHologram ? (a.hologramTime ?? 0) + dt * speedMult : 0;
 
   // Work particles: spawn every ~0.9s when working at desk
   if (a.state === STATE.WORKING && !isOffline && a.name !== 'Alec') {
@@ -1264,8 +1269,8 @@ export function drawDeskCutouts(
   }
 }
 
-// Keep the original cyan frame and chart; project a living planetary system
-// around its orange star while Alec operates the navigation console.
+// The same planetary map is always present on the table. Work only expands it;
+// leaving the station shrinks it back without revealing the old baked-in chart.
 export function drawHologramTopGlow(
   ctx: CanvasRenderingContext2D,
   agents: StarshipAgent[],
@@ -1273,12 +1278,15 @@ export function drawHologramTopGlow(
   bgImg?: HTMLImageElement,
 ): void {
   void _timeSec;
+  if (!bgImg) return;
   const alec = agents.find((a) => a.name === 'Alec');
-  if (!alec || !bgImg || !isAlecUsingHologram(alec)) return;
-  const time = alec.hologramTime ?? 0;
+  const working = !!alec && isAlecUsingHologram(alec);
+  const controlTime = alec?.hologramTime ?? 0;
+  const time = alec?.hologramSceneTime ?? controlTime;
   const source = { x: 516, y: 443, w: 106, h: 71 };
-  const open = Math.min(1, time / 0.6);
-  const zoom = 1 + 0.65 * open * open * (3 - 2 * open);
+  const expansion = alec?.hologramExpansion ?? (working ? Math.min(1, controlTime / 0.6) : 0);
+  const open = 1; // Content visibility is independent of the work-driven expansion.
+  const zoom = 1 + 0.65 * expansion * expansion * (3 - 2 * expansion);
   const w = source.w * zoom;
   const h = source.h * zoom;
   const cx = source.x + source.w / 2;
@@ -1328,7 +1336,7 @@ export function drawHologramTopGlow(
 
   // The operator brings a region closer, pauses to inspect it, then lets it settle.
   // This long gesture is shared by every layer instead of making each object bob.
-  const responseTime = getAlecConsoleCycle(time).responseTime;
+  const responseTime = getAlecConsoleCycle(working ? controlTime : 0).responseTime;
   const inspection = Math.pow(0.5 - 0.5 * Math.cos((responseTime * Math.PI) / 5.12), 2);
   const focus = 1 + 0.09 * inspection;
   const yaw = Math.sin(time * 0.13) * 0.1 + inspection * 0.035;
