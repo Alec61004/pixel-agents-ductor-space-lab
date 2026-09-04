@@ -1144,15 +1144,15 @@ test('drawHologramTopGlow renders pulsing violet hologram ellipse, starmap rings
   // Must render at least 2 hologram ellipses (table surface + concentric ring) and multiple star nodes
   assert.ok(ellipseCalls.length >= 2);
   assert.ok(arcCalls.length >= 4);
-  assert.equal(cometEndpoints.length, 4);
+  assert.ok(cometEndpoints.length > 4, 'connected constellations accompany the comet trails');
   const firstFrame = [...cometEndpoints];
   cometEndpoints.length = 0;
   drawHologramTopGlow(mockCtx, crew, 0.5);
-  assert.equal(cometEndpoints.length, 4);
+  assert.equal(cometEndpoints.length, firstFrame.length);
   assert.notDeepEqual(cometEndpoints, firstFrame, 'comet endpoints must move with time');
 
-  // Ellipse center must be at Alec displayBounds center
-  const r = WORKSTATIONS.Alec.displayBounds;
+  // Effects stay inside the painted projection, above the physical table.
+  const r = { x: 520, y: 447, w: 98, h: 62 };
   const expectedCx = r.x + r.w / 2;
   const expectedCy = r.y + r.h / 2;
   assert.equal(ellipseCalls[0][0], expectedCx);
@@ -1485,4 +1485,40 @@ test('V1.9 idle wander: idle agent wanders between points every 2-4s and changes
       `Idle agent ${agent.name} should have wandered and changed position within 5s, but moved only ${distMoved.toFixed(1)}px`,
     );
   }
+});
+
+
+test('hologram motion stays finite, clipped and gated by Alec activity', () => {
+  const alec = createInitialCrew().find(a => a.name === 'Alec')!;
+  Object.assign(alec, WORKSTATIONS.Alec.interactionPoint, { state: STATE.WORKING, reportedState: 'working' });
+  function frame(t: number) {
+    const calls: any[][] = [];
+    const ctx = new Proxy({}, {
+      get: (_, name) => name === 'createLinearGradient'
+        ? () => ({ addColorStop() {} })
+        : (...args: any[]) => calls.push([name, ...args]),
+      set: () => true,
+    });
+    drawHologramTopGlow(ctx as CanvasRenderingContext2D, [alec], t);
+    return calls;
+  }
+  const first = frame(0);
+  assert.ok(first.filter(c => c[0] === 'lineTo').length > 4);
+  assert.notDeepEqual(frame(1), first);
+  assert.deepEqual(frame(0), first);
+  for (let t = 0; t < 120; t += 0.25) {
+    const calls = frame(t);
+    assert.equal(calls.filter(c => c[0] === 'save').length, calls.filter(c => c[0] === 'restore').length);
+    for (const call of calls) for (const n of call.slice(1)) if (typeof n === 'number') assert.ok(Number.isFinite(n));
+    const firstClip = calls.findIndex(c => c[0] === 'clip');
+    assert.ok(firstClip >= 0 && firstClip < calls.findIndex(c => c[0] === 'arc'));
+  }
+  for (const status of ['idle', 'waiting', 'blocked', 'offline']) {
+    Object.assign(alec, {state: status, reportedState: status});
+    assert.equal(frame(0).length, 0, status);
+  }
+  Object.assign(alec, {state: STATE.WORKING, reportedState: 'review'});
+  assert.ok(frame(0).length > 0);
+  alec.x = 0;
+  assert.equal(frame(0).length, 0);
 });
