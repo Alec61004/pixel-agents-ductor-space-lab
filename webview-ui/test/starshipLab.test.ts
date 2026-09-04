@@ -44,8 +44,8 @@ import {
   WORKSTATIONS,
 } from '../src/ductor/StarshipLab.js';
 import {
-  drawAlecKeyboard,
-  getAlecKeyboardFrame,
+  drawAlecHologramControl,
+  getAlecHologramFrame,
   WORK_HAND_PHASE_OFFSETS,
 } from '../src/ductor/starshipSimulation.js';
 
@@ -287,9 +287,9 @@ test('defines 3 fixed workstations (Alec, Kevin, Benjamin) with correct labels a
   assert.ok(WORKSTATIONS.Benjamin);
 
   // New device-anchored coordinates matching actual painted devices in starship-bg.png
-  assert.deepEqual(WORKSTATIONS.Alec.approachPoint, { x: 490, y: 638 });
-  assert.deepEqual(WORKSTATIONS.Alec.interactionPoint, { x: 490, y: 615 });
-  assert.equal(WORKSTATIONS.Alec.facing, 'front');
+  assert.deepEqual(WORKSTATIONS.Alec.approachPoint, { x: 569, y: 656 });
+  assert.deepEqual(WORKSTATIONS.Alec.interactionPoint, { x: 569, y: 638 });
+  assert.equal(WORKSTATIONS.Alec.facing, 'back');
   assert.deepEqual(WORKSTATIONS.Alec.displayBounds, {
     x: 505,
     y: 442,
@@ -380,7 +380,7 @@ test('agent working state positions agent at their own assigned workstation inte
   // Alec stands in front of the projector and faces the map
   assert.equal(alec.x, WORKSTATIONS.Alec.interactionPoint.x);
   assert.equal(alec.y, WORKSTATIONS.Alec.interactionPoint.y);
-  assert.equal(alec.facing, 'front');
+  assert.equal(alec.facing, 'back');
   assert.equal(alec.currentStation, 'Alec — Strategy');
   assert.notEqual(alec.x, WORKSTATIONS.Kevin.interactionPoint.x);
   assert.notEqual(alec.x, WORKSTATIONS.Benjamin.interactionPoint.x);
@@ -1478,12 +1478,12 @@ test('V1.9 idle wander: idle agent wanders between points every 2-4s and changes
   }
 });
 
-test('Alec uses intact original typing frames with a keyboard and enlarged cyan map', () => {
+test('Alec uses intact original rear poses with gesture fields and the same cyan map', () => {
   const crew = createInitialCrew(snapshot);
   const alec = crew.find((a) => a.name === 'Alec')!;
   const bgImg = { width: 1600, height: 678 } as HTMLImageElement;
   const sheet = { width: 1280, height: 960 } as HTMLImageElement;
-  const keyboardSprite = { width: 160, height: 112 } as HTMLImageElement;
+  const hologramSprite = { width: 160, height: 112 } as HTMLImageElement;
   function frame(time: number) {
     alec.hologramTime = time;
     const calls: any[][] = [];
@@ -1505,12 +1505,12 @@ test('Alec uses intact original typing frames with a keyboard and enlarged cyan 
       },
     ) as CanvasRenderingContext2D;
     drawHologramTopGlow(ctx, crew, time, bgImg);
-    drawAlecKeyboard(ctx, alec);
-    drawAgent(ctx, alec, sheet, time, keyboardSprite);
+    drawAlecHologramControl(ctx, alec);
+    drawAgent(ctx, alec, sheet, time, hologramSprite);
     return calls;
   }
-  for (const time of [0.15, 0.65, 1.13]) assert.equal(getAlecKeyboardFrame(time), 0);
-  for (const time of [0, 0.4, 0.9, 1.8, 2.8]) assert.equal(getAlecKeyboardFrame(time), 1);
+  for (const time of [0.15, 0.65, 1.13]) assert.equal(getAlecHologramFrame(time), 0);
+  for (const time of [0, 0.4, 0.9, 1.8, 2.8]) assert.equal(getAlecHologramFrame(time), 1);
   const heldFocus = frame(1.3).filter((c) => c[0] === 'scale')[1];
   const releasedFocus = frame(1.9).filter((c) => c[0] === 'scale')[1];
   assert.equal(heldFocus?.[1], 1, 'map waits for the last key release');
@@ -1527,10 +1527,10 @@ test('Alec uses intact original typing frames with a keyboard and enlarged cyan 
     const calls = frame(time);
     const map = calls.find((c) => c[0] === 'drawImage' && c[1] === bgImg)!;
     if (time >= 0.6) assert.ok(Math.abs(map[8] - 106 * 1.65) < 0.0001);
-    const poses = calls.filter((c) => c[0] === 'drawImage' && c[1] === keyboardSprite);
+    const poses = calls.filter((c) => c[0] === 'drawImage' && c[1] === hologramSprite);
     assert.equal(poses.length, 2, 'whole sprite plus its existing brightness pass');
     for (const pose of poses) {
-      assert.deepEqual(pose.slice(2, 6), [getAlecKeyboardFrame(time) * 80, 0, 80, 112]);
+      assert.deepEqual(pose.slice(2, 6), [getAlecHologramFrame(time) * 80, 0, 80, 112]);
     }
     assert.equal(
       calls.some((c) => c[0] === 'rotate'),
@@ -1561,14 +1561,14 @@ test('Alec uses intact original typing frames with a keyboard and enlarged cyan 
       `${state}: render the new field`,
     );
     assert.equal(
-      calls.some((c) => c[0] === 'drawImage' && c[1] === keyboardSprite),
+      calls.some((c) => c[0] === 'drawImage' && c[1] === hologramSprite),
       false,
       state,
     );
   }
   Object.assign(alec, { state: STATE.MOVING, reportedState: 'working' });
   assert.equal(
-    frame(0).some((c) => c[0] === 'drawImage' && c[1] === keyboardSprite),
+    frame(0).some((c) => c[0] === 'drawImage' && c[1] === hologramSprite),
     false,
   );
   Object.assign(alec, WORKSTATIONS.Alec.interactionPoint, {

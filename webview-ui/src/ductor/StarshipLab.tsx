@@ -144,11 +144,11 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
       'themes/ductor-space-lab/starship-sheet.png',
     );
 
-  const resolvedKeyboardUrl = ductorAssetUrl(
+  const resolvedHologramUrl = ductorAssetUrl(
     typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL
       ? import.meta.env.BASE_URL
       : './',
-    'themes/ductor-space-lab/alec-keyboard.png',
+    'themes/ductor-space-lab/alec-hologram.png',
   );
 
   const stageWrapRef = useRef<HTMLDivElement | null>(null);
@@ -243,7 +243,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
     let disposed = false;
     const bgImg = new Image();
     const sheetImg = new Image();
-    const keyboardImg = new Image();
+    const hologramImg = new Image();
     let loadedCount = 0;
 
     const onAssetLoaded = () => {
@@ -258,7 +258,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
     bgImg.src = resolvedBgUrl;
     sheetImg.src = resolvedSheetUrl;
     // Optional: keep the original sheet fallback if this asset is unavailable.
-    keyboardImg.src = resolvedKeyboardUrl;
+    hologramImg.src = resolvedHologramUrl;
 
     let stars: Star[] = [];
     let starTime = 0;
@@ -392,7 +392,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
             panRef.current.x,
             panRef.current.y,
             zoomRef.current,
-            keyboardImg.complete && keyboardImg.naturalWidth > 0 ? keyboardImg : undefined,
+            hologramImg.complete && hologramImg.naturalWidth > 0 ? hologramImg : undefined,
           );
         }
       }
@@ -428,7 +428,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
       }
       cancelAnimationFrame(animId);
     };
-  }, [resolvedBgUrl, resolvedSheetUrl, resolvedKeyboardUrl]);
+  }, [resolvedBgUrl, resolvedSheetUrl, resolvedHologramUrl]);
 
   const isCloud = Boolean(snapshot?.publishedAt);
   const isStale = Boolean(snapshot?.stale);

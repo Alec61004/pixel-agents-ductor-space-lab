@@ -79,9 +79,9 @@ export const WORKSTATIONS: Record<DuctorRoleName, WorkstationConfig> = {
     agentName: 'Alec',
     label: 'Alec — Strategy',
     roleDescription: 'Strategy',
-    approachPoint: { x: 490, y: 638 },
-    interactionPoint: { x: 490, y: 615 },
-    facing: 'front',
+    approachPoint: { x: 569, y: 656 },
+    interactionPoint: { x: 569, y: 638 },
+    facing: 'back',
     displayBounds: { x: 505, y: 442, w: 140, h: 98 },
     displayAreas: [{ x: 505, y: 442, w: 140, h: 98 }],
     occlusionBounds: { x: 500, y: 525, w: 145, h: 65 },
@@ -809,7 +809,7 @@ export function updateAgent(
 
   const isOffline = a.reportedState === 'offline' || a.state === STATE.OFFLINE;
 
-  // Ambient map motion persists while the console's typing clock remains work-only.
+  // Ambient map motion persists while the control's gesture clock remains work-only.
   const usingHologram = isAlecUsingHologram(a);
   if (a.name === 'Alec') {
     a.hologramSceneTime = (a.hologramSceneTime ?? 0) + dt * speedMult;
@@ -1042,7 +1042,7 @@ export const WORK_HAND_PHASE_OFFSETS = [
   { leftYOffset: 1, rightYOffset: 0, bob: -0.5 },
 ] as const;
 
-// Whole authored poses from crew-sprites.webp, row 4, columns 5 and 6.
+// Whole authored purple rear-view poses from crew-sprites.webp, row 1, columns 9 and 10.
 // Do not infer limb bounds or rotate pieces of the character.
 const ALEC_TOUCH_STARTS = [0.12, 0.6, 1.08] as const;
 const ALEC_TOUCH_DURATION = 0.22;
@@ -1060,8 +1060,8 @@ function getAlecConsoleCycle(timeSec: number) {
   return { phase, contact, responseTime: (cycle + settled) * ALEC_CONSOLE_CYCLE };
 }
 
-export function getAlecKeyboardFrame(timeSec: number): number {
-  // Whole original poses: lower hands only during contact, raise them between taps.
+export function getAlecHologramFrame(timeSec: number): number {
+  // Whole original rear-view poses: alternate open/closed control gestures.
   return getAlecConsoleCycle(timeSec).contact ? 0 : 1;
 }
 
@@ -1082,10 +1082,10 @@ export function drawAgent(
   a: StarshipAgent,
   sheetImg: HTMLImageElement,
   _timeSec: number = Date.now() / 1000,
-  alecKeyboardImg?: HTMLImageElement,
+  alecHologramImg?: HTMLImageElement,
 ): void {
   void _timeSec;
-  const keyboardTyping = isAlecUsingHologram(a);
+  const hologramControlActive = isAlecUsingHologram(a);
   const isOffline = a.reportedState === 'offline' || a.state === STATE.OFFLINE;
   const isReview = !isOffline && a.reportedState === 'review';
   const isWorking =
@@ -1097,15 +1097,15 @@ export function drawAgent(
     ctx.globalAlpha = 0.35;
   }
 
-  const keyboardSprite = keyboardTyping && alecKeyboardImg ? alecKeyboardImg : undefined;
-  const sprite = keyboardSprite ?? sheetImg;
-  const cw = keyboardSprite ? keyboardSprite.width / 2 : sheetImg.width / SHEET_COLS;
-  const ch = keyboardSprite ? keyboardSprite.height : sheetImg.height / SHEET_ROWS;
-  const row = keyboardSprite ? 0 : a.skin.row;
-  const col = keyboardSprite
-    ? getAlecKeyboardFrame(a.hologramTime ?? 0)
-    : keyboardTyping
-      ? 5 + getAlecKeyboardFrame(a.hologramTime ?? 0)
+  const hologramSprite = hologramControlActive && alecHologramImg ? alecHologramImg : undefined;
+  const sprite = hologramSprite ?? sheetImg;
+  const cw = hologramSprite ? hologramSprite.width / 2 : sheetImg.width / SHEET_COLS;
+  const ch = hologramSprite ? hologramSprite.height : sheetImg.height / SHEET_ROWS;
+  const row = hologramSprite ? 0 : a.skin.row;
+  const col = hologramSprite
+    ? getAlecHologramFrame(a.hologramTime ?? 0)
+    : hologramControlActive
+      ? 8 + getAlecHologramFrame(a.hologramTime ?? 0)
       : a.state === STATE.MOVING
         ? 4 + (a.animFrame % 4)
         : a.facing === 'back' || (atDesk && a.facing !== 'front')
@@ -1123,7 +1123,7 @@ export function drawAgent(
 
   const phase = ((a.animFrame % 4) + 4) % 4;
   const phaseOffsets = WORK_HAND_PHASE_OFFSETS[phase]!;
-  const bobY = isWorking && !keyboardTyping ? phaseOffsets.bob * scale : 0;
+  const bobY = isWorking && !hologramControlActive ? phaseOffsets.bob * scale : 0;
   const leanY = atDesk ? -1 : 0;
 
   // Foot Anchor: Coordinates (a.x, a.y) = bottom center of character feet.
@@ -1158,8 +1158,8 @@ export function drawAgent(
   ctx.globalAlpha = isOffline ? 0.35 * 0.22 : 0.22;
   ctx.drawImage(sprite, sx, sy, cw, ch, -drawW / 2, -drawH, drawW, drawH);
 
-  // Alec uses complete authored typing poses; other operators keep their hand cues.
-  if (isWorking && !keyboardTyping) {
+  // Alec uses complete authored rear-view poses; other operators keep their hand cues.
+  if (isWorking && !hologramControlActive) {
     const leftX = -drawW * 0.14;
     const rightX = drawW * 0.06;
     const baseY = -drawH * 0.38;
@@ -1209,7 +1209,7 @@ export function drawAgent(
   }
 
   // Status glow ring while working (scaled at feet)
-  if (a.state === STATE.WORKING && !isOffline && !keyboardTyping) {
+  if (a.state === STATE.WORKING && !isOffline && !hologramControlActive) {
     ctx.save();
     ctx.beginPath();
     ctx.ellipse(a.x, a.y, 20 * scale, 7 * scale, 0, 0, Math.PI * 2);
@@ -1234,10 +1234,15 @@ export function drawAgent(
 
   // Status bubble above head (always visible)
   // Keep Alec's label beside his body, clear of the enlarged map.
-  drawAgentStatusBubble(ctx, keyboardTyping ? { ...a, x: a.x - 105, y: a.y + 40 } : a, drawH, bobY);
+  drawAgentStatusBubble(
+    ctx,
+    hologramControlActive ? { ...a, x: a.x - 105, y: a.y + 40 } : a,
+    drawH,
+    bobY,
+  );
 
   // Work particles floating above agent
-  if (!keyboardTyping) drawWorkParticles(ctx, a);
+  if (!hologramControlActive) drawWorkParticles(ctx, a);
 
   ctx.restore();
 }
@@ -1592,169 +1597,127 @@ function drawHologramPlanet(
   if (planet.ring && Math.sin(moonAngle) >= 0) drawMoon();
 }
 
-export function drawAlecKeyboard(ctx: CanvasRenderingContext2D, a: StarshipAgent): void {
+export function drawAlecHologramControl(
+  ctx: CanvasRenderingContext2D,
+  a: StarshipAgent,
+  foreground = false,
+): void {
   if (!isAlecUsingHologram(a)) return;
-  const x = a.x - 6;
-  const y = a.y - 59;
   const time = a.hologramTime ?? 0;
-  const { phase, responseTime } = getAlecConsoleCycle(time);
+  const { contact, phase, responseTime } = getAlecConsoleCycle(time);
+  const cx = a.x;
+  const handY = a.y - 41;
+  const coreY = a.y - 112;
+  const grip = contact ? 1 : 0;
+  const breath = 0.5 + Math.sin(time * 1.8) * 0.5;
   ctx.save();
   ctx.globalCompositeOperation = 'source-over';
-  ctx.globalAlpha = 1;
+  ctx.lineWidth = 0.65;
   ctx.shadowBlur = 0;
-  ctx.lineWidth = 0.7;
 
-  // Two short metal hinges attach the touch deck to the table's front apron.
-  for (const mount of [60, 79]) {
-    ctx.beginPath();
-    ctx.moveTo(x + mount, y + 13);
-    ctx.lineTo(x + mount + 5, y + 14);
-    ctx.lineTo(x + mount + 2, y + 34);
-    ctx.lineTo(x + mount - 4, y + 36);
-    ctx.lineTo(x + mount - 6, y + 33);
-    ctx.closePath();
-    ctx.fillStyle = '#1b2631';
-    ctx.fill();
-    ctx.strokeStyle = '#526775';
-    ctx.stroke();
-    ctx.fillStyle = '#82bdc8';
-    ctx.fillRect(x + mount - 3, y + 32, 3, 1);
-  }
-
-  // The front rail has physical thickness; the illuminated glass sits above it.
-  ctx.beginPath();
-  ctx.moveTo(x - 6, y + 25);
-  ctx.lineTo(x + 88, y + 25);
-  ctx.lineTo(x + 86, y + 29);
-  ctx.lineTo(x - 3, y + 29);
-  ctx.closePath();
-  ctx.fillStyle = '#263c49';
-  ctx.fill();
-  ctx.strokeStyle = '#587b8b';
-  ctx.stroke();
-
-  const deckPath = () => {
-    ctx.beginPath();
-    ctx.moveTo(x + 4, y - 5);
-    ctx.lineTo(x + 78, y - 5);
-    ctx.lineTo(x + 82, y - 2);
-    ctx.lineTo(x + 90, y + 22);
-    ctx.lineTo(x + 87, y + 25);
-    ctx.lineTo(x - 6, y + 25);
-    ctx.lineTo(x - 8, y + 22);
-    ctx.lineTo(x, y - 2);
-    ctx.closePath();
-  };
-  deckPath();
-  const glass = ctx.createLinearGradient(x, y - 5, x + 25, y + 25);
-  glass.addColorStop(0, 'rgba(45, 82, 99, 0.86)');
-  glass.addColorStop(0.4, 'rgba(16, 43, 57, 0.84)');
-  glass.addColorStop(1, 'rgba(8, 32, 45, 0.72)');
-  ctx.fillStyle = glass;
-  ctx.fill();
-  ctx.strokeStyle = '#86c6d0';
-  ctx.stroke();
-  ctx.save();
-  ctx.clip();
-
-  // A restrained reflection gives the surface a glass finish.
-  ctx.beginPath();
-  ctx.moveTo(x + 38, y - 5);
-  ctx.lineTo(x + 46, y - 5);
-  ctx.lineTo(x + 59, y + 25);
-  ctx.lineTo(x + 50, y + 25);
-  ctx.closePath();
-  ctx.fillStyle = 'rgba(167, 227, 237, 0.055)';
-  ctx.fill();
-
-  // Both banks are anchored under the full original sprite's lowered fists.
-  // The active row lights as a contact surface; nothing jumps between random keys.
-  for (let hand = 0; hand < 2; hand++) {
-    const hx = x + 10 + hand * 16;
-    const hy = y + 19;
-    let pressure = 0;
-    let echo = 0;
-    let echoAge = 0;
-    for (let tap = 0; tap < ALEC_TOUCH_STARTS.length; tap++) {
-      if (tap !== hand && tap !== 2) continue;
-      const age = phase - ALEC_TOUCH_STARTS[tap]!;
-      if (age >= 0 && age < ALEC_TOUCH_DURATION) {
-        pressure = 0.85 - age;
-        echo = 0.5;
-        echoAge = age;
-      } else if (age >= ALEC_TOUCH_DURATION && age < ALEC_TOUCH_DURATION + 0.18) {
-        echo = (1 - (age - ALEC_TOUCH_DURATION) / 0.18) * 0.3;
-        echoAge = age;
-      }
-    }
-    for (let row = 0; row < 2; row++) {
-      for (let col = 0; col < 2; col++) {
-        const kx = hx - 7 + col * 7;
-        const ky = hy - 9 + row * 7;
-        ctx.fillStyle =
-          row === 1 && pressure > 0
-            ? `rgba(163, 242, 246, ${pressure})`
-            : 'rgba(103, 178, 196, 0.1)';
-        ctx.fillRect(kx, ky, 6, 5);
-        ctx.strokeStyle = row === 1 && pressure > 0 ? '#d9ffff' : '#568b9c';
-        ctx.lineWidth = 0.45;
-        ctx.strokeRect(kx, ky, 6, 5);
-        ctx.fillStyle = '#9cc9d1';
-        ctx.fillRect(kx + 2, ky + 2, 2, 0.6);
-      }
-    }
-    if (echo > 0) {
-      const glow = ctx.createRadialGradient(hx, hy, 0, hx, hy, 8);
-      glow.addColorStop(0, `rgba(172, 249, 255, ${echo * 0.4})`);
-      glow.addColorStop(1, 'rgba(80, 213, 238, 0)');
-      ctx.fillStyle = glow;
-      ctx.fillRect(hx - 8, hy - 8, 16, 16);
-      ctx.globalAlpha = echo;
-      ctx.strokeStyle = '#c6faff';
+  if (!foreground) {
+    // Two filaments rise beside the intact rear-view character to the table's emitter.
+    // The body occludes their middle sections naturally.
+    for (const side of [-1, 1]) {
+      const hx = cx + side * 23;
+      ctx.strokeStyle = '#6de1e6';
+      ctx.globalAlpha = 0.18 + grip * 0.18;
       ctx.beginPath();
-      ctx.ellipse(hx, hy, 5 + echoAge * 9, 2.2 + echoAge * 3, 0, 0, Math.PI * 2);
+      ctx.moveTo(hx, handY);
+      ctx.bezierCurveTo(
+        cx + side * 37,
+        handY - 26,
+        cx + side * 33,
+        coreY + 15,
+        cx + side * 5,
+        coreY + 3,
+      );
       ctx.stroke();
-      ctx.globalAlpha = 1;
+      // An energy pulse travels toward the projector once the gesture is released.
+      if (phase >= 1.38 && phase < 2.48) {
+        const t = (phase - 1.38) / 1.1;
+        const inv = 1 - t;
+        const px =
+          inv ** 3 * hx +
+          3 * inv ** 2 * t * (cx + side * 37) +
+          3 * inv * t ** 2 * (cx + side * 33) +
+          t ** 3 * (cx + side * 5);
+        const py =
+          inv ** 3 * handY +
+          3 * inv ** 2 * t * (handY - 26) +
+          3 * inv * t ** 2 * (coreY + 15) +
+          t ** 3 * (coreY + 3);
+        drawMapStar(ctx, px, py, 0.38, '#9ef5ee', Math.sin(t * Math.PI) * 0.8);
+      }
+    }
+    const glow = ctx.createRadialGradient(cx, coreY, 0, cx, coreY, 12);
+    glow.addColorStop(0, '#b6fcf750');
+    glow.addColorStop(0.5, '#62dfe428');
+    glow.addColorStop(1, '#3dbad500');
+    ctx.globalAlpha = 0.65 + breath * 0.15;
+    ctx.fillStyle = glow;
+    ctx.fillRect(cx - 12, coreY - 12, 24, 24);
+    // A small faceted control core, distinct from the planetary map above it.
+    const spin = responseTime * 0.35;
+    const r = 5.8 + grip * 0.5;
+    for (let layer = 0; layer < 2; layer++) {
+      ctx.beginPath();
+      for (let i = 0; i <= 6; i++) {
+        const angle = spin + (i * Math.PI) / 3 + layer * 0.6;
+        const px = cx + Math.cos(angle) * r;
+        const py = coreY + Math.sin(angle) * r * (layer ? 0.55 : 1);
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.strokeStyle = layer ? '#baffef' : '#63bfdb';
+      ctx.globalAlpha = layer ? 0.7 : 0.45;
+      ctx.stroke();
+    }
+    drawMapStar(ctx, cx, coreY, 0.7, '#9dffe9', 0.85);
+  }
+
+  // The two floating control fields sit at the original back-view hand positions.
+  // Render rear halves before the character and front halves after it.
+  for (const side of [-1, 1]) {
+    const hx = cx + side * 23;
+    const radius = 8.2 - grip * 1.2;
+    if (!foreground) {
+      const halo = ctx.createRadialGradient(hx, handY, 0, hx, handY, radius + 4);
+      halo.addColorStop(0, '#a2ffed20');
+      halo.addColorStop(0.55, '#5ccdd918');
+      halo.addColorStop(1, '#3caad500');
+      ctx.globalAlpha = 0.7;
+      ctx.fillStyle = halo;
+      ctx.fillRect(hx - 13, handY - 13, 26, 26);
+    }
+    for (let ring = 0; ring < 2; ring++) {
+      ctx.beginPath();
+      ctx.ellipse(
+        hx,
+        handY,
+        radius + ring * 2.5,
+        4 + ring,
+        side * 0.18,
+        foreground ? 0 : Math.PI,
+        foreground ? Math.PI : Math.PI * 2,
+      );
+      ctx.strokeStyle = ring === 0 ? '#aff8e8' : '#64b8d2';
+      ctx.globalAlpha = (foreground ? 0.65 : 0.3) + grip * 0.18;
+      ctx.lineWidth = ring === 0 ? 0.7 : 0.4;
+      ctx.stroke();
+    }
+    if (foreground) {
+      const angle = side * (time * 0.65 + 0.5);
+      drawMapStar(
+        ctx,
+        hx + Math.cos(angle) * radius,
+        handY + Math.sin(angle) * 4,
+        0.32,
+        '#befff1',
+        0.75,
+      );
     }
   }
-
-  // Compact embedded navigation readout, secondary to the touch banks.
-  const dialX = x + 62;
-  const dialY = y + 11;
-  ctx.lineWidth = 0.55;
-  ctx.strokeStyle = '#6595a7';
-  ctx.beginPath();
-  ctx.ellipse(dialX, dialY, 7.5, 4.4, 0, 0, Math.PI * 2);
-  ctx.stroke();
-  const heading = responseTime * 0.22;
-  ctx.beginPath();
-  ctx.moveTo(dialX, dialY);
-  ctx.lineTo(dialX + Math.cos(heading) * 6, dialY + Math.sin(heading) * 3.5);
-  ctx.strokeStyle = '#b1e3e9';
-  ctx.stroke();
-  ctx.fillStyle = '#c1dfe0';
-  ctx.fillRect(dialX - 0.6, dialY - 0.6, 1.2, 1.2);
-  for (let i = 0; i < 4; i++) {
-    ctx.fillStyle = '#719ea9';
-    ctx.fillRect(x + 76, y + 5 + i * 3, 5 - i * 0.7, 0.7);
-  }
-  const acknowledging = phase >= 1.38 && phase < 2.48;
-  ctx.fillStyle = acknowledging ? '#c5f2e8' : '#588496';
-  ctx.fillRect(x + 43, y + 20, acknowledging ? 35 : 10, 0.8);
-  ctx.fillStyle = acknowledging ? '#efcf94' : '#819491';
-  ctx.fillRect(x + 80, y + 20, 2, 1);
-  ctx.restore();
-
-  // Quiet edge highlights unify the glass with the table's existing cyan hardware.
-  ctx.globalAlpha = 0.8;
-  ctx.strokeStyle = '#b0e8e9';
-  ctx.lineWidth = 0.7;
-  ctx.beginPath();
-  ctx.moveTo(x + 4, y - 4);
-  ctx.lineTo(x + 76, y - 4);
-  ctx.moveTo(x - 3, y + 25);
-  ctx.lineTo(x + 34, y + 25);
-  ctx.stroke();
   ctx.restore();
 }
 
@@ -1883,7 +1846,7 @@ export function drawStage(
   panX: number = 0,
   panY: number = 0,
   zoom: number = 1,
-  alecKeyboardImg?: HTMLImageElement,
+  alecHologramImg?: HTMLImageElement,
 ): { scale: number; offX: number; offY: number } {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, rect.width, rect.height);
@@ -1905,23 +1868,15 @@ export function drawStage(
   drawFloorMarkers(ctx, showStations);
   drawHologramTopGlow(ctx, agents, timeSec, bgImg);
   const alec = agents.find((a) => a.name === 'Alec');
-  if (alec) drawAlecKeyboard(ctx, alec);
+  if (alec) drawAlecHologramControl(ctx, alec);
 
   const sorted = [...agents].sort((a, b) => a.y - b.y);
   for (const a of sorted) {
-    drawAgent(ctx, a, sheetImg, timeSec, alecKeyboardImg);
+    drawAgent(ctx, a, sheetImg, timeSec, alecHologramImg);
   }
 
-  // The front lip and near touch row sit in front of Alec's waist, below his hands.
-  // Reuse the same deck with a depth clip; the complete authored sprite stays intact.
-  if (alec && isAlecUsingHologram(alec)) {
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(alec.x - 14, alec.y - 41, 104, 12);
-    ctx.clip();
-    drawAlecKeyboard(ctx, alec);
-    ctx.restore();
-  }
+  // Foreground arcs wrap around the hands without modifying the original character art.
+  if (alec) drawAlecHologramControl(ctx, alec, true);
 
   // Draw desk occlusion cutouts over sitting/standing agents' lower bodies
   drawDeskCutouts(ctx, bgImg, agents);
