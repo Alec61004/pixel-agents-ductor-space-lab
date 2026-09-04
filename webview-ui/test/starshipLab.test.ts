@@ -10,6 +10,7 @@ import {
   ASSIGNED_WORKSTATIONS,
   ATTENTION_POINTS,
   clampPointToPolygon,
+  clampPanToViewport,
   createInitialCrew,
   DEPTH_SCALE_MAX,
   DEPTH_SCALE_MIN,
@@ -324,6 +325,15 @@ test('defines 3 fixed workstations (Alec, Kevin, Benjamin) with correct labels a
   assert.equal(isPointInPolygon(WORKSTATIONS.Alec.interactionPoint, WALKABLE_POLYGON), true);
   assert.equal(isPointInPolygon(WORKSTATIONS.Kevin.interactionPoint, WALKABLE_POLYGON), true);
   assert.equal(isPointInPolygon(WORKSTATIONS.Benjamin.interactionPoint, WALKABLE_POLYGON), true);
+});
+
+test('clamps viewport pan so focusing an agent cannot expose empty canvas space', () => {
+  const desktopPan = clampPanToViewport({ x: 500, y: -500 }, { width: 1440, height: 757 }, 1.2);
+  assert.equal(desktopPan.x, 240);
+  assert.ok(Math.abs(desktopPan.y + 28.3) < 0.0001);
+  const mobilePan = clampPanToViewport({ x: 500, y: -500 }, { width: 375, height: 628 }, 0.5);
+  assert.equal(mobilePan.x, 212.5);
+  assert.ok(Math.abs(mobilePan.y) < 0.0001);
 });
 
 test('agent working state positions agent at their own assigned workstation interactionPoint and facing matches workstation config', () => {

@@ -153,6 +153,19 @@ export interface Point2D {
   y: number;
 }
 
+export function clampPanToViewport(
+  pan: Point2D,
+  rect: { width: number; height: number },
+  scale: number,
+): Point2D {
+  const maxX = Math.max(0, (CW * scale - rect.width) / 2);
+  const maxY = Math.max(0, (CH * scale - rect.height) / 2);
+  return {
+    x: Math.max(-maxX, Math.min(maxX, pan.x)),
+    y: Math.max(-maxY, Math.min(maxY, pan.y)),
+  };
+}
+
 export const FLOOR_Y_MIN = 490;
 export const FLOOR_Y_MAX = 660;
 export const DEPTH_SCALE_MIN = 0.8;

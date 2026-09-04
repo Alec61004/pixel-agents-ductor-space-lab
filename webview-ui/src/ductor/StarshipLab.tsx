@@ -11,6 +11,7 @@ import {
   ATTENTION_POINTS,
   CH,
   clampPointToPolygon,
+  clampPanToViewport,
   createInitialCrew,
   CW,
   DEPTH_SCALE_MAX,
@@ -68,6 +69,7 @@ export {
   type AssignedWorkstation,
   ATTENTION_POINTS,
   clampPointToPolygon,
+  clampPanToViewport,
   createInitialCrew,
   DEPTH_SCALE_MAX,
   DEPTH_SCALE_MIN,
@@ -197,10 +199,14 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
         const rect = wrap.getBoundingClientRect();
         const baseScale = Math.max(rect.width / CW, rect.height / CH);
         const scale = baseScale * zoomRef.current;
-        panRef.current = {
-          x: (CW / 2 - a.x) * scale,
-          y: (CH / 2 - a.y) * scale,
-        };
+        panRef.current = clampPanToViewport(
+          {
+            x: (CW / 2 - a.x) * scale,
+            y: (CH / 2 - a.y) * scale,
+          },
+          rect,
+          scale,
+        );
       }
       pushLog(`Focus lock: ${a.name} [${a.currentStation || a.role}].`);
     }
@@ -295,16 +301,34 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
     const onTouchMove = (e: TouchEvent) => {
       e.preventDefault();
       if (e.touches.length === 1 && touchStateRef.current) {
-        panRef.current.x = e.touches[0].clientX - touchStateRef.current.panX;
-        panRef.current.y = e.touches[0].clientY - touchStateRef.current.panY;
+        const nextPan = {
+          x: e.touches[0].clientX - touchStateRef.current.panX,
+          y: e.touches[0].clientY - touchStateRef.current.panY,
+        };
+        const rect = wrap?.getBoundingClientRect();
+        if (rect) {
+          const baseScale = Math.max(rect.width / CW, rect.height / CH);
+          panRef.current = clampPanToViewport(
+            nextPan,
+            rect,
+            baseScale * zoomRef.current,
+          );
+        }
       } else if (e.touches.length === 2 && touchStateRef.current) {
         const dx = e.touches[0].clientX - e.touches[1].clientX;
         const dy = e.touches[0].clientY - e.touches[1].clientY;
         const dist = Math.hypot(dx, dy);
         const ratio = dist / touchStateRef.current.dist;
         zoomRef.current = Math.max(0.5, Math.min(3, touchStateRef.current.zoom * ratio));
-        panRef.current.x = touchStateRef.current.panX;
-        panRef.current.y = touchStateRef.current.panY;
+        const rect = wrap?.getBoundingClientRect();
+        if (rect) {
+          const baseScale = Math.max(rect.width / CW, rect.height / CH);
+          panRef.current = clampPanToViewport(
+            { x: touchStateRef.current.panX, y: touchStateRef.current.panY },
+            rect,
+            baseScale * zoomRef.current,
+          );
+        }
       }
     };
     const onTouchEnd = () => {
@@ -321,6 +345,15 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
       e.preventDefault();
       const delta = -e.deltaY * 0.001;
       zoomRef.current = Math.max(0.5, Math.min(3, zoomRef.current + delta));
+      const rect = wrap?.getBoundingClientRect();
+      if (rect) {
+        const baseScale = Math.max(rect.width / CW, rect.height / CH);
+        panRef.current = clampPanToViewport(
+          panRef.current,
+          rect,
+          baseScale * zoomRef.current,
+        );
+      }
     };
     if (wrap) {
       wrap.addEventListener('wheel', onWheel, { passive: false });
