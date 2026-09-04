@@ -740,11 +740,11 @@ export function updateAgent(
       }
     }
     a.stateTimer -= dt * speedMult;
-    a.bob += dt * 12 * Math.PI; // 6Hz typing bob oscillation
+    a.bob += dt * 12 * Math.PI; // 6Hz oscillation for working status glow/pulse
     a.animTimer += dt;
-    if (a.animTimer > 0.5) {
+    if (a.animTimer > 0.2) {
       a.animTimer = 0;
-      a.animFrame = (a.animFrame + 1) % 4; // idle turn cycle
+      a.animFrame = (a.animFrame + 1) % 4;
     }
     if (a.stateTimer <= 0) {
       if (a.reportedState === 'working' || a.reportedState === 'review') {
@@ -1018,12 +1018,20 @@ export function drawFloorMarkers(ctx: CanvasRenderingContext2D, showStations: bo
   ctx.restore();
 }
 
+export const WORK_HAND_PHASE_OFFSETS = [
+  { leftYOffset: 0, rightYOffset: 1, bob: 0 },
+  { leftYOffset: 2, rightYOffset: -1, bob: -0.5 },
+  { leftYOffset: -1, rightYOffset: 2, bob: 0 },
+  { leftYOffset: 1, rightYOffset: 0, bob: -0.5 },
+] as const;
+
 export function drawAgent(
   ctx: CanvasRenderingContext2D,
   a: StarshipAgent,
   sheetImg: HTMLImageElement,
-  timeSec: number = Date.now() / 1000,
+  _timeSec: number = Date.now() / 1000,
 ): void {
+  void _timeSec;
   const isOffline = a.reportedState === 'offline' || a.state === STATE.OFFLINE;
   const isReview = !isOffline && a.reportedState === 'review';
   const isWorking =
@@ -1053,7 +1061,10 @@ export function drawAgent(
   const BASE_DRAW_H = 92;
   const drawH = BASE_DRAW_H * scale;
   const drawW = drawH * (cw / ch);
-  const bobY = isWorking ? Math.sin(a.bob) * 2 : 0;
+
+  const phase = ((a.animFrame % 4) + 4) % 4;
+  const phaseOffsets = WORK_HAND_PHASE_OFFSETS[phase]!;
+  const bobY = isWorking ? phaseOffsets.bob * scale : 0;
   const leanY = atDesk ? -1 : 0;
 
   // Foot Anchor: Coordinates (a.x, a.y) = bottom center of character feet.
@@ -1088,14 +1099,13 @@ export function drawAgent(
   ctx.globalAlpha = isOffline ? 0.35 * 0.22 : 0.22;
   ctx.drawImage(sheetImg, sx, sy, cw, ch, -drawW / 2, -drawH, drawW, drawH);
 
-  // (4) 2 typing arms rects (3x2px) in bright role color in front of chest, oscillating in opposite phase with 6Hz
+  // (4) 2 typing hand cues in bright role color in front of chest
   if (isWorking) {
-    const armW = 3 * scale;
-    const armH = 2 * scale;
-    const chestY = -drawH * 0.38;
-    const tArm = timeSec * (12 * Math.PI) || a.bob;
-    const armOff1 = Math.sin(tArm) * 2 * scale;
-    const armOff2 = -Math.sin(tArm) * 2 * scale;
+    const leftX = -drawW * 0.14;
+    const rightX = drawW * 0.06;
+    const baseY = -drawH * 0.38;
+    const handW = 3 * scale;
+    const handH = 2 * scale;
 
     ctx.save();
     ctx.globalCompositeOperation = 'source-over';
@@ -1103,14 +1113,14 @@ export function drawAgent(
     ctx.fillStyle = roleGlow;
     ctx.shadowColor = roleGlow;
     ctx.shadowBlur = 4;
-    // Left arm & Right arm
+    // Left hand & Right hand
     if (typeof ctx.fillRect === 'function') {
-      ctx.fillRect(-drawW * 0.14, chestY + armOff1, armW, armH);
-      ctx.fillRect(drawW * 0.06, chestY + armOff2, armW, armH);
+      ctx.fillRect(leftX, baseY + phaseOffsets.leftYOffset * scale, handW, handH);
+      ctx.fillRect(rightX, baseY + phaseOffsets.rightYOffset * scale, handW, handH);
     } else if (typeof ctx.rect === 'function') {
       ctx.beginPath();
-      ctx.rect(-drawW * 0.14, chestY + armOff1, armW, armH);
-      ctx.rect(drawW * 0.06, chestY + armOff2, armW, armH);
+      ctx.rect(leftX, baseY + phaseOffsets.leftYOffset * scale, handW, handH);
+      ctx.rect(rightX, baseY + phaseOffsets.rightYOffset * scale, handW, handH);
       if (typeof ctx.fill === 'function') ctx.fill();
     }
     ctx.restore();

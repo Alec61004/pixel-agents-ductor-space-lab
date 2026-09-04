@@ -43,6 +43,7 @@ import {
   WALKABLE_POLYGON,
   WORKSTATIONS,
 } from '../src/ductor/StarshipLab.js';
+import { WORK_HAND_PHASE_OFFSETS } from '../src/ductor/starshipSimulation.js';
 
 const snapshot: DuctorStatusSnapshot = {
   theme: 'ductor-space-lab',
@@ -801,12 +802,14 @@ test('2 working agents do not share coordinates with distance > 20px', () => {
   }
 });
 
-test('drawAgent selects front-idle frames for Alec (facing front) and back-idle frames for Kevin/Benjamin (facing back) with 8Hz typing bob', () => {
+test('drawAgent selects front-idle frames for Alec (facing front) and back-idle frames for Kevin/Benjamin (facing back) with deterministic 0.20s working cadence', () => {
   const crew = createInitialCrew(snapshot);
   const alec = crew.find((a) => a.name === 'Alec')!;
   const kevin = crew.find((a) => a.name === 'Kevin')!;
+  const benjamin = crew.find((a) => a.name === 'Benjamin')!;
   assert.equal(alec.state, STATE.WORKING);
   assert.equal(kevin.state, STATE.WORKING);
+  assert.equal(benjamin.state, STATE.WORKING);
 
   const drawCalls: any[] = [];
   const mockCtx = {
@@ -824,7 +827,7 @@ test('drawAgent selects front-idle frames for Alec (facing front) and back-idle 
     stroke: () => {},
     fillText: () => {},
     drawImage: (...args: any[]) => {
-      drawCalls.push({ type: 'drawImage', args });
+      drawCalls.push({ type: 'drawImage', args, globalAlpha: mockCtx.globalAlpha });
     },
     measureText: () => ({ width: 50 }),
     imageSmoothingEnabled: true,
@@ -842,37 +845,134 @@ test('drawAgent selects front-idle frames for Alec (facing front) and back-idle 
 
   const mockImg = { width: 512, height: 256 } as HTMLImageElement;
   const cw = 512 / 16; // 32
+  const ch = 256 / 8; // 32
 
-  // Alec facing front: col = 0..3 (sx = 0 * 32 = 0)
-  alec.animFrame = 0;
-  drawAgent(mockCtx, alec, mockImg);
-  const alecCalls = drawCalls.filter((c) => c.type === 'drawImage');
-  assert.ok(alecCalls.length >= 1);
-  const sxAlec = alecCalls[0].args[1];
-  assert.equal(sxAlec, 0 * cw); // column index 0 = front-facing
+  // Test skin rows 0, 2, 4 in both front and back facing
+  const skinTestCases = [
+    { agent: benjamin, row: 0, name: 'Benjamin' },
+    { agent: kevin, row: 2, name: 'Kevin' },
+    { agent: alec, row: 4, name: 'Alec' },
+  ];
 
-  // Kevin facing back: col = 8..11 (sx = 8 * 32 = 256)
-  drawCalls.length = 0;
-  kevin.animFrame = 0;
-  drawAgent(mockCtx, kevin, mockImg);
-  const kevinCalls = drawCalls.filter((c) => c.type === 'drawImage');
-  assert.ok(kevinCalls.length >= 1);
-  const sxKevin = kevinCalls[0].args[1];
-  assert.equal(sxKevin, 8 * cw); // column index 8 = back-facing
+  for (const { agent, row, name } of skinTestCases) {
+    for (let phase = 0; phase < 4; phase++) {
+      // Front facing: col = 0..3 (sx = 0,1,2,3 * cw), row = row (sy = row * ch)
+      drawCalls.length = 0;
+      agent.animFrame = phase;
+      agent.facing = 'front';
+      drawAgent(mockCtx, agent, mockImg);
+      const frontCalls = drawCalls.filter((c) => c.type === 'drawImage');
+      assert.ok(frontCalls.length >= 1);
+      assert.equal(
+        frontCalls[0].args[1],
+        phase * cw,
+        `${name} (row ${row}) phase ${phase} front-facing col ${phase}`,
+      );
+      assert.equal(frontCalls[0].args[2], row * ch, `${name} skin row ${row} front sy`);
+
+      // Back facing: col = 8..11 (sx = 8,9,10,11 * cw), row = row (sy = row * ch)
+      drawCalls.length = 0;
+      agent.animFrame = phase;
+      agent.facing = 'back';
+      drawAgent(mockCtx, agent, mockImg);
+      const backCalls = drawCalls.filter((c) => c.type === 'drawImage');
+      assert.ok(backCalls.length >= 1);
+      assert.equal(
+        backCalls[0].args[1],
+        (8 + phase) * cw,
+        `${name} (row ${row}) phase ${phase} back-facing col ${8 + phase}`,
+      );
+      assert.equal(backCalls[0].args[2], row * ch, `${name} skin row ${row} back sy`);
+    }
+  }
 
   // Frame 3 of back-idle for Kevin: col = 11 (sx = 11 * 32 = 352)
   drawCalls.length = 0;
   kevin.animFrame = 3;
+  kevin.facing = 'back';
   drawAgent(mockCtx, kevin, mockImg);
   const imgCalls3 = drawCalls.filter((c) => c.type === 'drawImage');
   assert.equal(imgCalls3[0].args[1], 11 * cw);
 
-  // Typing bob at 6Hz (bob amplitude in [-2, 2])
+  // Moving state: maintains MOVING column (4 + animFrame) regardless of facing front/back
+  drawCalls.length = 0;
+  kevin.state = STATE.MOVING;
+  kevin.animFrame = 1;
+  kevin.facing = 'front';
+  drawAgent(mockCtx, kevin, mockImg);
+  const movingFrontCalls = drawCalls.filter((c) => c.type === 'drawImage');
+  assert.equal(movingFrontCalls[0].args[1], 5 * cw, 'Moving front uses col 5 (4 + 1)');
+
+  drawCalls.length = 0;
+  kevin.facing = 'back';
+  drawAgent(mockCtx, kevin, mockImg);
+  const movingBackCalls = drawCalls.filter((c) => c.type === 'drawImage');
+  assert.equal(
+    movingBackCalls[0].args[1],
+    5 * cw,
+    'Moving back stays col 5 (MOVING intact, no frame flip)',
+  );
+
+  // Restore kevin state
+  kevin.state = STATE.WORKING;
+
+  // Focused assertion: WORKING frame threshold 0.20s and glow oscillation
+  kevin.animTimer = 0;
+  kevin.animFrame = 0;
   kevin.bob = 0;
-  updateAgent(kevin, 0.02, 1, crew);
-  assert.ok(kevin.bob > 0);
-  const bobY = Math.sin(kevin.bob) * 2;
-  assert.ok(bobY >= -2.0 && bobY <= 2.0);
+  updateAgent(kevin, 0.2, 1, crew);
+  assert.equal(
+    kevin.animFrame,
+    0,
+    'WORKING state: does not advance frame when animTimer reaches threshold 0.20s',
+  );
+  assert.ok(kevin.bob > 0, 'WORKING state: maintains bob phase progression for status glow/pulse');
+
+  updateAgent(kevin, 0.001, 1, crew);
+  assert.equal(
+    kevin.animFrame,
+    1,
+    'WORKING state: advances frame deterministically once animTimer exceeds 0.20s',
+  );
+
+  // Focused assertion: MOVING frame threshold 0.12s
+  kevin.state = STATE.MOVING;
+  kevin.targetX = kevin.x + 100;
+  kevin.targetY = kevin.y;
+  kevin.animTimer = 0;
+  kevin.animFrame = 0;
+  updateAgent(kevin, 0.12, 1, crew);
+  assert.equal(
+    kevin.animFrame,
+    0,
+    'MOVING state: does not advance frame when animTimer reaches threshold 0.12s',
+  );
+
+  updateAgent(kevin, 0.001, 1, crew);
+  assert.equal(
+    kevin.animFrame,
+    1,
+    'MOVING state: advances frame deterministically once animTimer exceeds 0.12s',
+  );
+
+  // Restore kevin state
+  kevin.state = STATE.WORKING;
+
+  // Working pose uses deterministic bob offsets [0, -0.5, 0, -0.5] * scale from WORK_HAND_PHASE_OFFSETS (not Math.sin)
+  const scale = getDepthScale(kevin.y);
+  const expectedBobs = [0, -0.5, 0, -0.5];
+  assert.deepEqual(
+    WORK_HAND_PHASE_OFFSETS.map((p) => p.bob * scale),
+    expectedBobs.map((b) => b * scale),
+    'WORK_HAND_PHASE_OFFSETS bob offsets across phases 0..3 must match [0, -0.5, 0, -0.5] * scale',
+  );
+  for (let phase = 0; phase < 4; phase++) {
+    assert.equal(
+      WORK_HAND_PHASE_OFFSETS[phase]!.bob * scale,
+      expectedBobs[phase]! * scale,
+      `Phase ${phase} bob offset must match ${expectedBobs[phase]} * scale`,
+    );
+  }
 });
 
 test('drawWorkstationScreens draws low-alpha glow only inside painted display areas, and turns off when idle', () => {
@@ -1056,18 +1156,24 @@ test('drawHologramTopGlow renders pulsing violet hologram ellipse, starmap rings
   assert.equal(arcCalls.length, 0);
 });
 
-test('V1.9 typing effects: drawAgent renders 2 typing arms (3x2px) in role color oscillating in opposite phase with 6Hz', () => {
+test('V1.9 typing effects: drawAgent renders 2 typing arms (3x2px) in role color oscillating in opposite phase with deterministic 0.20s cadence', () => {
   const crew = createInitialCrew(snapshot);
   const kevin = crew.find((a) => a.name === 'Kevin')!;
   assert.equal(kevin.state, STATE.WORKING);
 
   const fillRectCalls: Array<{ x: number; y: number; w: number; h: number; fillStyle: string }> =
     [];
+  const scaleCalls: Array<[number, number]> = [];
+  const translateCalls: Array<{ x: number; y: number }> = [];
   const mockCtx = {
     save: () => {},
     restore: () => {},
-    translate: () => {},
-    scale: () => {},
+    translate: (x: number, y: number) => {
+      translateCalls.push({ x, y });
+    },
+    scale: (sx: number, sy: number) => {
+      scaleCalls.push([sx, sy]);
+    },
     beginPath: () => {},
     rect: () => {},
     ellipse: () => {},
@@ -1088,27 +1194,197 @@ test('V1.9 typing effects: drawAgent renders 2 typing arms (3x2px) in role color
 
   const mockImg = { width: 512, height: 256 } as HTMLImageElement;
 
-  // At time t = 0
-  drawAgent(mockCtx, kevin, mockImg, 0);
-  assert.equal(fillRectCalls.length, 2, 'Must render exactly 2 typing arm rects for working agent');
-  const leftArm = fillRectCalls[0]!;
-  const rightArm = fillRectCalls[1]!;
+  // Verify WORK_HAND_PHASE_OFFSETS matches exact absolute pairs: 0,1 / 2,-1 / -1,2 / 1,0
+  assert.deepEqual(
+    WORK_HAND_PHASE_OFFSETS.map((p) => [p.leftYOffset, p.rightYOffset]),
+    [
+      [0, 1],
+      [2, -1],
+      [-1, 2],
+      [1, 0],
+    ],
+    'WORK_HAND_PHASE_OFFSETS must assert exact absolute pairs: 0,1 / 2,-1 / -1,2 / 1,0',
+  );
 
-  assert.equal(leftArm.fillStyle, ROLE_GLOW_COLORS.Kevin);
-  assert.equal(rightArm.fillStyle, ROLE_GLOW_COLORS.Kevin);
-  // Dimensions roughly 3x2px (scaled with depthScale ~0.8-1.1)
-  assert.ok(leftArm.w >= 2 && leftArm.w <= 4);
-  assert.ok(leftArm.h >= 1.5 && leftArm.h <= 3);
-  assert.ok(rightArm.w >= 2 && rightArm.w <= 4);
-  assert.ok(rightArm.h >= 1.5 && rightArm.h <= 3);
+  const scale = getDepthScale(kevin.y);
+  const BASE_DRAW_H = 92;
+  const drawH = BASE_DRAW_H * scale;
+  const drawW = drawH * (512 / 16 / (256 / 8));
+  const baseY = -drawH * 0.38;
 
-  // At time t = 1 / (6 * 4) = 1/24 s (quarter cycle of sin(t * 12 * PI)): arms move in opposite directions
+  // Assert bob offsets for all 4 phases: [0, -0.5, 0, -0.5] * scale
+  const expectedBobs = [0, -0.5, 0, -0.5];
+  assert.deepEqual(
+    WORK_HAND_PHASE_OFFSETS.map((p) => p.bob * scale),
+    expectedBobs.map((b) => b * scale),
+    'WORK_HAND_PHASE_OFFSETS bob offsets across phases 0..3 must match [0, -0.5, 0, -0.5] * scale',
+  );
+  for (let phase = 0; phase < 4; phase++) {
+    assert.equal(
+      WORK_HAND_PHASE_OFFSETS[phase]!.bob * scale,
+      expectedBobs[phase]! * scale,
+      `Phase ${phase}: bob offset must be exactly ${expectedBobs[phase]} * scale`,
+    );
+  }
+
+  // (2) Capture fillRect x at facing front and facing 1:
+  // Assert local x remains -drawW*0.14 and drawW*0.06, transform mirror is called for facing 1,
+  // and expected coordinates are NOT swapped or negated.
+  const expectedLeftX = -drawW * 0.14;
+  const expectedRightX = drawW * 0.06;
+
+  // Facing 'front'
+  scaleCalls.length = 0;
   fillRectCalls.length = 0;
-  drawAgent(mockCtx, kevin, mockImg, 1 / 24);
-  const leftArmQ = fillRectCalls[0]!;
-  const rightArmQ = fillRectCalls[1]!;
-  assert.ok(leftArmQ.y > leftArm.y, 'Left arm moves down at peak phase');
-  assert.ok(rightArmQ.y < rightArm.y, 'Right arm moves up (opposite phase)');
+  kevin.facing = 'front';
+  kevin.animFrame = 0;
+  drawAgent(mockCtx, kevin, mockImg);
+  assert.equal(fillRectCalls.length, 2, 'Facing front must render 2 typing hand rects');
+  assert.equal(
+    fillRectCalls[0]!.x,
+    expectedLeftX,
+    'Local x for left hand when facing front must be -drawW * 0.14',
+  );
+  assert.equal(
+    fillRectCalls[1]!.x,
+    expectedRightX,
+    'Local x for right hand when facing front must be drawW * 0.06',
+  );
+  assert.equal(
+    scaleCalls.some(([sx, sy]) => sx === -1 && sy === 1),
+    false,
+    'Transform mirror scale(-1, 1) must not be called when facing front',
+  );
+
+  // Facing 1 (mirrored)
+  scaleCalls.length = 0;
+  fillRectCalls.length = 0;
+  kevin.facing = 1;
+  kevin.animFrame = 0;
+  drawAgent(mockCtx, kevin, mockImg);
+  assert.equal(fillRectCalls.length, 2, 'Facing 1 must render 2 typing hand rects');
+  assert.ok(
+    scaleCalls.some(([sx, sy]) => sx === -1 && sy === 1),
+    'Transform mirror scale(-1, 1) must be called when facing is 1',
+  );
+  // Assert local x remains -drawW*0.14 and drawW*0.06; do NOT swap or negate expected
+  assert.equal(
+    fillRectCalls[0]!.x,
+    expectedLeftX,
+    'Local x for left hand when facing 1 must remain -drawW * 0.14 (not negated or swapped)',
+  );
+  assert.equal(
+    fillRectCalls[1]!.x,
+    expectedRightX,
+    'Local x for right hand when facing 1 must remain drawW * 0.06 (not negated or swapped)',
+  );
+
+  const expectedOffsets: Array<[number, number]> = [
+    [0, 1],
+    [2, -1],
+    [-1, 2],
+    [1, 0],
+  ];
+
+  // 4 Phase assertions: verify hand cues and bob across animFrame phases 0, 1, 2, 3
+  const phaseSnapshots: Array<{ leftY: number; rightY: number }> = [];
+
+  for (let phase = 0; phase < 4; phase++) {
+    fillRectCalls.length = 0;
+    translateCalls.length = 0;
+    kevin.facing = 'front';
+    kevin.animFrame = phase;
+    drawAgent(mockCtx, kevin, mockImg);
+
+    // Assert bob offset in character translate y: a.y + bobY + leanY
+    assert.ok(translateCalls.length >= 1, `Phase ${phase}: character translate must be called`);
+    const agentTranslate = translateCalls[translateCalls.length - 1]!;
+    const expectedBob = expectedBobs[phase]! * scale;
+    const leanY = -1; // at desk
+    assert.equal(
+      agentTranslate.y,
+      kevin.y + expectedBob + leanY,
+      `Phase ${phase}: character translate y must match kevin.y + (${expectedBob}) + leanY`,
+    );
+
+    assert.equal(
+      fillRectCalls.length,
+      2,
+      `Phase ${phase}: must render exactly 2 typing hand rects for working agent`,
+    );
+    const leftArm = fillRectCalls[0]!;
+    const rightArm = fillRectCalls[1]!;
+
+    assert.equal(leftArm.fillStyle, ROLE_GLOW_COLORS.Kevin);
+    assert.equal(rightArm.fillStyle, ROLE_GLOW_COLORS.Kevin);
+    // Dimensions roughly 3x2px (scaled with depthScale ~0.8-1.1)
+    assert.ok(leftArm.w >= 2 && leftArm.w <= 4);
+    assert.ok(leftArm.h >= 1.5 && leftArm.h <= 3);
+    assert.ok(rightArm.w >= 2 && rightArm.w <= 4);
+    assert.ok(rightArm.h >= 1.5 && rightArm.h <= 3);
+
+    const [expLeft, expRight] = expectedOffsets[phase]!;
+    assert.equal(
+      Math.round((leftArm.y - baseY) / scale),
+      expLeft,
+      `Phase ${phase}: left hand offset must be exactly ${expLeft}`,
+    );
+    assert.equal(
+      Math.round((rightArm.y - baseY) / scale),
+      expRight,
+      `Phase ${phase}: right hand offset must be exactly ${expRight}`,
+    );
+    assert.equal(
+      leftArm.y,
+      baseY + expLeft * scale,
+      `Phase ${phase}: left hand absolute y must match baseY + (${expLeft} * scale)`,
+    );
+    assert.equal(
+      rightArm.y,
+      baseY + expRight * scale,
+      `Phase ${phase}: right hand absolute y must match baseY + (${expRight} * scale)`,
+    );
+
+    phaseSnapshots.push({ leftY: leftArm.y, rightY: rightArm.y });
+  }
+
+  // Phase 1 vs Phase 0: Left arm moves down (+2), Right arm moves up (-1) (opposite phase oscillation)
+  assert.ok(phaseSnapshots[1]!.leftY > phaseSnapshots[0]!.leftY, 'Phase 1: Left arm moves down');
+  assert.ok(
+    phaseSnapshots[1]!.rightY < phaseSnapshots[0]!.rightY,
+    'Phase 1: Right arm moves up (opposite phase)',
+  );
+
+  // Phase 2 vs Phase 0: Left arm moves up (-1), Right arm moves down (+2) (opposite phase oscillation)
+  assert.ok(phaseSnapshots[2]!.leftY < phaseSnapshots[0]!.leftY, 'Phase 2: Left arm moves up');
+  assert.ok(
+    phaseSnapshots[2]!.rightY > phaseSnapshots[0]!.rightY,
+    'Phase 2: Right arm moves down (opposite phase)',
+  );
+
+  // Phase 3: Left arm at +1, Right arm at 0
+  assert.ok(
+    phaseSnapshots[3]!.leftY > phaseSnapshots[0]!.leftY,
+    'Phase 3: Left arm lower than phase 0',
+  );
+  assert.ok(
+    phaseSnapshots[3]!.rightY < phaseSnapshots[0]!.rightY,
+    'Phase 3: Right arm higher than phase 0',
+  );
+
+  // Idle state: no typing arms rendered
+  fillRectCalls.length = 0;
+  kevin.state = STATE.IDLE;
+  kevin.reportedState = 'idle';
+  drawAgent(mockCtx, kevin, mockImg);
+  assert.equal(fillRectCalls.length, 0, 'Idle agent must not render typing hand cues');
+
+  // Offline state: no typing arms rendered
+  fillRectCalls.length = 0;
+  kevin.state = STATE.OFFLINE;
+  kevin.reportedState = 'offline';
+  drawAgent(mockCtx, kevin, mockImg);
+  assert.equal(fillRectCalls.length, 0, 'Offline agent must not render typing hand cues');
 });
 
 test('V1.9 typing effects: drawAgentStatusBubble renders yellow pulsating border for working agents', () => {
