@@ -1269,6 +1269,54 @@ export function drawHologramTopGlow(
     ctx.fill();
   }
 
+  // Deterministic sci-fi traffic: short comet trails orbit the map while Alec works.
+  if (
+    typeof ctx.rect !== 'function' ||
+    typeof ctx.clip !== 'function' ||
+    typeof ctx.createLinearGradient !== 'function' ||
+    typeof ctx.moveTo !== 'function' ||
+    typeof ctx.lineTo !== 'function'
+  ) {
+    ctx.restore();
+    return;
+  }
+  ctx.beginPath();
+  ctx.rect(r.x, r.y, r.w, r.h);
+  ctx.clip();
+  const comets = [
+    { orbitW: 0.34, orbitH: 0.24, speed: 1.35, phase: 0.2, tail: 0.16 },
+    { orbitW: 0.27, orbitH: 0.31, speed: -1.05, phase: 2.1, tail: 0.13 },
+    { orbitW: 0.39, orbitH: 0.18, speed: 0.82, phase: 4.3, tail: 0.19 },
+    { orbitW: 0.2, orbitH: 0.34, speed: -1.55, phase: 5.2, tail: 0.11 },
+  ];
+  for (const comet of comets) {
+    const angle = timeSec * comet.speed + comet.phase;
+    const x = cx + Math.cos(angle) * r.w * comet.orbitW;
+    const y = cy + Math.sin(angle) * r.h * comet.orbitH;
+    const tailAngle = angle - comet.tail * comet.speed;
+    const tailX = cx + Math.cos(tailAngle) * r.w * comet.orbitW;
+    const tailY = cy + Math.sin(tailAngle) * r.h * comet.orbitH;
+
+    const trail = ctx.createLinearGradient(tailX, tailY, x, y);
+    trail.addColorStop(0, 'rgba(233, 213, 255, 0)');
+    trail.addColorStop(0.7, 'rgba(214, 170, 255, 0.35)');
+    trail.addColorStop(1, 'rgba(255, 255, 255, 0.9)');
+    ctx.strokeStyle = trail;
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.globalAlpha = 0.9;
+    ctx.beginPath();
+    ctx.moveTo(tailX, tailY);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.globalAlpha = 0.95;
+    ctx.beginPath();
+    ctx.arc(x, y, 2.6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
   ctx.restore();
 }
 
