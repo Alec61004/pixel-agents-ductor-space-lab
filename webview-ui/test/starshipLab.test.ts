@@ -26,6 +26,7 @@ import {
   FLOOR_Y_MIN,
   getAgentStatusBubble,
   getDepthScale,
+  getStageBaseScale,
   IDLE_POINTS,
   isPointInPolygon,
   makeAgent,
@@ -521,6 +522,18 @@ test('getDepthScale calculates linear depth scaling between rear wall ~0.8 and f
   assert.ok(getDepthScale(500) < getDepthScale(550));
   assert.ok(getDepthScale(550) < getDepthScale(600));
   assert.ok(getDepthScale(600) < getDepthScale(650));
+});
+
+test('getStageBaseScale fits the full room in an ultra-wide short preview', () => {
+  const shortViewport = { width: 1535, height: 288 };
+  const scale = getStageBaseScale(shortViewport);
+
+  assert.equal(scale, shortViewport.height / 678);
+  assert.equal(scale * 678, shortViewport.height);
+  assert.ok(scale * 1600 < shortViewport.width);
+
+  const normalViewport = { width: 1600, height: 678 };
+  assert.equal(getStageBaseScale(normalViewport), 1);
 });
 
 test('agents stepping outside walkable floor are clamped to walkable polygon during movement', () => {

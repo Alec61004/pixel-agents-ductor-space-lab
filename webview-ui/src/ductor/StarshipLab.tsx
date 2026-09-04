@@ -31,6 +31,7 @@ import {
   FLOOR_Y_MIN,
   getAgentStatusBubble,
   getDepthScale,
+  getStageBaseScale,
   IDLE_POINTS,
   isAgentAtStation,
   isPointInPolygon,
@@ -88,6 +89,7 @@ export {
   FLOOR_Y_MIN,
   getAgentStatusBubble,
   getDepthScale,
+  getStageBaseScale,
   IDLE_POINTS,
   isAgentAtStation,
   isPointInPolygon,
@@ -210,7 +212,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
       const wrap = stageWrapRef.current;
       if (wrap) {
         const rect = wrap.getBoundingClientRect();
-        const baseScale = Math.max(rect.width / CW, rect.height / CH);
+        const baseScale = getStageBaseScale(rect);
         const scale = baseScale * zoomRef.current;
         panRef.current = clampPanToViewport(
           {
@@ -326,7 +328,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
         };
         const rect = wrap?.getBoundingClientRect();
         if (rect) {
-          const baseScale = Math.max(rect.width / CW, rect.height / CH);
+          const baseScale = getStageBaseScale(rect);
           panRef.current = clampPanToViewport(nextPan, rect, baseScale * zoomRef.current);
         }
       } else if (e.touches.length === 2 && touchStateRef.current) {
@@ -337,7 +339,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
         zoomRef.current = Math.max(0.5, Math.min(3, touchStateRef.current.zoom * ratio));
         const rect = wrap?.getBoundingClientRect();
         if (rect) {
-          const baseScale = Math.max(rect.width / CW, rect.height / CH);
+          const baseScale = getStageBaseScale(rect);
           panRef.current = clampPanToViewport(
             { x: touchStateRef.current.panX, y: touchStateRef.current.panY },
             rect,
@@ -362,7 +364,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
       zoomRef.current = Math.max(0.5, Math.min(3, zoomRef.current + delta));
       const rect = wrap?.getBoundingClientRect();
       if (rect) {
-        const baseScale = Math.max(rect.width / CW, rect.height / CH);
+        const baseScale = getStageBaseScale(rect);
         panRef.current = clampPanToViewport(panRef.current, rect, baseScale * zoomRef.current);
       }
     };

@@ -199,6 +199,22 @@ export function getDepthScale(
   return minScale + t * (maxScale - minScale);
 }
 
+/**
+ * Pick the stage scale for the available viewport.
+ *
+ * The room is deliberately wider than it is tall. A cover fit is useful in a
+ * normal app window, but in the short, ultra-wide webview used by the preview
+ * it scales from the width and crops the lower deck. That made crew sprites
+ * look as if their bodies had disappeared. Keep cover behaviour for normal
+ * proportions and contain the room when height is the limiting dimension.
+ */
+export function getStageBaseScale(rect: { width: number; height: number }): number {
+  if (rect.width <= 0 || rect.height <= 0) return 1;
+  const cover = Math.max(rect.width / CW, rect.height / CH);
+  const contain = Math.min(rect.width / CW, rect.height / CH);
+  return rect.width / rect.height > CW / CH ? contain : cover;
+}
+
 export function isPointInPolygon(p: Point2D, polygon: Point2D[] = WALKABLE_POLYGON): boolean {
   let inside = false;
   const n = polygon.length;
@@ -1931,7 +1947,7 @@ export function drawStage(
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, rect.width, rect.height);
 
-  const baseScale = Math.max(rect.width / CW, rect.height / CH);
+  const baseScale = getStageBaseScale(rect);
   const scale = baseScale * zoom;
   const drawW = CW * scale;
   const drawH = CH * scale;
