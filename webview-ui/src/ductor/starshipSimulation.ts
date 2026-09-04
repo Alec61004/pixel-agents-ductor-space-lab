@@ -1306,36 +1306,120 @@ export function drawAlecKeyboard(ctx: CanvasRenderingContext2D, a: StarshipAgent
   const x = a.x + 10;
   const y = a.y - 60;
   const time = a.hologramTime ?? 0;
+  const pressed = getAlecKeyboardFrame(time) === 0;
+  const active = Math.floor(time / 0.32) % 3;
   ctx.save();
   ctx.globalCompositeOperation = 'source-over';
-  ctx.globalAlpha = 0.95;
   ctx.shadowBlur = 0;
+  ctx.lineWidth = 0.8;
+
+  // The console is projected from a small emitter on the table's front apron.
+  ctx.fillStyle = '#142832';
+  ctx.fillRect(x + 31, y + 36, 17, 4);
+  ctx.fillStyle = '#7de9ef';
+  ctx.fillRect(x + 34, y + 36, 11, 1);
   ctx.beginPath();
-  ctx.moveTo(x, y);
-  ctx.lineTo(x + 54, y);
-  ctx.lineTo(x + 62, y + 25);
-  ctx.lineTo(x - 6, y + 25);
+  ctx.moveTo(x + 35, y + 36);
+  ctx.lineTo(x - 4, y + 24);
+  ctx.lineTo(x + 70, y + 24);
+  ctx.lineTo(x + 44, y + 36);
   ctx.closePath();
-  ctx.fillStyle = 'rgba(6, 29, 42, 0.92)';
+  ctx.fillStyle = 'rgba(71, 213, 235, 0.08)';
   ctx.fill();
-  ctx.strokeStyle = '#70dcf0';
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(104, 230, 246, 0.24)';
   ctx.stroke();
-  const pressed = getAlecKeyboardFrame(time) === 0;
-  const active = Math.floor(time / 0.32) % 2;
-  for (let row = 0; row < 3; row++) {
-    const rowLeft = x + 3 - row * 1.5;
-    const step = 6.0 + row * 0.5;
-    for (let col = 0; col < 8; col++) {
+
+  // A shallow glass flight deck, with clipped corners and a lit lower rail.
+  ctx.beginPath();
+  ctx.moveTo(x + 3, y - 2);
+  ctx.lineTo(x + 58, y - 2);
+  ctx.lineTo(x + 66, y + 3);
+  ctx.lineTo(x + 71, y + 22);
+  ctx.lineTo(x + 66, y + 26);
+  ctx.lineTo(x - 5, y + 26);
+  ctx.lineTo(x - 7, y + 22);
+  ctx.lineTo(x - 1, y + 2);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(8, 36, 49, 0.78)';
+  ctx.fill();
+  ctx.strokeStyle = '#4d9faf';
+  ctx.stroke();
+  ctx.strokeStyle = '#a0f6ff';
+  ctx.beginPath();
+  ctx.moveTo(x - 5, y + 22);
+  ctx.lineTo(x - 3, y + 24);
+  ctx.lineTo(x + 22, y + 24);
+  ctx.moveTo(x + 53, y + 24);
+  ctx.lineTo(x + 65, y + 24);
+  ctx.lineTo(x + 68, y + 21);
+  ctx.stroke();
+
+  // Large touch zones sit under the original sprite's hands, not QWERTY rows.
+  for (let row = 0; row < 2; row++) {
+    for (let col = 0; col < 3; col++) {
+      const kx = x + 2 + col * 10 - row * 2;
+      const ky = y + 5 + row * 8;
       const lit = pressed && row === 1 && col === active;
-      ctx.fillStyle = lit ? '#d9fbff' : '#31869c';
-      ctx.globalAlpha = lit ? 1 : 0.65;
-      ctx.fillRect(rowLeft + col * step, y + 4 + row * 5, step - 1.5, 2.5);
+      ctx.beginPath();
+      ctx.moveTo(kx, ky);
+      ctx.lineTo(kx + 7, ky);
+      ctx.lineTo(kx + 8, ky + 5);
+      ctx.lineTo(kx - 1, ky + 5);
+      ctx.closePath();
+      ctx.fillStyle = lit ? 'rgba(149, 245, 255, 0.7)' : 'rgba(45, 140, 164, 0.24)';
+      ctx.fill();
+      ctx.strokeStyle = lit ? '#dbfcff' : '#4694a7';
+      ctx.stroke();
+      ctx.fillStyle = lit ? '#ffffff' : '#7acbd7';
+      ctx.fillRect(kx + 2, ky + 2, col === 1 ? 3 : 2, 1);
     }
   }
-  ctx.globalAlpha = 0.7;
-  ctx.fillStyle = '#70dcf0';
-  ctx.fillRect(x + 15, y + 20, 25, 1.5);
+
+  // Navigation dial: segmented bearings and a moving heading indicator.
+  const dialX = x + 48;
+  const dialY = y + 12;
+  for (let i = 0; i < 8; i++) {
+    const angle = (i * Math.PI) / 4;
+    ctx.beginPath();
+    ctx.ellipse(dialX, dialY, 12, 7, 0, angle + 0.08, angle + 0.59);
+    ctx.strokeStyle = i === Math.floor(time * 1.5) % 8 ? '#c4faff' : '#428fa5';
+    ctx.stroke();
+  }
+  const heading = time * 0.65;
+  ctx.beginPath();
+  ctx.moveTo(dialX, dialY);
+  ctx.lineTo(dialX + Math.cos(heading) * 9, dialY + Math.sin(heading) * 5);
+  ctx.strokeStyle = '#86e5ed';
+  ctx.stroke();
+  ctx.fillStyle = '#ffd39a';
+  ctx.fillRect(dialX - 1, dialY - 1, 2, 2);
+  ctx.fillStyle = '#65bdcf';
+  ctx.fillRect(x + 38, y + 22, 9, 1);
+
+  // A small upright telemetry pane rises from the far edge of the touch deck.
+  ctx.beginPath();
+  ctx.moveTo(x + 36, y - 18);
+  ctx.lineTo(x + 63, y - 18);
+  ctx.lineTo(x + 66, y - 15);
+  ctx.lineTo(x + 66, y - 4);
+  ctx.lineTo(x + 36, y - 4);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(10, 47, 62, 0.65)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(109, 224, 242, 0.65)';
+  ctx.stroke();
+  ctx.fillStyle = '#9ae7ee';
+  ctx.fillRect(x + 39, y - 15, 8, 1);
+  ctx.fillStyle = '#e8bc76';
+  ctx.fillRect(x + 61, y - 15, 2, 1);
+  for (let i = 0; i < 5; i++) {
+    const height = 2 + Math.floor(2 + 2 * Math.sin(time * 2 + i * 1.4));
+    ctx.fillStyle = i === active ? '#b0f7ff' : '#4b9eb2';
+    ctx.fillRect(x + 39 + i * 3, y - 6 - height, 2, height);
+  }
+  ctx.fillStyle = '#4b9eb2';
+  ctx.fillRect(x + 56, y - 11, 7, 1);
+  ctx.fillRect(x + 56, y - 8, pressed ? 5 : 3, 1);
   ctx.restore();
 }
 
