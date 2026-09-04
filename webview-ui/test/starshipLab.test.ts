@@ -1638,7 +1638,7 @@ test('the ringed world travels around the fixed star while navigation follows Al
   assert.ok(getHologramNavigation(1.9, true).route > 0);
   assert.equal(getHologramNavigation(2.5, true).route, 1);
   assert.ok(getHologramNavigation(2.8, true).signal > 0);
-  assert.notDeepEqual(getHologramNavigation(1, true).target, getHologramNavigation(4.2, true).target);
+  assert.notDeepEqual(getHologramNavigation(1, true).target, getHologramNavigation(9.4, true).target);
   assert.equal(getHologramNavigation(2.8, false).opacity, 0);
   assert.equal(getHologramNavigation(2.8, false).route, 0);
 });

@@ -317,6 +317,7 @@ export interface StarshipAgent {
   hologramTime?: number;
   hologramSceneTime?: number;
   hologramExpansion?: number;
+  hologramCamera?: { x: number; y: number; zoom: number };
   particleTimer?: number;
   particles?: WorkParticle[];
 }
@@ -896,6 +897,17 @@ export function updateAgent(
     a.hologramExpansion = Math.max(0, Math.min(1, expansion + (usingHologram ? change : -change)));
   }
   a.hologramTime = usingHologram ? (a.hologramTime ?? 0) + dt * speedMult : 0;
+  if (a.name === 'Alec') {
+    const desired = getHologramCamera(a.hologramTime, usingHologram);
+    const previous = a.hologramCamera ?? desired;
+    // Telemetry can stop work mid-flight. Ease home instead of snapping.
+    const blend = usingHologram ? 1 : 1 - Math.exp(-dt * speedMult * 5);
+    a.hologramCamera = {
+      x: previous.x + (desired.x - previous.x) * blend,
+      y: previous.y + (desired.y - previous.y) * blend,
+      zoom: previous.zoom + (desired.zoom - previous.zoom) * blend,
+    };
+  }
 
   // Work particles: spawn every ~0.9s when working at desk
   if (a.state === STATE.WORKING && !isOffline && a.name !== 'Alec') {
@@ -1124,7 +1136,9 @@ export const WORK_HAND_PHASE_OFFSETS = [
 // Do not infer limb bounds or rotate pieces of the character.
 const ALEC_TOUCH_STARTS = [0.12, 0.6, 1.08] as const;
 const ALEC_TOUCH_DURATION = 0.22;
-const ALEC_CONSOLE_CYCLE = 3.2;
+// Gesture, route and signal retain their original timing; the remaining time
+// is reserved for approach, observation and return before selecting another star.
+const ALEC_CONSOLE_CYCLE = 8.4;
 
 function getAlecConsoleCycle(timeSec: number) {
   const time = Math.max(0, timeSec);
@@ -1435,10 +1449,14 @@ export function drawHologramTopGlow(
     ctx.fillRect(5, 5, 96, roomHeight / zoom);
   }
 
-  // The viewport stays still. Independent orbits and navigation responses make
-  // the system move instead of repeatedly magnifying the whole picture.
+  // Clip and glass stay in panel coordinates. Only the universe is transformed:
+  // neither the cyan frame, projector nor the room camera moves with this zoom.
   const navigation = getHologramNavigation(controlTime, working);
+  const camera = alec?.hologramCamera ?? getHologramCamera(controlTime, working);
   ctx.save();
+  ctx.translate(53, 35.5);
+  ctx.scale(camera.zoom, camera.zoom);
+  ctx.translate(-camera.x, -camera.y);
 
   // Broad wisps build depth around the star field without a solid nebula disc.
   ctx.globalCompositeOperation = 'lighter';
@@ -1570,6 +1588,25 @@ export function getHologramOrbit(time: number, radiusX = 28, radiusY = 12) {
 
 const HOLOGRAM_TARGETS = [{ x: 86, y: 20 }, { x: 32, y: 15 }, { x: 87, y: 51 }] as const;
 
+export function getHologramCamera(time: number, working: boolean) {
+  const { phase } = getAlecConsoleCycle(time);
+  const target = getHologramNavigation(time, working).target;
+  const smooth = (value: number) => {
+    const t = Math.max(0, Math.min(1, value));
+    return Math.max(0, Math.min(1, t * t * t * (t * (t * 6 - 15) + 10)));
+  };
+  // Signal arrives at 3.03s. A short beat lets the arrival read before moving.
+  const amount = !working ? 0
+    : phase < 4.5 ? smooth((phase - 3.2) / 1.3)
+    : phase < 6.3 ? 1
+    : 1 - smooth((phase - 6.3) / 1.7);
+  return {
+    x: 53 + (target.x - 53) * amount,
+    y: 35.5 + (target.y - 35.5) * amount,
+    zoom: 1 + 3 * amount,
+  };
+}
+
 export function getHologramNavigation(time: number, working: boolean) {
   const cycle = Math.floor(Math.max(0, time) / ALEC_CONSOLE_CYCLE);
   const { phase } = getAlecConsoleCycle(time);
@@ -1579,7 +1616,8 @@ export function getHologramNavigation(time: number, working: boolean) {
     scan: Math.max(0, Math.min(1, (phase - 0.12) / 1.18)),
     route: progress * progress * (3 - 2 * progress),
     signal: Math.max(0, Math.min(1, (phase - 2.48) / 0.55)),
-    opacity: working ? Math.min(1, phase / 0.15, (ALEC_CONSOLE_CYCLE - phase) / 0.18) : 0,
+    // Fade the route after arrival so the close-up is an unobstructed star view.
+    opacity: working ? Math.max(0, Math.min(1, phase / 0.15, (3.5 - phase) / 0.47)) : 0,
   };
 }
 
@@ -1624,7 +1662,7 @@ function drawHologramNavigation(
   }
   if (signal > 0) {
     // A departing signal traverses the calculated route, followed by a
-    // confirmation ripple at the destination. No viewport zoom is involved.
+    // confirmation ripple at the destination before the map camera approaches.
     const ship = point(signal);
     drawMapStar(ctx, ship.x, ship.y, 0.5, '#a9f1fb', opacity);
     ctx.globalAlpha = opacity * signal * (1 - signal * 0.7);
