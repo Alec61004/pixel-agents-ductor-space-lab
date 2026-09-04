@@ -23,6 +23,8 @@ LOCK_FILE = pathlib.Path(os.environ.get('DUCTOR_LOCK_FILE', pathlib.Path.home() 
 ALL_ROLES = ('Alec', 'Kevin', 'Benjamin')
 CtxRole = {'main': 'Alec', 'kevin': 'Kevin', 'benjamin': 'Benjamin'}
 CTX_RE = re.compile(r'\[([a-z]+):msg(?::([^\]\s]+))?\]')
+BUS_START_RE = re.compile(r'Bus async: main -> (kevin|benjamin) task=([A-Za-z0-9_-]+)')
+BUS_DONE_RE = re.compile(r'Bus async: main -> (kevin|benjamin) task=([A-Za-z0-9_-]+) session=.* completed')
 START_RE = re.compile(r'CLI streaming starting label=')
 DONE_RE = re.compile(r'CLI streaming completed label=')
 FAIL_RE = re.compile(r'CLI streaming (?:failed|error|cancelled|timed out) label=')
@@ -83,6 +85,24 @@ def parse_line(line):
 
 def parse_lifecycle_event(line):
     """Detailed parser extracting role, state, stream_id, and terminal flags."""
+    bus_done = BUS_DONE_RE.search(line)
+    if bus_done:
+        return {
+            'role': CtxRole[bus_done.group(1)],
+            'state': 'idle',
+            'stream_id': f'ia:{bus_done.group(2)}',
+            'event': 'done',
+        }
+
+    bus_start = BUS_START_RE.search(line)
+    if bus_start:
+        return {
+            'role': CtxRole[bus_start.group(1)],
+            'state': 'working',
+            'stream_id': f'ia:{bus_start.group(2)}',
+            'event': 'start',
+        }
+
     cm = CTX_RE.search(line)
     if not cm:
         return None

@@ -57,6 +57,27 @@ class TestRoleFromLine(unittest.TestCase):
         self.assertEqual(role, "Alec")
         self.assertEqual(state, "idle")
 
+    def test_interagent_bus_start_line(self):
+        """Inter-agent dispatch is also a real target-agent working event."""
+        line = (
+            "2026-09-04 07:03:45 [INFO] ductor_bot.multiagent.bus:bus.py:298: "
+            "Bus async: main -> kevin task=task_123 (157 chars)"
+        )
+        role, state = bridge.parse_line(line)
+        self.assertEqual(role, "Kevin")
+        self.assertEqual(state, "working")
+
+    def test_interagent_bus_done_line(self):
+        """Inter-agent completion returns the target role to recent idle/online."""
+        line = (
+            "2026-09-04 07:04:00 [INFO] ductor_bot.multiagent.bus:bus.py:345: "
+            "Bus async: main -> benjamin task=task_456 session=ia.main.t0.x completed "
+            "(65 chars, 18.5s)"
+        )
+        role, state = bridge.parse_line(line)
+        self.assertEqual(role, "Benjamin")
+        self.assertEqual(state, "idle")
+
     def test_kevin_complete_line(self):
         """[kevin:msg:...] CLI streaming completed label=main -> Kevin idle."""
         line = (
