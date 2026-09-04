@@ -1958,10 +1958,9 @@ export function drawStage(
   // Foreground arcs wrap around the hands without modifying the original character art.
   if (alec) drawAlecHologramControl(ctx, alec, true);
 
-  // Draw desk occlusion cutouts over sitting/standing agents' lower bodies
-  drawDeskCutouts(ctx, bgImg, agents);
-
-  // The hologram is behind Alec; he remains in front of the table.
+  // Crew members stand in front of the consoles in this top-down room. Do not
+  // repaint the background over their lower bodies: that made walking sprites
+  // appear to lose their torso and legs during station transitions.
 
   drawWorkstationLabels(ctx, agents);
 
