@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import type { DuctorRoleName, DuctorStatusSnapshot } from './ductorLabModel.js';
 import { ductorAssetUrl } from './ductorLabModel.js';
+import { loadStarshipImage } from './starshipImageLoader.js';
 import {
   type AgentStatusBubble,
   applyCloudStatus,
@@ -31,6 +32,7 @@ import {
   FLOOR_Y_MIN,
   getAgentStatusBubble,
   getDepthScale,
+  getStageBaseScale,
   IDLE_POINTS,
   isAgentAtStation,
   isPointInPolygon,
@@ -88,6 +90,7 @@ export {
   FLOOR_Y_MIN,
   getAgentStatusBubble,
   getDepthScale,
+  getStageBaseScale,
   IDLE_POINTS,
   isAgentAtStation,
   isPointInPolygon,
@@ -144,6 +147,19 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
       'themes/ductor-space-lab/starship-sheet.png',
     );
 
+  const resolvedHologramUrl = ductorAssetUrl(
+    typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL
+      ? import.meta.env.BASE_URL
+      : './',
+    'themes/ductor-space-lab/alec-hologram.png',
+  );
+  const resolvedWalkUrl = ductorAssetUrl(
+    typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL
+      ? import.meta.env.BASE_URL
+      : './',
+    'themes/ductor-space-lab/crew-walk.png?v=2',
+  );
+
   const stageWrapRef = useRef<HTMLDivElement | null>(null);
   const stageCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const starsCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -197,7 +213,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
       const wrap = stageWrapRef.current;
       if (wrap) {
         const rect = wrap.getBoundingClientRect();
-        const baseScale = Math.max(rect.width / CW, rect.height / CH);
+        const baseScale = getStageBaseScale(rect);
         const scale = baseScale * zoomRef.current;
         panRef.current = clampPanToViewport(
           {
@@ -236,19 +252,33 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
     let disposed = false;
     const bgImg = new Image();
     const sheetImg = new Image();
-    let loadedCount = 0;
+    const hologramImg = new Image();
+    const walkImg = new Image();
+    let sceneReady = false;
+    let hologramReady = false;
+    let walkReady = false;
+    setLoaded(false);
 
-    const onAssetLoaded = () => {
-      loadedCount++;
-      if (loadedCount === 2 && !disposed) {
-        setLoaded(true);
-      }
-    };
-
-    bgImg.onload = onAssetLoaded;
-    sheetImg.onload = onAssetLoaded;
-    bgImg.src = resolvedBgUrl;
-    sheetImg.src = resolvedSheetUrl;
+    // Only the background and original sheet are required. Optional sprite
+    // failures must neither block the scene nor replace a complete character.
+    void Promise.all([
+      loadStarshipImage(bgImg, resolvedBgUrl),
+      loadStarshipImage(sheetImg, resolvedSheetUrl),
+    ]).then(([backgroundReady, sheetReady]) => {
+      if (disposed) return;
+      sceneReady = backgroundReady && sheetReady;
+      setLoaded(sceneReady);
+    });
+    void loadStarshipImage(hologramImg, resolvedHologramUrl, { width: 160, height: 112 }).then(
+      (ready) => {
+        if (!disposed) hologramReady = ready;
+      },
+    );
+    void loadStarshipImage(walkImg, resolvedWalkUrl, { width: 960, height: 336 }).then(
+      (ready) => {
+        if (!disposed) walkReady = ready;
+      },
+    );
 
     let stars: Star[] = [];
     let starTime = 0;
@@ -307,12 +337,8 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
         };
         const rect = wrap?.getBoundingClientRect();
         if (rect) {
-          const baseScale = Math.max(rect.width / CW, rect.height / CH);
-          panRef.current = clampPanToViewport(
-            nextPan,
-            rect,
-            baseScale * zoomRef.current,
-          );
+          const baseScale = getStageBaseScale(rect);
+          panRef.current = clampPanToViewport(nextPan, rect, baseScale * zoomRef.current);
         }
       } else if (e.touches.length === 2 && touchStateRef.current) {
         const dx = e.touches[0].clientX - e.touches[1].clientX;
@@ -322,7 +348,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
         zoomRef.current = Math.max(0.5, Math.min(3, touchStateRef.current.zoom * ratio));
         const rect = wrap?.getBoundingClientRect();
         if (rect) {
-          const baseScale = Math.max(rect.width / CW, rect.height / CH);
+          const baseScale = getStageBaseScale(rect);
           panRef.current = clampPanToViewport(
             { x: touchStateRef.current.panX, y: touchStateRef.current.panY },
             rect,
@@ -347,12 +373,8 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
       zoomRef.current = Math.max(0.5, Math.min(3, zoomRef.current + delta));
       const rect = wrap?.getBoundingClientRect();
       if (rect) {
-        const baseScale = Math.max(rect.width / CW, rect.height / CH);
-        panRef.current = clampPanToViewport(
-          panRef.current,
-          rect,
-          baseScale * zoomRef.current,
-        );
+        const baseScale = getStageBaseScale(rect);
+        panRef.current = clampPanToViewport(panRef.current, rect, baseScale * zoomRef.current);
       }
     };
     if (wrap) {
@@ -373,7 +395,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
       const stage = stageCanvasRef.current;
       const starsCanvas = starsCanvasRef.current;
 
-      if (wrap && stage && loadedCount >= 2) {
+      if (wrap && stage && sceneReady) {
         const ctx = stage.getContext('2d');
         if (ctx) {
           const rect = wrap.getBoundingClientRect();
@@ -390,6 +412,8 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
             panRef.current.x,
             panRef.current.y,
             zoomRef.current,
+            hologramReady ? hologramImg : undefined,
+            walkReady ? walkImg : undefined,
           );
         }
       }
@@ -425,7 +449,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
       }
       cancelAnimationFrame(animId);
     };
-  }, [resolvedBgUrl, resolvedSheetUrl]);
+  }, [resolvedBgUrl, resolvedSheetUrl, resolvedHologramUrl, resolvedWalkUrl]);
 
   const isCloud = Boolean(snapshot?.publishedAt);
   const isStale = Boolean(snapshot?.stale);

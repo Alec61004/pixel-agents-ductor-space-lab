@@ -79,9 +79,9 @@ export const WORKSTATIONS: Record<DuctorRoleName, WorkstationConfig> = {
     agentName: 'Alec',
     label: 'Alec — Strategy',
     roleDescription: 'Strategy',
-    approachPoint: { x: 480, y: 575 },
-    interactionPoint: { x: 480, y: 570 },
-    facing: 'front',
+    approachPoint: { x: 569, y: 656 },
+    interactionPoint: { x: 569, y: 638 },
+    facing: 'back',
     displayBounds: { x: 505, y: 442, w: 140, h: 98 },
     displayAreas: [{ x: 505, y: 442, w: 140, h: 98 }],
     occlusionBounds: { x: 500, y: 525, w: 145, h: 65 },
@@ -126,9 +126,9 @@ export const OFFLINE_POINTS: Record<DuctorRoleName, { x: number; y: number }> = 
 };
 
 export const IDLE_POINTS: Record<DuctorRoleName, { x: number; y: number }> = {
-  Alec: { x: 500, y: 550 },
-  Kevin: { x: 800, y: 560 },
-  Benjamin: { x: 1120, y: 550 },
+  Alec: { x: 350, y: 640 },
+  Kevin: { x: 850, y: 640 },
+  Benjamin: { x: 1250, y: 640 },
 };
 
 export const WAITING_POINTS: Record<DuctorRoleName, { x: number; y: number }> = {
@@ -197,6 +197,22 @@ export function getDepthScale(
   if (maxY <= minY) return minScale;
   const t = Math.max(0, Math.min(1, (y - minY) / (maxY - minY)));
   return minScale + t * (maxScale - minScale);
+}
+
+/**
+ * Pick the stage scale for the available viewport.
+ *
+ * The room is deliberately wider than it is tall. A cover fit is useful in a
+ * normal app window, but in the short, ultra-wide webview used by the preview
+ * it scales from the width and crops the lower deck. That made crew sprites
+ * look as if their bodies had disappeared. Keep cover behaviour for normal
+ * proportions and contain the room when height is the limiting dimension.
+ */
+export function getStageBaseScale(rect: { width: number; height: number }): number {
+  if (rect.width <= 0 || rect.height <= 0) return 1;
+  const cover = Math.max(rect.width / CW, rect.height / CH);
+  const contain = Math.min(rect.width / CW, rect.height / CH);
+  return rect.width / rect.height > CW / CH ? contain : cover;
 }
 
 export function isPointInPolygon(p: Point2D, polygon: Point2D[] = WALKABLE_POLYGON): boolean {
@@ -292,10 +308,15 @@ export interface StarshipAgent {
   stateTimer: number;
   animFrame: number;
   animTimer: number;
+  idleAnimStep: number;
+  moveVelocity: number;
   bob: number;
   stationIndex: number | null;
   currentStation: string;
   flash?: number;
+  hologramTime?: number;
+  hologramSceneTime?: number;
+  hologramExpansion?: number;
   particleTimer?: number;
   particles?: WorkParticle[];
 }
@@ -313,6 +334,41 @@ export const ROLE_IDLE_SLOT_OFFSETS: Record<DuctorRoleName, { dx: number; dy: nu
   Kevin: { dx: 0, dy: 14 },
   Benjamin: { dx: 28, dy: -10 },
 };
+
+// Open foreground patrol lanes keep idle crew clear of consoles and specimen pods.
+export const IDLE_PATROL_POINTS: Record<DuctorRoleName, readonly Point2D[]> = {
+  Alec: [
+    { x: 170, y: 642 },
+    { x: 170, y: 570 },
+    { x: 330, y: 646 },
+    { x: 470, y: 646 },
+    { x: 700, y: 646 },
+    { x: 900, y: 610 },
+    { x: 1240, y: 646 },
+    { x: 1460, y: 570 },
+  ],
+  Kevin: [
+    { x: 220, y: 646 },
+    { x: 300, y: 570 },
+    { x: 470, y: 646 },
+    { x: 700, y: 470 },
+    { x: 900, y: 646 },
+    { x: 1240, y: 600 },
+    { x: 1480, y: 640 },
+  ],
+  Benjamin: [
+    { x: 190, y: 646 },
+    { x: 190, y: 570 },
+    { x: 470, y: 646 },
+    { x: 700, y: 620 },
+    { x: 930, y: 646 },
+    { x: 1240, y: 646 },
+    { x: 1480, y: 570 },
+  ],
+};
+
+// Intact authored poses are sequenced into a brief look-around while stopped.
+export const IDLE_GESTURE_FRAMES = [0, 0, 1, 1, 0, 2, 3, 2] as const;
 
 export function pickStation(
   agents: StarshipAgent[],
@@ -362,15 +418,20 @@ export function pickNewTarget(agent: StarshipAgent, agents: StarshipAgent[]): vo
     }
   }
 
-  // Idle wander mode or demo mode: pick among stations with distinct role slot offsets to prevent overlap
+  // Idle wander mode uses an open foreground patrol lane rather than crossing furniture.
   const { stationIndex, slot } = pickStation(agents, agent.id);
   const roleOffset = ROLE_IDLE_SLOT_OFFSETS[agent.name] ?? { dx: 0, dy: 0 };
+  const patrol = IDLE_PATROL_POINTS[agent.name] ?? IDLE_PATROL_POINTS.Alec;
+  const candidates = patrol.filter((p) => Math.hypot(p.x - agent.x, p.y - agent.y) > 70);
+  const point =
+    candidates[Math.floor(Math.random() * Math.max(1, candidates.length))] ?? patrol[0]!;
   const st = STATIONS[stationIndex] ?? STATIONS[0];
   agent.stationIndex = stationIndex;
-  agent.targetX = st.x + slot.dx + roleOffset.dx;
-  agent.targetY = st.y + slot.dy + roleOffset.dy;
+  agent.targetX = point.x + roleOffset.dx * 0.35 + slot.dx * 0.15;
+  agent.targetY = point.y + roleOffset.dy * 0.2 + slot.dy * 0.15;
   agent.currentStation = st.label;
   agent.state = STATE.MOVING;
+  agent.moveVelocity = 0;
 }
 
 export function routeToPoint(
@@ -446,6 +507,8 @@ export function makeAgent(spec: {
     stateTimer: 2 + Math.random() * 2,
     animFrame: 0,
     animTimer: 0,
+    idleAnimStep: 0,
+    moveVelocity: 0,
     bob: Math.random() * Math.PI * 2,
     stationIndex: spec.stationIndex ?? null,
     currentStation: spec.currentStation ?? '',
@@ -627,7 +690,11 @@ export function applySnapshotToAgents(
             ? STATE.WORKING
             : STATE.MOVING;
         // Staggered dispatch: add role-based delay to avoid all agents moving simultaneously
-        const roleDelay: Record<DuctorRoleName, number> = { Alec: 0, Kevin: 0.3, Benjamin: 0.6 };
+        const roleDelay: Record<DuctorRoleName, number> = {
+          Alec: 0,
+          Kevin: 0.3,
+          Benjamin: 0.6,
+        };
         a.stateTimer = (roleDelay[a.name] ?? 0) + Math.random() * 0.2;
         if (pushLog) pushLog(`${a.name} dispatched to assigned desk [${ws.label}].`);
       } else {
@@ -705,18 +772,34 @@ export function updateAgent(
         }
       }
       a.animFrame = 0;
+      a.moveVelocity = 0;
+      a.idleAnimStep = 0;
       if (pushLog) pushLog(`${a.name} arrived at ${a.currentStation}.`);
     } else {
-      const step = a.speed * speedMult * dt;
+      // Ease into and out of each walk so direction changes read as footsteps,
+      // rather than a sprite teleporting at a constant velocity.
+      const cruise = a.speed * speedMult;
+      const braking = Math.min(1, dist / 34);
+      a.moveVelocity += (cruise * braking - a.moveVelocity) * Math.min(1, dt * 8);
+      const step = Math.max(8, a.moveVelocity) * dt;
       const nx = a.x + (dx / dist) * Math.min(step, dist);
       const ny = a.y + (dy / dist) * Math.min(step, dist);
       const clamped = clampPointToPolygon({ x: nx, y: ny }, WALKABLE_POLYGON);
-      a.facing = dx >= 0 ? 1 : -1;
+      // Use authored front/back cycles for mainly vertical routes; side poses
+      // are reserved for true left/right travel.
+      if (Math.abs(dy) > Math.abs(dx) * 1.15) {
+        a.facing = dy >= 0 ? 'front' : 'back';
+      } else {
+        a.facing = dx >= 0 ? 1 : -1;
+      }
       a.x = clamped.x;
       a.y = clamped.y;
       a.animTimer += dt;
-      if (a.animTimer > 0.12) {
-        a.animTimer = 0;
+      // Four authored walk frames advance at a steady 8.3 fps; movement speed
+      // is expressed by the eased distance between steps, not frame skipping.
+      const stridePeriod = 0.12;
+      if (a.animTimer > stridePeriod) {
+        a.animTimer -= stridePeriod;
         a.animFrame = (a.animFrame + 1) % 4; // 4-frame walk cycle
       }
     }
@@ -768,9 +851,10 @@ export function updateAgent(
   } else if (a.state === STATE.IDLE) {
     a.stateTimer -= dt * speedMult;
     a.animTimer += dt;
-    if (a.animTimer > 0.8) {
-      a.animTimer = 0;
-      a.animFrame = (a.animFrame + 1) % 4;
+    if (a.animTimer > 0.42) {
+      a.animTimer -= 0.42;
+      a.idleAnimStep = (a.idleAnimStep + 1) % IDLE_GESTURE_FRAMES.length;
+      a.animFrame = IDLE_GESTURE_FRAMES[a.idleAnimStep]!;
     }
     if (a.stateTimer <= 0) {
       if (a.reportedState === 'working' || a.reportedState === 'review') {
@@ -802,8 +886,19 @@ export function updateAgent(
 
   const isOffline = a.reportedState === 'offline' || a.state === STATE.OFFLINE;
 
+  // Ambient map motion persists while the control's gesture clock remains work-only.
+  const usingHologram = isAlecUsingHologram(a);
+  if (a.name === 'Alec') {
+    a.hologramSceneTime =
+      (a.hologramSceneTime ?? 0) + dt * speedMult * (usingHologram ? 1 : 0.22);
+    const expansion = a.hologramExpansion ?? 0;
+    const change = (dt * speedMult) / 0.6;
+    a.hologramExpansion = Math.max(0, Math.min(1, expansion + (usingHologram ? change : -change)));
+  }
+  a.hologramTime = usingHologram ? (a.hologramTime ?? 0) + dt * speedMult : 0;
+
   // Work particles: spawn every ~0.9s when working at desk
-  if (a.state === STATE.WORKING && !isOffline) {
+  if (a.state === STATE.WORKING && !isOffline && a.name !== 'Alec') {
     a.particleTimer = (a.particleTimer ?? 0) + dt * speedMult;
     if (a.particleTimer >= 0.9) {
       a.particleTimer = 0;
@@ -1025,13 +1120,51 @@ export const WORK_HAND_PHASE_OFFSETS = [
   { leftYOffset: 1, rightYOffset: 0, bob: -0.5 },
 ] as const;
 
+// Whole authored purple rear-view poses from crew-sprites.webp, row 1, columns 9 and 10.
+// Do not infer limb bounds or rotate pieces of the character.
+const ALEC_TOUCH_STARTS = [0.12, 0.6, 1.08] as const;
+const ALEC_TOUCH_DURATION = 0.22;
+const ALEC_CONSOLE_CYCLE = 3.2;
+
+function getAlecConsoleCycle(timeSec: number) {
+  const time = Math.max(0, timeSec);
+  const cycle = Math.floor(time / ALEC_CONSOLE_CYCLE);
+  const phase = time - cycle * ALEC_CONSOLE_CYCLE;
+  const contact = ALEC_TOUCH_STARTS.some(
+    (start) => phase >= start && phase < start + ALEC_TOUCH_DURATION,
+  );
+  const response = Math.max(0, Math.min(1, (phase - 1.38) / 1.1));
+  const settled = response * response * (3 - 2 * response);
+  return { phase, contact, responseTime: (cycle + settled) * ALEC_CONSOLE_CYCLE };
+}
+
+export function getAlecHologramFrame(timeSec: number): number {
+  // Whole original rear-view poses: alternate open/closed control gestures.
+  return getAlecConsoleCycle(timeSec).contact ? 0 : 1;
+}
+
+function isAlecUsingHologram(a: StarshipAgent): boolean {
+  return (
+    a.name === 'Alec' &&
+    a.state === STATE.WORKING &&
+    a.reportedState !== 'offline' &&
+    (a.reportedState === undefined ||
+      a.reportedState === 'working' ||
+      a.reportedState === 'review') &&
+    isAgentAtStation(a)
+  );
+}
+
 export function drawAgent(
   ctx: CanvasRenderingContext2D,
   a: StarshipAgent,
   sheetImg: HTMLImageElement,
   _timeSec: number = Date.now() / 1000,
+  alecHologramImg?: HTMLImageElement,
+  walkImg?: HTMLImageElement,
 ): void {
   void _timeSec;
+  const hologramControlActive = isAlecUsingHologram(a);
   const isOffline = a.reportedState === 'offline' || a.state === STATE.OFFLINE;
   const isReview = !isOffline && a.reportedState === 'review';
   const isWorking =
@@ -1043,15 +1176,38 @@ export function drawAgent(
     ctx.globalAlpha = 0.35;
   }
 
-  const cw = sheetImg.width / SHEET_COLS;
-  const ch = sheetImg.height / SHEET_ROWS;
-  const row = a.skin.row;
-  const col =
-    a.state === STATE.MOVING
-      ? 4 + (a.animFrame % 4)
-      : a.facing === 'back' || (atDesk && a.facing !== 'front')
-        ? 8 + (a.animFrame % 4)
-        : 0 + (a.animFrame % 4);
+  const hologramSprite = hologramControlActive && alecHologramImg ? alecHologramImg : undefined;
+  const walkSprite = a.state === STATE.MOVING && walkImg ? walkImg : undefined;
+  const sprite = hologramSprite ?? walkSprite ?? sheetImg;
+  const cw = hologramSprite
+    ? hologramSprite.width / 2
+    : walkSprite
+      ? walkSprite.width / 12
+      : sheetImg.width / SHEET_COLS;
+  const ch = hologramSprite
+    ? hologramSprite.height
+    : walkSprite
+      ? walkSprite.height / 3
+      : sheetImg.height / SHEET_ROWS;
+  const walkRow = a.name === 'Benjamin' ? 0 : a.name === 'Kevin' ? 1 : 2;
+  const row = hologramSprite ? 0 : walkSprite ? walkRow : a.skin.row;
+  const idleFrame =
+    a.state === STATE.IDLE
+      ? a.idleAnimStep === 0 && a.animTimer === 0
+        ? a.animFrame
+        : IDLE_GESTURE_FRAMES[a.idleAnimStep % IDLE_GESTURE_FRAMES.length]!
+      : a.animFrame;
+  const col = hologramSprite
+    ? getAlecHologramFrame(a.hologramTime ?? 0)
+    : walkSprite
+      ? (a.facing === 'front' ? 4 : a.facing === 'back' ? 8 : 0) + (a.animFrame % 4)
+      : hologramControlActive
+        ? 8 + getAlecHologramFrame(a.hologramTime ?? 0)
+        : a.state === STATE.MOVING
+          ? 4 + (a.animFrame % 4)
+          : a.facing === 'back' || (atDesk && a.facing !== 'front')
+            ? 8 + (idleFrame % 4)
+            : 0 + (idleFrame % 4);
 
   const sx = col * cw;
   const sy = row * ch;
@@ -1064,7 +1220,7 @@ export function drawAgent(
 
   const phase = ((a.animFrame % 4) + 4) % 4;
   const phaseOffsets = WORK_HAND_PHASE_OFFSETS[phase]!;
-  const bobY = isWorking ? phaseOffsets.bob * scale : 0;
+  const bobY = isWorking && !hologramControlActive ? phaseOffsets.bob * scale : 0;
   const leanY = atDesk ? -1 : 0;
 
   // Foot Anchor: Coordinates (a.x, a.y) = bottom center of character feet.
@@ -1090,17 +1246,17 @@ export function drawAgent(
   const roleGlow = ROLE_GLOW_COLORS[a.name] ?? a.skin.tint ?? '#5ce1ff';
   ctx.shadowColor = roleGlow;
   ctx.shadowBlur = 8;
-  ctx.drawImage(sheetImg, sx, sy, cw, ch, -drawW / 2, -drawH, drawW, drawH);
+  ctx.drawImage(sprite, sx, sy, cw, ch, -drawW / 2, -drawH, drawW, drawH);
 
   // (3) Second pass with 'lighter' composite mode to boost sprite brightness
   ctx.shadowBlur = 0;
   ctx.shadowColor = 'transparent';
   ctx.globalCompositeOperation = 'lighter';
   ctx.globalAlpha = isOffline ? 0.35 * 0.22 : 0.22;
-  ctx.drawImage(sheetImg, sx, sy, cw, ch, -drawW / 2, -drawH, drawW, drawH);
+  ctx.drawImage(sprite, sx, sy, cw, ch, -drawW / 2, -drawH, drawW, drawH);
 
-  // (4) 2 typing hand cues in bright role color in front of chest
-  if (isWorking) {
+  // Alec uses complete authored rear-view poses; other operators keep their hand cues.
+  if (isWorking && !hologramControlActive) {
     const leftX = -drawW * 0.14;
     const rightX = drawW * 0.06;
     const baseY = -drawH * 0.38;
@@ -1150,7 +1306,7 @@ export function drawAgent(
   }
 
   // Status glow ring while working (scaled at feet)
-  if (a.state === STATE.WORKING && !isOffline) {
+  if (a.state === STATE.WORKING && !isOffline && !hologramControlActive) {
     ctx.save();
     ctx.beginPath();
     ctx.ellipse(a.x, a.y, 20 * scale, 7 * scale, 0, 0, Math.PI * 2);
@@ -1174,10 +1330,16 @@ export function drawAgent(
   }
 
   // Status bubble above head (always visible)
-  drawAgentStatusBubble(ctx, a, drawH, bobY);
+  // Keep Alec's label beside his body, clear of the enlarged map.
+  drawAgentStatusBubble(
+    ctx,
+    hologramControlActive ? { ...a, x: a.x - 105, y: a.y + 40 } : a,
+    drawH,
+    bobY,
+  );
 
   // Work particles floating above agent
-  drawWorkParticles(ctx, a);
+  if (!hologramControlActive) drawWorkParticles(ctx, a);
 
   ctx.restore();
 }
@@ -1189,14 +1351,14 @@ export function drawDeskCutouts(
 ): void {
   for (const agent of agents) {
     const ws = WORKSTATIONS[agent.name];
-    if (!ws || !ws.occlusionBounds) continue;
+    // Alec stands in front of the physical table, not behind its front panel.
+    if (!ws || !ws.occlusionBounds || agent.name === 'Alec') continue;
 
     const isOffline = agent.reportedState === 'offline' || agent.state === STATE.OFFLINE;
-    const isWorking =
-      !isOffline &&
-      (agent.state === STATE.WORKING ||
-        agent.reportedState === 'working' ||
-        agent.reportedState === 'review');
+    // A live snapshot can remain "working" for a few frames while the
+    // simulation is routing the crew member away. Never cover a moving or
+    // idle sprite with a desk cutout during that transition.
+    const isWorking = !isOffline && agent.state === STATE.WORKING;
 
     if (isWorking && isAgentAtStation(agent)) {
       const c = ws.occlusionBounds;
@@ -1208,115 +1370,557 @@ export function drawDeskCutouts(
   }
 }
 
+// The same planetary map is always present on the table. Work only expands it;
+// leaving the station shrinks it back without revealing the old baked-in chart.
 export function drawHologramTopGlow(
   ctx: CanvasRenderingContext2D,
   agents: StarshipAgent[],
-  timeSec: number = Date.now() / 1000,
+  _timeSec: number = Date.now() / 1000,
+  bgImg?: HTMLImageElement,
 ): void {
+  void _timeSec;
+  if (!bgImg) return;
   const alec = agents.find((a) => a.name === 'Alec');
-  if (!alec) return;
-  const isOffline = alec.reportedState === 'offline' || alec.state === STATE.OFFLINE;
-  const isWorking =
-    !isOffline &&
-    (alec.state === STATE.WORKING ||
-      alec.reportedState === 'working' ||
-      alec.reportedState === 'review');
+  const working = !!alec && isAlecUsingHologram(alec);
+  const controlTime = alec?.hologramTime ?? 0;
+  const time = alec?.hologramSceneTime ?? controlTime;
+  const source = { x: 516, y: 443, w: 106, h: 71 };
+  const expansion = alec?.hologramExpansion ?? (working ? Math.min(1, controlTime / 0.6) : 0);
+  const open = 1; // Content visibility is independent of the work-driven expansion.
+  const zoom = 1 + 0.65 * expansion * expansion * (3 - 2 * expansion);
+  const w = source.w * zoom;
+  const h = source.h * zoom;
+  const cx = source.x + source.w / 2;
+  const bottom = source.y + source.h;
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 1;
+  ctx.shadowBlur = 0;
+  ctx.drawImage(bgImg, source.x, source.y, source.w, source.h, cx - w / 2, bottom - h, w, h);
+  ctx.beginPath();
+  ctx.rect(cx - w / 2 + 5 * zoom, bottom - h + 5 * zoom, w - 10 * zoom, h - 10 * zoom);
+  ctx.clip();
+  ctx.translate(cx - w / 2, bottom - h);
+  ctx.scale(zoom, zoom);
 
-  if (!isWorking || !isAgentAtStation(alec)) return;
+  // A translucent upper glass layer reveals the actual room behind the enlarged panel.
+  // Stop above the baked-in small map, so the old artwork cannot ghost through.
+  const space = ctx.createLinearGradient(0, 5, 0, 66);
+  space.addColorStop(0, '#112d3b');
+  space.addColorStop(0.55, '#0b2635');
+  space.addColorStop(1, '#164454');
+  ctx.fillStyle = space;
+  ctx.fillRect(5, 5, 96, 61);
+  const roomTop = bottom - h + 5 * zoom;
+  const roomHeight = Math.max(0, source.y - roomTop - 2);
+  if (roomHeight > 0) {
+    ctx.globalAlpha = 0.22;
+    ctx.drawImage(
+      bgImg,
+      cx - w / 2 + 5 * zoom,
+      roomTop,
+      96 * zoom,
+      roomHeight,
+      5,
+      5,
+      96,
+      roomHeight / zoom,
+    );
+    const glass = ctx.createLinearGradient(0, 5, 0, 5 + roomHeight / zoom);
+    glass.addColorStop(0, '#112d3b00');
+    glass.addColorStop(1, '#0b2635ff');
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = glass;
+    ctx.fillRect(5, 5, 96, roomHeight / zoom);
+  }
 
-  const ws = WORKSTATIONS.Alec;
-  const r = ws.displayBounds;
-  const color = ROLE_GLOW_COLORS.Alec ?? '#c98bff';
-  const pulse = 0.25 + 0.12 * Math.sin(timeSec * 3.5 + (alec.bob ?? 0));
+  // The viewport stays still. Independent orbits and navigation responses make
+  // the system move instead of repeatedly magnifying the whole picture.
+  const navigation = getHologramNavigation(controlTime, working);
+  ctx.save();
+
+  // Broad wisps build depth around the star field without a solid nebula disc.
+  ctx.globalCompositeOperation = 'lighter';
+  for (let cloud = 0; cloud < 12; cloud++) {
+    const u = cloud / 11;
+    const x = 14 + u * 78;
+    const y = 53 - u * 36 + Math.sin(u * 6 + time * 0.025) * 3;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(1.7, 0.6 + (cloud % 3) * 0.12);
+    const haze = ctx.createRadialGradient(0, 0, 0, 0, 0, 11);
+    haze.addColorStop(0, '#56bdd624');
+    haze.addColorStop(0.35, '#348da918');
+    haze.addColorStop(1, '#16435b00');
+    ctx.globalAlpha = open;
+    ctx.fillStyle = haze;
+    ctx.fillRect(-11, -11, 22, 22);
+    ctx.restore();
+  }
+  ctx.globalCompositeOperation = 'source-over';
+
+  // The fixed seed keeps fine dust stable between frames; depth controls parallax.
+  for (const mote of HOLOGRAM_DUST) {
+    const drift = Math.sin(time * 0.18 + mote.depth * 0.13);
+    const x = mote.x + drift * mote.depth * 0.65;
+    const y = mote.y + Math.cos(time * 0.13 + mote.depth * 0.2) * mote.depth * 0.3;
+    ctx.globalAlpha = open * mote.alpha * (0.8 + Math.sin(time * 0.8 + mote.x) * 0.2);
+    ctx.fillStyle = mote.depth > 0 ? '#beedf0' : '#5ba8c3';
+    ctx.beginPath();
+    ctx.arc(x, y, mote.radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  for (let i = 0; i < 38; i++) {
+    const x = 7 + ((i * 37.73) % 91);
+    const y = 7 + ((i * 19.31) % 57);
+    ctx.globalAlpha = open * (0.16 + (i % 4) * 0.1);
+    ctx.fillStyle = '#bedee8';
+    ctx.beginPath();
+    ctx.arc(x, y, i % 7 === 0 ? 0.25 : 0.12, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // A few subdued navigation branches preserve the original map's identity.
+  // Most of the field is carried by star clusters rather than a polygon mesh.
+  ctx.globalAlpha = open * 0.14;
+  ctx.strokeStyle = '#70c4d8';
+  ctx.lineWidth = 0.28;
+  ctx.beginPath();
+  ctx.moveTo(32, 15);
+  ctx.bezierCurveTo(35, 28, 43, 35, 54, 38);
+  ctx.bezierCurveTo(66, 32, 76, 23, 86, 20);
+  ctx.moveTo(54, 38);
+  ctx.bezierCurveTo(68, 44, 79, 46, 87, 51);
+  ctx.stroke();
+  drawMapStar(ctx, 32, 15, 0.42, '#ffae83', open * 0.65);
+  drawMapStar(ctx, 86, 20, 0.68, '#c1f3ff', open * 0.85);
+  drawMapStar(ctx, 87, 51, 0.5, '#bceeff', open * 0.65);
+  drawMapStar(ctx, 69, 27, 0.28, '#bceeff', open * 0.8);
+  drawMapStar(ctx, 18, 45, 0.3, '#bceeff', open * 0.55);
+
+  // Thin orbital tracks sit behind the shaded planets, with shorter trails
+  // indicating their direction of travel rather than a spinning flat panel.
+  const orbit = getHologramOrbit(time);
+  ctx.strokeStyle = '#70c4d8';
+  ctx.lineWidth = 0.22;
+  ctx.globalAlpha = 0.2;
+  ctx.beginPath();
+  ctx.ellipse(54, 38, 28, 12, -0.14, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.globalAlpha = 0.1;
+  ctx.beginPath();
+  ctx.ellipse(54, 38, 15, 7, -0.14, 0, Math.PI * 2);
+  ctx.stroke();
+  for (let segment = 0; segment < 18; segment++) {
+    const previous = getHologramOrbit(time - (18 - segment) * 0.16);
+    const next = getHologramOrbit(time - (17 - segment) * 0.16);
+    ctx.globalAlpha = (segment / 18) * 0.38;
+    ctx.lineWidth = 0.45;
+    ctx.beginPath();
+    ctx.moveTo(previous.x, previous.y);
+    ctx.lineTo(next.x, next.y);
+    ctx.stroke();
+  }
+
+  // The orange hub stays fixed; a ringed world actually travels around it.
+  const pulse = 0.5 + 0.5 * Math.sin(time * 1.1);
+  const planet = {
+    ...orbit,
+    radius: 7.3,
+    ring: true,
+    colors: ['#132f42', '#225b71', '#488f9c', '#9bc9c6', '#e0e9d5'],
+  };
+  const innerOrbit = getHologramOrbit(time * 1.8 + 8, 15, 7);
+  const innerPlanet = {
+    ...innerOrbit,
+    radius: 1.65,
+    ring: false,
+    colors: ['#132238', '#234966', '#448da5', '#80bdca', '#c7e5df'],
+  };
+  if (planet.depth < 0) drawHologramPlanet(ctx, planet, time, open);
+  if (innerPlanet.depth < 0) drawHologramPlanet(ctx, innerPlanet, time, open);
+  drawMapStar(ctx, 54, 38, 1.65 + pulse * 0.05, '#ffb468', open);
+  if (innerPlanet.depth >= 0) drawHologramPlanet(ctx, innerPlanet, time, open);
+  if (planet.depth >= 0) drawHologramPlanet(ctx, planet, time, open);
+  if (working) drawHologramNavigation(ctx, navigation);
+  ctx.restore();
+
+  // Restrained spill at the lower glass edge ties the projection to its cyan emitter.
+  ctx.globalAlpha = open;
+  const spill = ctx.createLinearGradient(0, 55, 0, 66);
+  spill.addColorStop(0, '#6ce8f000');
+  spill.addColorStop(1, '#6ce8f025');
+  ctx.fillStyle = spill;
+  ctx.fillRect(5, 55, 96, 11);
+  ctx.restore();
+}
+
+export function getHologramOrbit(time: number, radiusX = 28, radiusY = 12) {
+  const angle = 2.85 + time * 0.22;
+  const x = Math.cos(angle) * radiusX;
+  const y = Math.sin(angle) * radiusY;
+  const tilt = -0.14;
+  return {
+    x: 54 + x * Math.cos(tilt) - y * Math.sin(tilt),
+    y: 38 + x * Math.sin(tilt) + y * Math.cos(tilt),
+    depth: Math.sin(angle),
+  };
+}
+
+const HOLOGRAM_TARGETS = [{ x: 86, y: 20 }, { x: 32, y: 15 }, { x: 87, y: 51 }] as const;
+
+export function getHologramNavigation(time: number, working: boolean) {
+  const cycle = Math.floor(Math.max(0, time) / ALEC_CONSOLE_CYCLE);
+  const { phase } = getAlecConsoleCycle(time);
+  const progress = working ? Math.max(0, Math.min(1, (phase - 1.38) / 1.1)) : 0;
+  return {
+    target: HOLOGRAM_TARGETS[cycle % HOLOGRAM_TARGETS.length]!,
+    scan: Math.max(0, Math.min(1, (phase - 0.12) / 1.18)),
+    route: progress * progress * (3 - 2 * progress),
+    signal: Math.max(0, Math.min(1, (phase - 2.48) / 0.55)),
+    opacity: working ? Math.min(1, phase / 0.15, (ALEC_CONSOLE_CYCLE - phase) / 0.18) : 0,
+  };
+}
+
+function drawHologramNavigation(
+  ctx: CanvasRenderingContext2D,
+  navigation: ReturnType<typeof getHologramNavigation>,
+) {
+  const { target, route, scan, signal, opacity } = navigation;
+  const point = (t: number) => ({
+    x: (1 - t) ** 2 * 54 + 2 * (1 - t) * t * (target.x - 9) + t * t * target.x,
+    y: (1 - t) ** 2 * 38 + 2 * (1 - t) * t * (target.y - 5) + t * t * target.y,
+  });
+  ctx.save();
+  // Lock onto one existing star while Alec touches the controls.
+  ctx.strokeStyle = '#a1eff4';
+  ctx.lineWidth = 0.4;
+  ctx.globalAlpha = opacity * 0.8;
+  const radius = 2.6 + (1 - scan) * 3;
+  for (let corner = 0; corner < 4; corner++) {
+    const angle = corner * Math.PI / 2 + scan * 0.4;
+    ctx.beginPath();
+    ctx.arc(target.x, target.y, radius, angle, angle + 0.65);
+    ctx.stroke();
+  }
+  // Survey sweep stays local to the selected system and fades after locking.
+  ctx.globalAlpha = opacity * (1 - scan) * 0.24;
+  ctx.beginPath();
+  ctx.arc(target.x, target.y, 7, scan * Math.PI * 2, scan * Math.PI * 2 + 0.7);
+  ctx.stroke();
+  if (route > 0) {
+    ctx.globalAlpha = opacity * 0.65;
+    ctx.lineWidth = 0.35;
+    ctx.beginPath();
+    ctx.moveTo(54, 38);
+    for (let step = 1; step <= 32; step++) {
+      const p = point(route * step / 32);
+      ctx.lineTo(p.x, p.y);
+    }
+    ctx.stroke();
+    const head = point(route);
+    drawMapStar(ctx, head.x, head.y, 0.38, '#7cddf1', opacity * 0.9);
+  }
+  if (signal > 0) {
+    // A departing signal traverses the calculated route, followed by a
+    // confirmation ripple at the destination. No viewport zoom is involved.
+    const ship = point(signal);
+    drawMapStar(ctx, ship.x, ship.y, 0.5, '#a9f1fb', opacity);
+    ctx.globalAlpha = opacity * signal * (1 - signal * 0.7);
+    ctx.strokeStyle = '#a1eff4';
+    ctx.beginPath();
+    ctx.arc(target.x, target.y, 2 + signal * 5, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+const HOLOGRAM_DUST = Array.from({ length: 420 }, (_, index) => {
+  const random = (salt: number) => {
+    const value = Math.sin(index * 127.1 + salt * 311.7) * 43758.5453;
+    return value - Math.floor(value);
+  };
+  const u = random(1);
+  const spread = (random(2) + random(3) + random(4) - 1.5) * (4 + Math.sin(u * Math.PI) * 7);
+  return {
+    x: 12 + u * 81 + spread * 0.3,
+    y: 54 - u * 38 + Math.sin(u * 6) * 3 + spread,
+    depth: random(5) * 12 - 6,
+    radius: 0.075 + random(6) * 0.18,
+    alpha: 0.12 + random(7) * 0.48,
+  };
+});
+
+type HologramPlanet = {
+  x: number;
+  y: number;
+  depth: number;
+  radius: number;
+  ring: boolean;
+  colors: readonly string[];
+};
+
+function drawMapStar(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  radius: number,
+  color: string,
+  opacity: number,
+): void {
+  ctx.globalAlpha = opacity;
+  const glow = ctx.createRadialGradient(x, y, 0, x, y, radius * 4.5);
+  glow.addColorStop(0, '#fff9eb');
+  glow.addColorStop(0.14, '#fff0ce');
+  glow.addColorStop(0.3, color);
+  glow.addColorStop(0.55, color + '42');
+  glow.addColorStop(1, color + '00');
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(x, y, radius * 4.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#fff5dc';
+  ctx.beginPath();
+  ctx.arc(x, y, radius * 0.55, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawHologramPlanet(
+  ctx: CanvasRenderingContext2D,
+  planet: HologramPlanet,
+  time: number,
+  open: number,
+): void {
+  const { x, y, radius, colors } = planet;
+  const opacity = open * (planet.depth < 0 ? 0.85 : 1);
+  const lightLength = Math.max(1, Math.hypot(54 - x, 38 - y));
+  const lightX = (54 - x) / lightLength;
+  const lightY = (38 - y) / lightLength;
+  const moonAngle = time * 0.65 + 0.5;
+  const moonX = x + Math.cos(moonAngle) * radius * 2.7;
+  const moonY = y + Math.sin(moonAngle) * radius * 0.9;
+  const drawMoon = () => {
+    const shade = ctx.createRadialGradient(moonX - 0.25, moonY - 0.25, 0, moonX, moonY, 0.65);
+    shade.addColorStop(0, '#d7e2df');
+    shade.addColorStop(0.5, '#77959f');
+    shade.addColorStop(1, '#1c394b');
+    ctx.globalAlpha = opacity;
+    ctx.fillStyle = shade;
+    ctx.beginPath();
+    ctx.arc(moonX, moonY, 0.65, 0, Math.PI * 2);
+    ctx.fill();
+  };
+  const drawRing = (front: boolean) => {
+    // Multiple fine translucent bands form a dust ring, with the planet occluding its rear.
+    for (let band = 0; band < 9; band++) {
+      const ringRadius = radius * (1.55 + band * 0.065);
+      ctx.globalAlpha = opacity * (front ? 0.42 : 0.2) * (band === 5 ? 0.25 : 1);
+      ctx.strokeStyle = band % 3 === 0 ? '#cee2d9' : '#81acb7';
+      ctx.lineWidth = 0.23;
+      ctx.beginPath();
+      ctx.ellipse(
+        x,
+        y,
+        ringRadius,
+        ringRadius * 0.28,
+        -0.3,
+        front ? 0 : Math.PI,
+        front ? Math.PI : Math.PI * 2,
+      );
+      ctx.stroke();
+    }
+  };
+  if (planet.ring && Math.sin(moonAngle) < 0) drawMoon();
+  if (planet.ring) drawRing(false);
 
   ctx.save();
-  // Glowing hologram ellipse on table surface
   ctx.beginPath();
-  const cx = r.x + r.w / 2;
-  const cy = r.y + r.h / 2;
-  ctx.ellipse(cx, cy, r.w * 0.42, r.h * 0.38, 0, 0, Math.PI * 2);
-  ctx.fillStyle = color;
-  ctx.globalAlpha = Math.max(0.12, Math.min(0.4, pulse));
-  ctx.fill();
-  ctx.strokeStyle = '#e9d5ff';
-  ctx.lineWidth = 1.5;
-  ctx.globalAlpha = Math.max(0.25, Math.min(0.65, pulse * 1.5));
-  ctx.stroke();
-
-  // Starmap concentric rings
-  ctx.beginPath();
-  ctx.ellipse(cx, cy, r.w * 0.25, r.h * 0.22, 0, 0, Math.PI * 2);
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 1;
-  ctx.globalAlpha = Math.max(0.2, Math.min(0.5, pulse));
-  ctx.stroke();
-
-  // Floating star points / starmap nodes
-  const starOffsets = [
-    { dx: -45, dy: -10, speed: 1.2, phase: 0 },
-    { dx: 35, dy: -15, speed: 1.6, phase: 1.5 },
-    { dx: -15, dy: 10, speed: 1.0, phase: 3.0 },
-    { dx: 40, dy: 12, speed: 1.4, phase: 4.2 },
-    { dx: 0, dy: -5, speed: 2.0, phase: 2.1 },
-  ];
-  ctx.fillStyle = '#ffffff';
-  for (const s of starOffsets) {
-    const floatY = Math.sin(timeSec * s.speed + s.phase) * 6;
-    const starAlpha = 0.4 + 0.5 * Math.sin(timeSec * 2 + s.phase);
-    ctx.globalAlpha = Math.max(0.2, Math.min(0.9, starAlpha));
-    ctx.beginPath();
-    ctx.arc(cx + s.dx, cy + s.dy + floatY, 2, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // Deterministic sci-fi traffic: short comet trails orbit the map while Alec works.
-  if (
-    typeof ctx.rect !== 'function' ||
-    typeof ctx.clip !== 'function' ||
-    typeof ctx.createLinearGradient !== 'function' ||
-    typeof ctx.moveTo !== 'function' ||
-    typeof ctx.lineTo !== 'function'
-  ) {
-    ctx.restore();
-    return;
-  }
-  ctx.beginPath();
-  ctx.rect(r.x, r.y, r.w, r.h);
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
   ctx.clip();
-  const comets = [
-    { orbitW: 0.34, orbitH: 0.24, speed: 1.35, phase: 0.2, tail: 0.16 },
-    { orbitW: 0.27, orbitH: 0.31, speed: -1.05, phase: 2.1, tail: 0.13 },
-    { orbitW: 0.39, orbitH: 0.18, speed: 0.82, phase: 4.3, tail: 0.19 },
-    { orbitW: 0.2, orbitH: 0.34, speed: -1.55, phase: 5.2, tail: 0.11 },
-  ];
-  for (const comet of comets) {
-    const angle = timeSec * comet.speed + comet.phase;
-    const x = cx + Math.cos(angle) * r.w * comet.orbitW;
-    const y = cy + Math.sin(angle) * r.h * comet.orbitH;
-    const tailAngle = angle - comet.tail * comet.speed;
-    const tailX = cx + Math.cos(tailAngle) * r.w * comet.orbitW;
-    const tailY = cy + Math.sin(tailAngle) * r.h * comet.orbitH;
+  ctx.globalAlpha = opacity;
+  const body = ctx.createRadialGradient(
+    x + lightX * radius * 0.45,
+    y + lightY * radius * 0.45,
+    radius * 0.05,
+    x,
+    y,
+    radius * 1.15,
+  );
+  body.addColorStop(0, colors[4]!);
+  body.addColorStop(0.35, colors[3]!);
+  body.addColorStop(0.65, colors[2]!);
+  body.addColorStop(0.85, colors[1]!);
+  body.addColorStop(1, colors[0]!);
+  ctx.fillStyle = body;
+  ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
 
-    const trail = ctx.createLinearGradient(tailX, tailY, x, y);
-    trail.addColorStop(0, 'rgba(233, 213, 255, 0)');
-    trail.addColorStop(0.7, 'rgba(214, 170, 255, 0.35)');
-    trail.addColorStop(1, 'rgba(255, 255, 255, 0.9)');
-    ctx.strokeStyle = trail;
-    ctx.lineWidth = 2.5;
-    ctx.lineCap = 'round';
-    ctx.globalAlpha = 0.9;
+  // Delicate curved cloud bands, clipped to the sphere.
+  for (let band = -3; band <= 3; band++) {
+    const offset = band * radius * 0.26;
+    ctx.globalAlpha = opacity * (band % 2 === 0 ? 0.13 : 0.08);
+    ctx.strokeStyle = band % 2 === 0 ? '#e0f3ed' : '#19394b';
+    ctx.lineWidth = radius * 0.15;
     ctx.beginPath();
-    ctx.moveTo(tailX, tailY);
-    ctx.lineTo(x, y);
+    ctx.moveTo(x - radius, y + offset);
+    ctx.bezierCurveTo(
+      x - radius * 0.25,
+      y + offset + radius * 0.4,
+      x + radius * 0.4,
+      y + offset - radius * 0.18 + Math.sin(time * 0.65 + band) * radius * 0.12,
+      x + radius,
+      y + offset - radius * 0.1,
+    );
     ctx.stroke();
+  }
+  const night = ctx.createLinearGradient(
+    x + lightX * radius,
+    y + lightY * radius,
+    x - lightX * radius,
+    y - lightY * radius,
+  );
+  night.addColorStop(0, '#020d1800');
+  night.addColorStop(0.4, '#020d1800');
+  night.addColorStop(0.7, '#020d1880');
+  night.addColorStop(1, '#020d18f0');
+  ctx.globalAlpha = opacity;
+  ctx.fillStyle = night;
+  ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+  ctx.restore();
 
-    ctx.fillStyle = '#ffffff';
-    ctx.globalAlpha = 0.95;
-    ctx.beginPath();
-    ctx.arc(x, y, 2.6, 0, Math.PI * 2);
-    ctx.fill();
+  // A fine atmospheric limb catches the light from the central star.
+  ctx.globalAlpha = opacity * 0.45;
+  ctx.strokeStyle = '#b6dde7';
+  ctx.lineWidth = 0.18;
+  const lightAngle = Math.atan2(lightY, lightX);
+  ctx.beginPath();
+  ctx.arc(x, y, radius, lightAngle - 1, lightAngle + 1);
+  ctx.stroke();
+  if (planet.ring) drawRing(true);
+  if (planet.ring && Math.sin(moonAngle) >= 0) drawMoon();
+}
+
+export function drawAlecHologramControl(
+  ctx: CanvasRenderingContext2D,
+  a: StarshipAgent,
+  foreground = false,
+): void {
+  if (!isAlecUsingHologram(a)) return;
+  const time = a.hologramTime ?? 0;
+  const { contact, phase, responseTime } = getAlecConsoleCycle(time);
+  const cx = a.x;
+  const handY = a.y - 41;
+  const coreY = a.y - 112;
+  const grip = contact ? 1 : 0;
+  const breath = 0.5 + Math.sin(time * 1.8) * 0.5;
+  ctx.save();
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.lineWidth = 0.65;
+  ctx.shadowBlur = 0;
+
+  if (!foreground) {
+    // Two filaments rise beside the intact rear-view character to the table's emitter.
+    // The body occludes their middle sections naturally.
+    for (const side of [-1, 1]) {
+      const hx = cx + side * 23;
+      ctx.strokeStyle = '#6de1e6';
+      ctx.globalAlpha = 0.18 + grip * 0.18;
+      ctx.beginPath();
+      ctx.moveTo(hx, handY);
+      ctx.bezierCurveTo(
+        cx + side * 37,
+        handY - 26,
+        cx + side * 33,
+        coreY + 15,
+        cx + side * 5,
+        coreY + 3,
+      );
+      ctx.stroke();
+      // An energy pulse travels toward the projector once the gesture is released.
+      if (phase >= 1.38 && phase < 2.48) {
+        const t = (phase - 1.38) / 1.1;
+        const inv = 1 - t;
+        const px =
+          inv ** 3 * hx +
+          3 * inv ** 2 * t * (cx + side * 37) +
+          3 * inv * t ** 2 * (cx + side * 33) +
+          t ** 3 * (cx + side * 5);
+        const py =
+          inv ** 3 * handY +
+          3 * inv ** 2 * t * (handY - 26) +
+          3 * inv * t ** 2 * (coreY + 15) +
+          t ** 3 * (coreY + 3);
+        drawMapStar(ctx, px, py, 0.38, '#9ef5ee', Math.sin(t * Math.PI) * 0.8);
+      }
+    }
+    const glow = ctx.createRadialGradient(cx, coreY, 0, cx, coreY, 12);
+    glow.addColorStop(0, '#b6fcf750');
+    glow.addColorStop(0.5, '#62dfe428');
+    glow.addColorStop(1, '#3dbad500');
+    ctx.globalAlpha = 0.65 + breath * 0.15;
+    ctx.fillStyle = glow;
+    ctx.fillRect(cx - 12, coreY - 12, 24, 24);
+    // A small faceted control core, distinct from the planetary map above it.
+    const spin = responseTime * 0.35;
+    const r = 5.8 + grip * 0.5;
+    for (let layer = 0; layer < 2; layer++) {
+      ctx.beginPath();
+      for (let i = 0; i <= 6; i++) {
+        const angle = spin + (i * Math.PI) / 3 + layer * 0.6;
+        const px = cx + Math.cos(angle) * r;
+        const py = coreY + Math.sin(angle) * r * (layer ? 0.55 : 1);
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.strokeStyle = layer ? '#baffef' : '#63bfdb';
+      ctx.globalAlpha = layer ? 0.7 : 0.45;
+      ctx.stroke();
+    }
+    drawMapStar(ctx, cx, coreY, 0.7, '#9dffe9', 0.85);
   }
 
+  // The two floating control fields sit at the original back-view hand positions.
+  // Render rear halves before the character and front halves after it.
+  for (const side of [-1, 1]) {
+    const hx = cx + side * 23;
+    const radius = 8.2 - grip * 1.2;
+    if (!foreground) {
+      const halo = ctx.createRadialGradient(hx, handY, 0, hx, handY, radius + 4);
+      halo.addColorStop(0, '#a2ffed20');
+      halo.addColorStop(0.55, '#5ccdd918');
+      halo.addColorStop(1, '#3caad500');
+      ctx.globalAlpha = 0.7;
+      ctx.fillStyle = halo;
+      ctx.fillRect(hx - 13, handY - 13, 26, 26);
+    }
+    for (let ring = 0; ring < 2; ring++) {
+      ctx.beginPath();
+      ctx.ellipse(
+        hx,
+        handY,
+        radius + ring * 2.5,
+        4 + ring,
+        side * 0.18,
+        foreground ? 0 : Math.PI,
+        foreground ? Math.PI : Math.PI * 2,
+      );
+      ctx.strokeStyle = ring === 0 ? '#aff8e8' : '#64b8d2';
+      ctx.globalAlpha = (foreground ? 0.65 : 0.3) + grip * 0.18;
+      ctx.lineWidth = ring === 0 ? 0.7 : 0.4;
+      ctx.stroke();
+    }
+    if (foreground) {
+      const angle = side * (time * 0.65 + 0.5);
+      drawMapStar(
+        ctx,
+        hx + Math.cos(angle) * radius,
+        handY + Math.sin(angle) * 4,
+        0.32,
+        '#befff1',
+        0.75,
+      );
+    }
+  }
   ctx.restore();
 }
 
@@ -1445,11 +2049,13 @@ export function drawStage(
   panX: number = 0,
   panY: number = 0,
   zoom: number = 1,
+  alecHologramImg?: HTMLImageElement,
+  walkImg?: HTMLImageElement,
 ): { scale: number; offX: number; offY: number } {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, rect.width, rect.height);
 
-  const baseScale = Math.max(rect.width / CW, rect.height / CH);
+  const baseScale = getStageBaseScale(rect);
   const scale = baseScale * zoom;
   const drawW = CW * scale;
   const drawH = CH * scale;
@@ -1464,17 +2070,21 @@ export function drawStage(
 
   drawWorkstationScreens(ctx, agents, timeSec);
   drawFloorMarkers(ctx, showStations);
+  drawHologramTopGlow(ctx, agents, timeSec, bgImg);
+  const alec = agents.find((a) => a.name === 'Alec');
+  if (alec) drawAlecHologramControl(ctx, alec);
 
   const sorted = [...agents].sort((a, b) => a.y - b.y);
   for (const a of sorted) {
-    drawAgent(ctx, a, sheetImg, timeSec);
+    drawAgent(ctx, a, sheetImg, timeSec, alecHologramImg, walkImg);
   }
 
-  // Draw desk occlusion cutouts over sitting/standing agents' lower bodies
-  drawDeskCutouts(ctx, bgImg, agents);
+  // Foreground arcs wrap around the hands without modifying the original character art.
+  if (alec) drawAlecHologramControl(ctx, alec, true);
 
-  // Redraw hologram effect on top of desk cutout for Alec
-  drawHologramTopGlow(ctx, agents, timeSec);
+  // Crew members stand in front of the consoles in this top-down room. Do not
+  // repaint the background over their lower bodies: that made walking sprites
+  // appear to lose their torso and legs during station transitions.
 
   drawWorkstationLabels(ctx, agents);
 

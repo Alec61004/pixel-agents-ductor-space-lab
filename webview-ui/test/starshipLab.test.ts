@@ -26,6 +26,7 @@ import {
   FLOOR_Y_MIN,
   getAgentStatusBubble,
   getDepthScale,
+  getStageBaseScale,
   IDLE_POINTS,
   isPointInPolygon,
   makeAgent,
@@ -43,7 +44,13 @@ import {
   WALKABLE_POLYGON,
   WORKSTATIONS,
 } from '../src/ductor/StarshipLab.js';
-import { WORK_HAND_PHASE_OFFSETS } from '../src/ductor/starshipSimulation.js';
+import {
+  drawAlecHologramControl,
+  getAlecHologramFrame,
+  getHologramNavigation,
+  getHologramOrbit,
+  WORK_HAND_PHASE_OFFSETS,
+} from '../src/ductor/starshipSimulation.js';
 
 const snapshot: DuctorStatusSnapshot = {
   theme: 'ductor-space-lab',
@@ -283,32 +290,62 @@ test('defines 3 fixed workstations (Alec, Kevin, Benjamin) with correct labels a
   assert.ok(WORKSTATIONS.Benjamin);
 
   // New device-anchored coordinates matching actual painted devices in starship-bg.png
-  assert.deepEqual(WORKSTATIONS.Alec.approachPoint, { x: 480, y: 575 });
-  assert.deepEqual(WORKSTATIONS.Alec.interactionPoint, { x: 480, y: 570 });
-  assert.equal(WORKSTATIONS.Alec.facing, 'front');
-  assert.deepEqual(WORKSTATIONS.Alec.displayBounds, { x: 505, y: 442, w: 140, h: 98 });
+  assert.deepEqual(WORKSTATIONS.Alec.approachPoint, { x: 569, y: 656 });
+  assert.deepEqual(WORKSTATIONS.Alec.interactionPoint, { x: 569, y: 638 });
+  assert.equal(WORKSTATIONS.Alec.facing, 'back');
+  assert.deepEqual(WORKSTATIONS.Alec.displayBounds, {
+    x: 505,
+    y: 442,
+    w: 140,
+    h: 98,
+  });
   assert.deepEqual(WORKSTATIONS.Alec.displayAreas, [{ x: 505, y: 442, w: 140, h: 98 }]);
-  assert.deepEqual(WORKSTATIONS.Alec.occlusionBounds, { x: 500, y: 525, w: 145, h: 65 });
+  assert.deepEqual(WORKSTATIONS.Alec.occlusionBounds, {
+    x: 500,
+    y: 525,
+    w: 145,
+    h: 65,
+  });
   assert.equal(WORKSTATIONS.Alec.label, 'Alec — Strategy');
 
   assert.deepEqual(WORKSTATIONS.Kevin.approachPoint, { x: 450, y: 490 });
   assert.deepEqual(WORKSTATIONS.Kevin.interactionPoint, { x: 450, y: 455 });
   assert.equal(WORKSTATIONS.Kevin.facing, 'back');
-  assert.deepEqual(WORKSTATIONS.Kevin.displayBounds, { x: 460, y: 318, w: 250, h: 32 });
+  assert.deepEqual(WORKSTATIONS.Kevin.displayBounds, {
+    x: 460,
+    y: 318,
+    w: 250,
+    h: 32,
+  });
   assert.deepEqual(WORKSTATIONS.Kevin.displayAreas, [
     { x: 460, y: 318, w: 60, h: 30 },
     { x: 536, y: 318, w: 70, h: 30 },
     { x: 648, y: 318, w: 60, h: 30 },
   ]);
-  assert.deepEqual(WORKSTATIONS.Kevin.occlusionBounds, { x: 405, y: 420, w: 340, h: 40 });
+  assert.deepEqual(WORKSTATIONS.Kevin.occlusionBounds, {
+    x: 405,
+    y: 420,
+    w: 340,
+    h: 40,
+  });
   assert.equal(WORKSTATIONS.Kevin.label, 'Kevin — Build');
 
   assert.deepEqual(WORKSTATIONS.Benjamin.approachPoint, { x: 1060, y: 585 });
   assert.deepEqual(WORKSTATIONS.Benjamin.interactionPoint, { x: 1060, y: 580 });
   assert.equal(WORKSTATIONS.Benjamin.facing, 'back');
-  assert.deepEqual(WORKSTATIONS.Benjamin.displayBounds, { x: 1010, y: 520, w: 110, h: 55 });
+  assert.deepEqual(WORKSTATIONS.Benjamin.displayBounds, {
+    x: 1010,
+    y: 520,
+    w: 110,
+    h: 55,
+  });
   assert.deepEqual(WORKSTATIONS.Benjamin.displayAreas, [{ x: 1010, y: 520, w: 110, h: 55 }]);
-  assert.deepEqual(WORKSTATIONS.Benjamin.occlusionBounds, { x: 1010, y: 570, w: 120, h: 55 });
+  assert.deepEqual(WORKSTATIONS.Benjamin.occlusionBounds, {
+    x: 1010,
+    y: 570,
+    w: 120,
+    h: 55,
+  });
   assert.equal(WORKSTATIONS.Benjamin.label, 'Benjamin — QA');
 
   assert.equal(typeof drawWorkstationLabels, 'function');
@@ -343,10 +380,10 @@ test('agent working state positions agent at their own assigned workstation inte
   const kevin = crew.find((a) => a.name === 'Kevin')!;
   const benjamin = crew.find((a) => a.name === 'Benjamin')!;
 
-  // Alec must be at Alec's desk interactionPoint facing front
+  // Alec stands in front of the projector and faces the map
   assert.equal(alec.x, WORKSTATIONS.Alec.interactionPoint.x);
   assert.equal(alec.y, WORKSTATIONS.Alec.interactionPoint.y);
-  assert.equal(alec.facing, 'front');
+  assert.equal(alec.facing, 'back');
   assert.equal(alec.currentStation, 'Alec — Strategy');
   assert.notEqual(alec.x, WORKSTATIONS.Kevin.interactionPoint.x);
   assert.notEqual(alec.x, WORKSTATIONS.Benjamin.interactionPoint.x);
@@ -487,6 +524,18 @@ test('getDepthScale calculates linear depth scaling between rear wall ~0.8 and f
   assert.ok(getDepthScale(500) < getDepthScale(550));
   assert.ok(getDepthScale(550) < getDepthScale(600));
   assert.ok(getDepthScale(600) < getDepthScale(650));
+});
+
+test('getStageBaseScale fits the full room in an ultra-wide short preview', () => {
+  const shortViewport = { width: 1535, height: 288 };
+  const scale = getStageBaseScale(shortViewport);
+
+  assert.equal(scale, shortViewport.height / 678);
+  assert.equal(scale * 678, shortViewport.height);
+  assert.ok(scale * 1600 < shortViewport.width);
+
+  const normalViewport = { width: 1600, height: 678 };
+  assert.equal(getStageBaseScale(normalViewport), 1);
 });
 
 test('agents stepping outside walkable floor are clamped to walkable polygon during movement', () => {
@@ -690,11 +739,8 @@ test('work particles spawn every ~0.9s for working agents with role-specific ico
 
   // Advance another 0.5s (total 1.0s >= 0.9s): particle spawns
   updateAgent(alec, 0.5, 1, crew);
-  assert.equal(alec.particles?.length, 1);
-  const p1 = alec.particles![0]!;
-  assert.equal(p1.icon, '⌨');
-  assert.equal(p1.color, '#c98bff');
-  assert.ok(p1.vy < 0); // upward velocity
+  assert.equal(alec.particles?.length ?? 0, 0, 'Alec uses gestures instead of typing particles');
+  assert.equal(alec.hologramTime, 1);
 
   // Test Kevin code particle
   updateAgent(kevin, 1.0, 1, crew);
@@ -711,10 +757,10 @@ test('work particles spawn every ~0.9s for working agents with role-specific ico
   assert.equal(bp.color, '#ff5c5c');
 
   // Particles float upward and decay over time
-  const initialY = p1.y;
-  updateAgent(alec, 0.3, 1, crew);
-  assert.ok(p1.y < initialY, 'Particle must move upwards (y decreases)');
-  assert.ok(p1.alpha < 1, 'Particle alpha must decay');
+  const initialY = kp.y;
+  updateAgent(kevin, 0.1, 1, crew);
+  assert.ok(kp.y < initialY, 'Particle must move upwards (y decreases)');
+  assert.ok(kp.alpha < 1, 'Particle alpha must decay');
 });
 
 test('working agent faces into desk/station according to assigned workstation config', () => {
@@ -819,6 +865,8 @@ test('drawAgent selects front-idle frames for Alec (facing front) and back-idle 
       drawCalls.push({ type: 'translate', x, y });
     },
     scale: () => {},
+    rotate: () => {},
+    clip: () => {},
     beginPath: () => {},
     roundRect: () => {},
     rect: () => {},
@@ -827,7 +875,11 @@ test('drawAgent selects front-idle frames for Alec (facing front) and back-idle 
     stroke: () => {},
     fillText: () => {},
     drawImage: (...args: any[]) => {
-      drawCalls.push({ type: 'drawImage', args, globalAlpha: mockCtx.globalAlpha });
+      drawCalls.push({
+        type: 'drawImage',
+        args,
+        globalAlpha: mockCtx.globalAlpha,
+      });
     },
     measureText: () => ({ width: 50 }),
     imageSmoothingEnabled: true,
@@ -855,6 +907,8 @@ test('drawAgent selects front-idle frames for Alec (facing front) and back-idle 
   ];
 
   for (const { agent, row, name } of skinTestCases) {
+    // This checks generic idle sheets; dedicated Alec typing frames are covered below.
+    if (name === 'Alec') agent.state = STATE.IDLE;
     for (let phase = 0; phase < 4; phase++) {
       // Front facing: col = 0..3 (sx = 0,1,2,3 * cw), row = row (sy = row * ch)
       drawCalls.length = 0;
@@ -1061,17 +1115,15 @@ test('drawDeskCutouts renders occlusion bounds from bgImg to occlude agent lower
 
   drawDeskCutouts(mockCtx, mockBgImg, crew);
 
-  // All 3 working agents must have their occlusion bounds drawn
-  assert.equal(drawImageCalls.length, 3);
+  // Only seated operators are behind their desks; Alec is in front.
+  assert.equal(drawImageCalls.length, 2);
 
   // Alec occlusion bounds
   const alecCutout = drawImageCalls.find(
     (c) =>
       c[1] === WORKSTATIONS.Alec.occlusionBounds.x && c[2] === WORKSTATIONS.Alec.occlusionBounds.y,
   );
-  assert.ok(alecCutout);
-  assert.equal(alecCutout[3], WORKSTATIONS.Alec.occlusionBounds.w);
-  assert.equal(alecCutout[4], WORKSTATIONS.Alec.occlusionBounds.h);
+  assert.equal(alecCutout, undefined);
 
   // Kevin occlusion bounds
   const kevinCutout = drawImageCalls.find(
@@ -1108,66 +1160,24 @@ test('drawDeskCutouts renders occlusion bounds from bgImg to occlude agent lower
   assert.equal(alecIdleCutout, undefined);
 });
 
-test('drawHologramTopGlow renders pulsing violet hologram ellipse, starmap rings, and star nodes for Alec when working', () => {
+test('drawDeskCutouts never hides a crew member while routing away from a desk', () => {
   const crew = createInitialCrew(snapshot);
-  const ellipseCalls: any[] = [];
-  const arcCalls: any[] = [];
-  const cometEndpoints: Array<[number, number]> = [];
-
+  const drawImageCalls: any[] = [];
   const mockCtx = {
     save: () => {},
     restore: () => {},
-    beginPath: () => {},
-    rect: () => {},
-    clip: () => {},
-    ellipse: (...args: any[]) => {
-      ellipseCalls.push(args);
-    },
-    arc: (...args: any[]) => {
-      arcCalls.push(args);
-    },
-    fill: () => {},
-    stroke: () => {},
-    createLinearGradient: () => ({ addColorStop: () => {} }),
-    moveTo: () => {},
-    lineTo: (x: number, y: number) => {
-      cometEndpoints.push([x, y]);
-    },
-    fillStyle: '',
-    strokeStyle: '',
-    globalAlpha: 1.0,
-    lineWidth: 1,
+    drawImage: (...args: any[]) => drawImageCalls.push(args),
+    imageSmoothingEnabled: true,
   } as unknown as CanvasRenderingContext2D;
-
-  drawHologramTopGlow(mockCtx, crew, 0);
-
-  // Must render at least 2 hologram ellipses (table surface + concentric ring) and multiple star nodes
-  assert.ok(ellipseCalls.length >= 2);
-  assert.ok(arcCalls.length >= 4);
-  assert.equal(cometEndpoints.length, 4);
-  const firstFrame = [...cometEndpoints];
-  cometEndpoints.length = 0;
-  drawHologramTopGlow(mockCtx, crew, 0.5);
-  assert.equal(cometEndpoints.length, 4);
-  assert.notDeepEqual(cometEndpoints, firstFrame, 'comet endpoints must move with time');
-
-  // Ellipse center must be at Alec displayBounds center
-  const r = WORKSTATIONS.Alec.displayBounds;
-  const expectedCx = r.x + r.w / 2;
-  const expectedCy = r.y + r.h / 2;
-  assert.equal(ellipseCalls[0][0], expectedCx);
-  assert.equal(ellipseCalls[0][1], expectedCy);
-
-  // Turns off when Alec is idle
-  ellipseCalls.length = 0;
-  arcCalls.length = 0;
-  const alec = crew.find((a) => a.name === 'Alec')!;
-  alec.state = STATE.IDLE;
-  alec.reportedState = 'idle';
-
-  drawHologramTopGlow(mockCtx, crew, 0);
-  assert.equal(ellipseCalls.length, 0);
-  assert.equal(arcCalls.length, 0);
+  const mockBgImg = { width: 1600, height: 678 } as HTMLImageElement;
+  const kevin = crew.find((a) => a.name === 'Kevin')!;
+  kevin.state = STATE.MOVING;
+  kevin.reportedState = 'working';
+  drawDeskCutouts(mockCtx, mockBgImg, crew);
+  assert.equal(
+    drawImageCalls.some((call) => call[1] === WORKSTATIONS.Kevin.occlusionBounds.x),
+    false,
+  );
 });
 
 test('V1.9 typing effects: drawAgent renders 2 typing arms (3x2px) in role color oscillating in opposite phase with deterministic 0.20s cadence', () => {
@@ -1175,8 +1185,13 @@ test('V1.9 typing effects: drawAgent renders 2 typing arms (3x2px) in role color
   const kevin = crew.find((a) => a.name === 'Kevin')!;
   assert.equal(kevin.state, STATE.WORKING);
 
-  const fillRectCalls: Array<{ x: number; y: number; w: number; h: number; fillStyle: string }> =
-    [];
+  const fillRectCalls: Array<{
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    fillStyle: string;
+  }> = [];
   const scaleCalls: Array<[number, number]> = [];
   const translateCalls: Array<{ x: number; y: number }> = [];
   const mockCtx = {
@@ -1196,7 +1211,13 @@ test('V1.9 typing effects: drawAgent renders 2 typing arms (3x2px) in role color
     fillText: () => {},
     drawImage: () => {},
     fillRect: (x: number, y: number, w: number, h: number) => {
-      fillRectCalls.push({ x, y, w, h, fillStyle: mockCtx.fillStyle as string });
+      fillRectCalls.push({
+        x,
+        y,
+        w,
+        h,
+        fillStyle: mockCtx.fillStyle as string,
+      });
     },
     imageSmoothingEnabled: true,
     shadowColor: '',
@@ -1464,7 +1485,12 @@ test('V1.9 idle wander: idle agent wanders between points every 2-4s and changes
   };
 
   const crew = createInitialCrew(idleSnapshot);
-  const startPositions = crew.map((a) => ({ id: a.id, name: a.name, x: a.x, y: a.y }));
+  const startPositions = crew.map((a) => ({
+    id: a.id,
+    name: a.name,
+    x: a.x,
+    y: a.y,
+  }));
 
   // Simulate 5 seconds in steps of 0.05s (100 steps)
   const dt = 0.05;
@@ -1485,4 +1511,134 @@ test('V1.9 idle wander: idle agent wanders between points every 2-4s and changes
       `Idle agent ${agent.name} should have wandered and changed position within 5s, but moved only ${distMoved.toFixed(1)}px`,
     );
   }
+});
+
+test('Alec uses intact original rear poses with gesture fields and the same cyan map', () => {
+  const crew = createInitialCrew(snapshot);
+  const alec = crew.find((a) => a.name === 'Alec')!;
+  const bgImg = { width: 1600, height: 678 } as HTMLImageElement;
+  const sheet = { width: 1280, height: 960 } as HTMLImageElement;
+  const hologramSprite = { width: 160, height: 112 } as HTMLImageElement;
+  function frame(time: number) {
+    alec.hologramTime = time;
+    const calls: any[][] = [];
+    const ctx = new Proxy(
+      {},
+      {
+        get: (_, name) =>
+          name === 'createRadialGradient' || name === 'createLinearGradient'
+            ? (...args: any[]) => {
+                calls.push([name, ...args]);
+                return {
+                  addColorStop: (...stops: any[]) => calls.push(['addColorStop', ...stops]),
+                };
+              }
+            : name === 'measureText'
+              ? () => ({ width: 80 })
+              : (...args: any[]) => calls.push([name, ...args]),
+        set: () => true,
+      },
+    ) as CanvasRenderingContext2D;
+    drawHologramTopGlow(ctx, crew, time, bgImg);
+    drawAlecHologramControl(ctx, alec);
+    drawAgent(ctx, alec, sheet, time, hologramSprite);
+    return calls;
+  }
+  for (const time of [0.15, 0.65, 1.13]) assert.equal(getAlecHologramFrame(time), 0);
+  for (const time of [0, 0.4, 0.9, 1.8, 2.8]) assert.equal(getAlecHologramFrame(time), 1);
+  assert.equal(getHologramNavigation(1.3, true).route, 0, 'route waits for the last key release');
+  assert.ok(getHologramNavigation(1.9, true).route > 0, 'route draws after the typing phrase');
+  assert.equal(frame(1.9).some((c) => c[0] === 'transform'), false, 'the map camera stays still');
+  const first = frame(0);
+  assert.deepEqual(
+    first.find((c) => c[0] === 'drawImage')?.slice(1, 6),
+    [bgImg, 516, 443, 106, 71],
+    'reuse the full original cyan map and frame',
+  );
+  assert.notDeepEqual(frame(3), first);
+  assert.deepEqual(frame(0), first);
+  for (let time = 0; time < 8; time += 0.05) {
+    const calls = frame(time);
+    const map = calls.find((c) => c[0] === 'drawImage' && c[1] === bgImg)!;
+    if (time >= 0.6) assert.ok(Math.abs(map[8] - 106 * 1.65) < 0.0001);
+    const poses = calls.filter((c) => c[0] === 'drawImage' && c[1] === hologramSprite);
+    assert.equal(poses.length, 2, 'whole sprite plus its existing brightness pass');
+    for (const pose of poses) {
+      assert.deepEqual(pose.slice(2, 6), [getAlecHologramFrame(time) * 80, 0, 80, 112]);
+    }
+    assert.equal(
+      calls.some((c) => c[0] === 'rotate'),
+      false,
+      'never rotate cropped limbs',
+    );
+    assert.equal(
+      calls.some((c) => c[0] === 'clip' && c[1] === 'evenodd'),
+      false,
+      'never cut holes in the body',
+    );
+    assert.equal(
+      calls.filter((c) => c[0] === 'save').length,
+      calls.filter((c) => c[0] === 'restore').length,
+    );
+    for (const call of calls)
+      for (const n of call.slice(1)) {
+        if (typeof n === 'number') assert.ok(Number.isFinite(n));
+      }
+  }
+  for (const state of ['idle', 'waiting', 'blocked', 'offline']) {
+    Object.assign(alec, { state, reportedState: state });
+    const calls = frame(0);
+    const map = calls.find((c) => c[0] === 'drawImage' && c[1] === bgImg);
+    assert.deepEqual(map?.slice(8, 10), [106, 71], `${state}: same map at resting size`);
+    assert.ok(
+      calls.some((c) => c[0] === 'createRadialGradient'),
+      `${state}: render the new field`,
+    );
+    assert.equal(
+      calls.some((c) => c[0] === 'drawImage' && c[1] === hologramSprite),
+      false,
+      state,
+    );
+  }
+  Object.assign(alec, { state: STATE.MOVING, reportedState: 'working' });
+  assert.equal(
+    frame(0).some((c) => c[0] === 'drawImage' && c[1] === hologramSprite),
+    false,
+  );
+  Object.assign(alec, WORKSTATIONS.Alec.interactionPoint, {
+    state: STATE.WORKING,
+    reportedState: 'working',
+    hologramExpansion: 0,
+  });
+  for (let i = 0; i < 10; i++) updateAgent(alec, 0.1, 1, crew);
+  const expanded = frame(1).find((c) => c[0] === 'drawImage' && c[1] === bgImg);
+  assert.ok(Math.abs(expanded![8] - 106 * 1.65) < 0.001);
+  const sceneTime = alec.hologramSceneTime;
+  Object.assign(alec, { state: STATE.IDLE, reportedState: 'idle', stateTimer: 10 });
+  updateAgent(alec, 0.2, 1, crew);
+  const shrinking = frame(0).find((c) => c[0] === 'drawImage' && c[1] === bgImg);
+  assert.ok(shrinking![8] > 106 && shrinking![8] < expanded![8], 'smoothly shrink on work end');
+  for (let i = 0; i < 8; i++) updateAgent(alec, 0.1, 1, crew);
+  const resting = frame(0).find((c) => c[0] === 'drawImage' && c[1] === bgImg);
+  assert.equal(resting![8], 106);
+  assert.ok(alec.hologramSceneTime! > sceneTime!, 'ambient field keeps moving while idle');
+});
+
+test('the ringed world travels around the fixed star while navigation follows Alec gestures', () => {
+  const start = getHologramOrbit(0);
+  const later = getHologramOrbit(6);
+  assert.ok(Math.hypot(later.x - start.x, later.y - start.y) > 10);
+  const fullOrbit = getHologramOrbit(Math.PI * 2 / 0.22);
+  assert.ok(Math.hypot(start.x - fullOrbit.x, start.y - fullOrbit.y) < 0.0001);
+  for (let time = 0; time < 30; time += 0.1) {
+    const planet = getHologramOrbit(time);
+    assert.ok(planet.x > 25 && planet.x < 83 && planet.y > 25 && planet.y < 51);
+  }
+  assert.equal(getHologramNavigation(1, true).route, 0);
+  assert.ok(getHologramNavigation(1.9, true).route > 0);
+  assert.equal(getHologramNavigation(2.5, true).route, 1);
+  assert.ok(getHologramNavigation(2.8, true).signal > 0);
+  assert.notDeepEqual(getHologramNavigation(1, true).target, getHologramNavigation(4.2, true).target);
+  assert.equal(getHologramNavigation(2.8, false).opacity, 0);
+  assert.equal(getHologramNavigation(2.8, false).route, 0);
 });
