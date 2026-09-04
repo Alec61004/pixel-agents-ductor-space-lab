@@ -1108,66 +1108,30 @@ test('drawDeskCutouts renders occlusion bounds from bgImg to occlude agent lower
   assert.equal(alecIdleCutout, undefined);
 });
 
-test('drawHologramTopGlow renders pulsing violet hologram ellipse, starmap rings, and star nodes for Alec when working', () => {
+test('Alec animates the existing cyan map without a replacement hologram', () => {
   const crew = createInitialCrew(snapshot);
-  const ellipseCalls: any[] = [];
-  const arcCalls: any[] = [];
-  const cometEndpoints: Array<[number, number]> = [];
-
-  const mockCtx = {
-    save: () => {},
-    restore: () => {},
-    beginPath: () => {},
-    rect: () => {},
-    clip: () => {},
-    ellipse: (...args: any[]) => {
-      ellipseCalls.push(args);
+  const calls: any[][] = [];
+  const colors: string[] = [];
+  const ctx = new Proxy({}, {
+    get: (_, name) => (...args: any[]) => calls.push([name, ...args]),
+    set: (_, name, value) => {
+      if (name === 'fillStyle' || name === 'strokeStyle') colors.push(value);
+      return true;
     },
-    arc: (...args: any[]) => {
-      arcCalls.push(args);
-    },
-    fill: () => {},
-    stroke: () => {},
-    createLinearGradient: () => ({ addColorStop: () => {} }),
-    moveTo: () => {},
-    lineTo: (x: number, y: number) => {
-      cometEndpoints.push([x, y]);
-    },
-    fillStyle: '',
-    strokeStyle: '',
-    globalAlpha: 1.0,
-    lineWidth: 1,
-  } as unknown as CanvasRenderingContext2D;
-
-  drawHologramTopGlow(mockCtx, crew, 0);
-
-  // Must render at least 2 hologram ellipses (table surface + concentric ring) and multiple star nodes
-  assert.ok(ellipseCalls.length >= 2);
-  assert.ok(arcCalls.length >= 4);
-  assert.ok(cometEndpoints.length > 4, 'connected constellations accompany the comet trails');
-  const firstFrame = [...cometEndpoints];
-  cometEndpoints.length = 0;
-  drawHologramTopGlow(mockCtx, crew, 0.5);
-  assert.equal(cometEndpoints.length, firstFrame.length);
-  assert.notDeepEqual(cometEndpoints, firstFrame, 'comet endpoints must move with time');
-
-  // Effects stay inside the painted projection, above the physical table.
-  const r = { x: 520, y: 447, w: 98, h: 62 };
-  const expectedCx = r.x + r.w / 2;
-  const expectedCy = r.y + r.h / 2;
-  assert.equal(ellipseCalls[0][0], expectedCx);
-  assert.equal(ellipseCalls[0][1], expectedCy);
-
-  // Turns off when Alec is idle
-  ellipseCalls.length = 0;
-  arcCalls.length = 0;
-  const alec = crew.find((a) => a.name === 'Alec')!;
-  alec.state = STATE.IDLE;
-  alec.reportedState = 'idle';
-
-  drawHologramTopGlow(mockCtx, crew, 0);
-  assert.equal(ellipseCalls.length, 0);
-  assert.equal(arcCalls.length, 0);
+  }) as CanvasRenderingContext2D;
+  drawHologramTopGlow(ctx, crew, 0.5);
+  assert.ok(calls.some(call => call[0] === 'lineTo'));
+  assert.ok(calls.some(call => call[0] === 'arc'));
+  assert.equal(calls.some(call => call[0] === 'ellipse'), false, 'no purple sphere or rings');
+  assert.equal(calls.some(call => call[0] === 'fillRect'), false, 'never cover the painted map');
+  assert.deepEqual(calls.find(call => call[0] === 'rect'), ['rect', 520, 447, 98, 62]);
+  assert.ok(colors.every(color => ['#ffcf87', '#9ceeff', '#edfcff', '#80e9ff', '#e5fbff'].includes(color)));
+  // Every fill must follow an arc: no large background wash.
+  let lastShape = '';
+  for (const call of calls) {
+    if (['rect', 'arc', 'ellipse'].includes(call[0])) lastShape = call[0];
+    if (call[0] === 'fill') assert.equal(lastShape, 'arc');
+  }
 });
 
 test('V1.9 typing effects: drawAgent renders 2 typing arms (3x2px) in role color oscillating in opposite phase with deterministic 0.20s cadence', () => {
