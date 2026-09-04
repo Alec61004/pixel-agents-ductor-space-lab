@@ -43,7 +43,11 @@ import {
   WALKABLE_POLYGON,
   WORKSTATIONS,
 } from '../src/ductor/StarshipLab.js';
-import { getAlecHologramPose, WORK_HAND_PHASE_OFFSETS } from '../src/ductor/starshipSimulation.js';
+import {
+  drawAlecKeyboard,
+  getAlecKeyboardFrame,
+  WORK_HAND_PHASE_OFFSETS,
+} from '../src/ductor/starshipSimulation.js';
 
 const snapshot: DuctorStatusSnapshot = {
   theme: 'ductor-space-lab',
@@ -283,9 +287,9 @@ test('defines 3 fixed workstations (Alec, Kevin, Benjamin) with correct labels a
   assert.ok(WORKSTATIONS.Benjamin);
 
   // New device-anchored coordinates matching actual painted devices in starship-bg.png
-  assert.deepEqual(WORKSTATIONS.Alec.approachPoint, { x: 570, y: 645 });
-  assert.deepEqual(WORKSTATIONS.Alec.interactionPoint, { x: 570, y: 625 });
-  assert.equal(WORKSTATIONS.Alec.facing, 'back');
+  assert.deepEqual(WORKSTATIONS.Alec.approachPoint, { x: 490, y: 638 });
+  assert.deepEqual(WORKSTATIONS.Alec.interactionPoint, { x: 490, y: 615 });
+  assert.equal(WORKSTATIONS.Alec.facing, 'front');
   assert.deepEqual(WORKSTATIONS.Alec.displayBounds, {
     x: 505,
     y: 442,
@@ -376,7 +380,7 @@ test('agent working state positions agent at their own assigned workstation inte
   // Alec stands in front of the projector and faces the map
   assert.equal(alec.x, WORKSTATIONS.Alec.interactionPoint.x);
   assert.equal(alec.y, WORKSTATIONS.Alec.interactionPoint.y);
-  assert.equal(alec.facing, 'back');
+  assert.equal(alec.facing, 'front');
   assert.equal(alec.currentStation, 'Alec — Strategy');
   assert.notEqual(alec.x, WORKSTATIONS.Kevin.interactionPoint.x);
   assert.notEqual(alec.x, WORKSTATIONS.Benjamin.interactionPoint.x);
@@ -888,6 +892,8 @@ test('drawAgent selects front-idle frames for Alec (facing front) and back-idle 
   ];
 
   for (const { agent, row, name } of skinTestCases) {
+    // This checks generic idle sheets; dedicated Alec typing frames are covered below.
+    if (name === 'Alec') agent.state = STATE.IDLE;
     for (let phase = 0; phase < 4; phase++) {
       // Front facing: col = 0..3 (sx = 0,1,2,3 * cw), row = row (sy = row * ch)
       drawCalls.length = 0;
@@ -1472,11 +1478,12 @@ test('V1.9 idle wander: idle agent wanders between points every 2-4s and changes
   }
 });
 
-test('Alec gestures enlarge the original map in sync and keep his body in front', () => {
+test('Alec uses intact original typing frames with a keyboard and enlarged cyan map', () => {
   const crew = createInitialCrew(snapshot);
   const alec = crew.find((a) => a.name === 'Alec')!;
   const bgImg = { width: 1600, height: 678 } as HTMLImageElement;
-  const sheet = { width: 512, height: 256 } as HTMLImageElement;
+  const sheet = { width: 1280, height: 960 } as HTMLImageElement;
+  const keyboardSprite = { width: 160, height: 112 } as HTMLImageElement;
   function frame(time: number) {
     alec.hologramTime = time;
     const calls: any[][] = [];
@@ -1491,7 +1498,8 @@ test('Alec gestures enlarge the original map in sync and keep his body in front'
       },
     ) as CanvasRenderingContext2D;
     drawHologramTopGlow(ctx, crew, time, bgImg);
-    drawAgent(ctx, alec, sheet, time);
+    drawAlecKeyboard(ctx, alec);
+    drawAgent(ctx, alec, sheet, time, keyboardSprite);
     return calls;
   }
   const first = frame(0);
@@ -1502,13 +1510,25 @@ test('Alec gestures enlarge the original map in sync and keep his body in front'
   );
   assert.notDeepEqual(frame(3), first);
   assert.deepEqual(frame(0), first);
-  for (let time = 0; time < 16; time += 0.05) {
+  for (let time = 0; time < 8; time += 0.05) {
     const calls = frame(time);
     const map = calls.find((c) => c[0] === 'drawImage' && c[1] === bgImg)!;
-    if (time >= 0.65) assert.ok(map[8] >= 106 * 1.449 && map[8] <= 106 * 1.701);
-    const pose = getAlecHologramPose(time);
-    const rotations = calls.filter((c) => c[0] === 'rotate').map((c) => c[1]);
-    assert.ok(rotations.includes(pose.left) && rotations.includes(pose.right));
+    if (time >= 0.6) assert.ok(Math.abs(map[8] - 106 * 1.65) < 0.0001);
+    const poses = calls.filter((c) => c[0] === 'drawImage' && c[1] === keyboardSprite);
+    assert.equal(poses.length, 2, 'whole sprite plus its existing brightness pass');
+    for (const pose of poses) {
+      assert.deepEqual(pose.slice(2, 6), [getAlecKeyboardFrame(time) * 80, 0, 80, 112]);
+    }
+    assert.equal(
+      calls.some((c) => c[0] === 'rotate'),
+      false,
+      'never rotate cropped limbs',
+    );
+    assert.equal(
+      calls.some((c) => c[0] === 'clip' && c[1] === 'evenodd'),
+      false,
+      'never cut holes in the body',
+    );
     assert.equal(
       calls.filter((c) => c[0] === 'save').length,
       calls.filter((c) => c[0] === 'restore').length,
@@ -1518,21 +1538,23 @@ test('Alec gestures enlarge the original map in sync and keep his body in front'
         if (typeof n === 'number') assert.ok(Number.isFinite(n));
       }
   }
-  const expanded = getAlecHologramPose(5);
-  assert.equal(expanded.zoom, 1.7);
-  assert.deepEqual(expanded, getAlecHologramPose(6), 'hold still to inspect the map');
   for (const state of ['idle', 'waiting', 'blocked', 'offline']) {
     Object.assign(alec, { state, reportedState: state });
+    const calls = frame(0);
     assert.equal(
-      frame(0).some((c) => c[0] === 'drawImage' && c[1] === bgImg),
+      calls.some((c) => c[0] === 'drawImage' && c[1] === bgImg),
+      false,
+      state,
+    );
+    assert.equal(
+      calls.some((c) => c[0] === 'drawImage' && c[1] === keyboardSprite),
       false,
       state,
     );
   }
   Object.assign(alec, { state: STATE.MOVING, reportedState: 'working' });
   assert.equal(
-    frame(0).some((c) => c[0] === 'rotate'),
+    frame(0).some((c) => c[0] === 'drawImage' && c[1] === keyboardSprite),
     false,
-    'no gestures while walking',
   );
 });

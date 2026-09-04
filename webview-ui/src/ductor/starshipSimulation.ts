@@ -79,9 +79,9 @@ export const WORKSTATIONS: Record<DuctorRoleName, WorkstationConfig> = {
     agentName: 'Alec',
     label: 'Alec — Strategy',
     roleDescription: 'Strategy',
-    approachPoint: { x: 570, y: 645 },
-    interactionPoint: { x: 570, y: 625 },
-    facing: 'back',
+    approachPoint: { x: 490, y: 638 },
+    interactionPoint: { x: 490, y: 615 },
+    facing: 'front',
     displayBounds: { x: 505, y: 442, w: 140, h: 98 },
     displayAreas: [{ x: 505, y: 442, w: 140, h: 98 }],
     occlusionBounds: { x: 500, y: 525, w: 145, h: 65 },
@@ -807,7 +807,7 @@ export function updateAgent(
 
   const isOffline = a.reportedState === 'offline' || a.state === STATE.OFFLINE;
 
-  // One clock drives both Alec's hands and the map response, including speed control.
+  // One clock drives Alec's original typing frames, lit keys and star motion.
   if (isAlecUsingHologram(a)) {
     a.hologramTime = (a.hologramTime ?? 0) + dt * speedMult;
   } else {
@@ -1037,30 +1037,12 @@ export const WORK_HAND_PHASE_OFFSETS = [
   { leftYOffset: 1, rightYOffset: 0, bob: -0.5 },
 ] as const;
 
-// A deliberate gesture cycle: select, drag, spread, inspect, then release.
-// The same keyframes control the original map image and the character's arms.
-export function getAlecHologramPose(timeSec: number) {
-  const keys = [
-    { t: 0, left: 0.1, right: -0.2, zoom: 1.45, pan: 0 },
-    { t: 1.2, left: 0.8, right: -2.2, zoom: 1.45, pan: 0 },
-    { t: 3.0, left: 0.8, right: -1.5, zoom: 1.45, pan: 7 },
-    { t: 4.5, left: 2.1, right: -2.1, zoom: 1.7, pan: 0 },
-    { t: 6.5, left: 2.1, right: -2.1, zoom: 1.7, pan: 0 },
-    { t: 8.0, left: 0.1, right: -0.2, zoom: 1.45, pan: 0 },
-  ];
-  const time = ((timeSec % 8) + 8) % 8;
-  const endIndex = keys.findIndex((key) => key.t > time);
-  const end = keys[endIndex]!;
-  const start = keys[endIndex - 1]!;
-  const progress = (time - start.t) / (end.t - start.t);
-  const ease = progress * progress * (3 - 2 * progress);
-  const lerp = (a: number, b: number) => a + (b - a) * ease;
-  return {
-    left: lerp(start.left, end.left),
-    right: lerp(start.right, end.right),
-    zoom: lerp(start.zoom, end.zoom),
-    pan: lerp(start.pan, end.pan),
-  };
+// Whole authored poses from crew-sprites.webp, row 4, columns 5 and 6.
+// Do not infer limb bounds or rotate pieces of the character.
+export function getAlecKeyboardFrame(timeSec: number): number {
+  const cadence = [0, 0, 1, 0, 1, 1, 0, 0];
+  const index = ((Math.floor(timeSec / 0.16) % cadence.length) + cadence.length) % cadence.length;
+  return cadence[index]!;
 }
 
 function isAlecUsingHologram(a: StarshipAgent): boolean {
@@ -1075,58 +1057,15 @@ function isAlecUsingHologram(a: StarshipAgent): boolean {
   );
 }
 
-function drawAlecGestureSprite(
-  ctx: CanvasRenderingContext2D,
-  sheet: HTMLImageElement,
-  sx: number,
-  sy: number,
-  cw: number,
-  ch: number,
-  w: number,
-  h: number,
-  time: number,
-): void {
-  const pose = getAlecHologramPose(time);
-  // Reuse the armor pixels of the original back-facing sprite. Remove its
-  // resting arms from the body pass before rotating those same arm cutouts.
-  ctx.save();
-  ctx.beginPath();
-  ctx.rect(-w / 2, -h, w, h);
-  ctx.rect(-w * 0.22, -h * 0.68, w * 0.15, h * 0.4);
-  ctx.rect(w * 0.07, -h * 0.68, w * 0.15, h * 0.4);
-  ctx.clip('evenodd');
-  ctx.drawImage(sheet, sx, sy, cw, ch, -w / 2, -h, w, h);
-  ctx.restore();
-  for (const arm of [
-    { sourceX: 0.28, pivot: -0.145, angle: pose.left },
-    { sourceX: 0.57, pivot: 0.145, angle: pose.right },
-  ]) {
-    ctx.save();
-    ctx.translate(w * arm.pivot, -h * 0.64);
-    ctx.rotate(arm.angle);
-    ctx.drawImage(
-      sheet,
-      sx + cw * arm.sourceX,
-      sy + ch * 0.32,
-      cw * 0.15,
-      ch * 0.4,
-      -w * 0.075,
-      -h * 0.04,
-      w * 0.15,
-      h * 0.4,
-    );
-    ctx.restore();
-  }
-}
-
 export function drawAgent(
   ctx: CanvasRenderingContext2D,
   a: StarshipAgent,
   sheetImg: HTMLImageElement,
   _timeSec: number = Date.now() / 1000,
+  alecKeyboardImg?: HTMLImageElement,
 ): void {
   void _timeSec;
-  const hologramGesture = isAlecUsingHologram(a) && a.facing === 'back';
+  const keyboardTyping = isAlecUsingHologram(a);
   const isOffline = a.reportedState === 'offline' || a.state === STATE.OFFLINE;
   const isReview = !isOffline && a.reportedState === 'review';
   const isWorking =
@@ -1138,15 +1077,20 @@ export function drawAgent(
     ctx.globalAlpha = 0.35;
   }
 
-  const cw = sheetImg.width / SHEET_COLS;
-  const ch = sheetImg.height / SHEET_ROWS;
-  const row = a.skin.row;
-  const col =
-    a.state === STATE.MOVING
-      ? 4 + (a.animFrame % 4)
-      : a.facing === 'back' || (atDesk && a.facing !== 'front')
-        ? 8 + (a.animFrame % 4)
-        : 0 + (a.animFrame % 4);
+  const keyboardSprite = keyboardTyping && alecKeyboardImg ? alecKeyboardImg : undefined;
+  const sprite = keyboardSprite ?? sheetImg;
+  const cw = keyboardSprite ? keyboardSprite.width / 2 : sheetImg.width / SHEET_COLS;
+  const ch = keyboardSprite ? keyboardSprite.height : sheetImg.height / SHEET_ROWS;
+  const row = keyboardSprite ? 0 : a.skin.row;
+  const col = keyboardSprite
+    ? getAlecKeyboardFrame(a.hologramTime ?? 0)
+    : keyboardTyping
+      ? 5 + getAlecKeyboardFrame(a.hologramTime ?? 0)
+      : a.state === STATE.MOVING
+        ? 4 + (a.animFrame % 4)
+        : a.facing === 'back' || (atDesk && a.facing !== 'front')
+          ? 8 + (a.animFrame % 4)
+          : 0 + (a.animFrame % 4);
 
   const sx = col * cw;
   const sy = row * ch;
@@ -1159,7 +1103,7 @@ export function drawAgent(
 
   const phase = ((a.animFrame % 4) + 4) % 4;
   const phaseOffsets = WORK_HAND_PHASE_OFFSETS[phase]!;
-  const bobY = isWorking && !hologramGesture ? phaseOffsets.bob * scale : 0;
+  const bobY = isWorking && !keyboardTyping ? phaseOffsets.bob * scale : 0;
   const leanY = atDesk ? -1 : 0;
 
   // Foot Anchor: Coordinates (a.x, a.y) = bottom center of character feet.
@@ -1185,25 +1129,17 @@ export function drawAgent(
   const roleGlow = ROLE_GLOW_COLORS[a.name] ?? a.skin.tint ?? '#5ce1ff';
   ctx.shadowColor = roleGlow;
   ctx.shadowBlur = 8;
-  if (hologramGesture) {
-    drawAlecGestureSprite(ctx, sheetImg, sx, sy, cw, ch, drawW, drawH, a.hologramTime ?? 0);
-  } else {
-    ctx.drawImage(sheetImg, sx, sy, cw, ch, -drawW / 2, -drawH, drawW, drawH);
-  }
+  ctx.drawImage(sprite, sx, sy, cw, ch, -drawW / 2, -drawH, drawW, drawH);
 
   // (3) Second pass with 'lighter' composite mode to boost sprite brightness
   ctx.shadowBlur = 0;
   ctx.shadowColor = 'transparent';
   ctx.globalCompositeOperation = 'lighter';
   ctx.globalAlpha = isOffline ? 0.35 * 0.22 : 0.22;
-  if (hologramGesture) {
-    drawAlecGestureSprite(ctx, sheetImg, sx, sy, cw, ch, drawW, drawH, a.hologramTime ?? 0);
-  } else {
-    ctx.drawImage(sheetImg, sx, sy, cw, ch, -drawW / 2, -drawH, drawW, drawH);
-  }
+  ctx.drawImage(sprite, sx, sy, cw, ch, -drawW / 2, -drawH, drawW, drawH);
 
-  // Typing remains specific to the keyboard workstations.
-  if (isWorking && !hologramGesture) {
+  // Alec uses complete authored typing poses; other operators keep their hand cues.
+  if (isWorking && !keyboardTyping) {
     const leftX = -drawW * 0.14;
     const rightX = drawW * 0.06;
     const baseY = -drawH * 0.38;
@@ -1253,7 +1189,7 @@ export function drawAgent(
   }
 
   // Status glow ring while working (scaled at feet)
-  if (a.state === STATE.WORKING && !isOffline && !hologramGesture) {
+  if (a.state === STATE.WORKING && !isOffline && !keyboardTyping) {
     ctx.save();
     ctx.beginPath();
     ctx.ellipse(a.x, a.y, 20 * scale, 7 * scale, 0, 0, Math.PI * 2);
@@ -1278,15 +1214,10 @@ export function drawAgent(
 
   // Status bubble above head (always visible)
   // Keep Alec's label beside his body, clear of the enlarged map.
-  drawAgentStatusBubble(
-    ctx,
-    hologramGesture ? { ...a, x: a.x - 105, y: a.y + 40 } : a,
-    drawH,
-    bobY,
-  );
+  drawAgentStatusBubble(ctx, keyboardTyping ? { ...a, x: a.x - 105, y: a.y + 40 } : a, drawH, bobY);
 
   // Work particles floating above agent
-  if (!hologramGesture) drawWorkParticles(ctx, a);
+  if (!keyboardTyping) drawWorkParticles(ctx, a);
 
   ctx.restore();
 }
@@ -1318,8 +1249,8 @@ export function drawDeskCutouts(
   }
 }
 
-// Enlarge the original cyan artwork, including its frame, directly above the
-// projector. No replacement star graphics or purple hologram are introduced.
+// Keep the original blue map, frame and orange star. Working size is fixed;
+// tiny stars travel inside it while Alec types on the console underneath.
 export function drawHologramTopGlow(
   ctx: CanvasRenderingContext2D,
   agents: StarshipAgent[],
@@ -1330,53 +1261,81 @@ export function drawHologramTopGlow(
   const alec = agents.find((a) => a.name === 'Alec');
   if (!alec || !bgImg || !isAlecUsingHologram(alec)) return;
   const time = alec.hologramTime ?? 0;
-  const pose = getAlecHologramPose(time);
   const source = { x: 516, y: 443, w: 106, h: 71 };
-  // Start at the original bounds on arrival, then open to working size.
-  const opening = Math.min(1, time / 0.65);
-  const zoom = 1 + (pose.zoom - 1) * opening;
-  const width = source.w * zoom;
-  const height = source.h * zoom;
+  const open = Math.min(1, time / 0.6);
+  const zoom = 1 + 0.65 * open * open * (3 - 2 * open);
+  const w = source.w * zoom;
+  const h = source.h * zoom;
   const cx = source.x + source.w / 2;
   const bottom = source.y + source.h;
+  const cy = bottom - h / 2;
   ctx.save();
   ctx.imageSmoothingEnabled = false;
   ctx.globalCompositeOperation = 'source-over';
   ctx.globalAlpha = 1;
   ctx.shadowBlur = 0;
-  // Full original frame stays centered on its own projector as it expands.
-  ctx.drawImage(
-    bgImg,
-    source.x,
-    source.y,
-    source.w,
-    source.h,
-    cx - width / 2,
-    bottom - height,
-    width,
-    height,
-  );
-  // The map content slides inside that same frame as Alec swipes his hand.
-  const inset = 4 * zoom;
+  ctx.drawImage(bgImg, source.x, source.y, source.w, source.h, cx - w / 2, bottom - h, w, h);
   ctx.beginPath();
-  ctx.rect(cx - width / 2 + inset, bottom - height + inset, width - inset * 2, height - inset * 2);
+  ctx.rect(cx - w / 2 + 5 * zoom, bottom - h + 5 * zoom, w - 10 * zoom, h - 10 * zoom);
   ctx.clip();
-  ctx.filter = `brightness(${1.025 + 0.025 * Math.sin(time * 1.8)})`;
-  const sourceInset = 4;
-  const cropW = source.w - sourceInset * 2;
-  const cropH = source.h - sourceInset * 2;
-  const contentScale = zoom * 1.18;
-  ctx.drawImage(
-    bgImg,
-    source.x + sourceInset,
-    source.y + sourceInset,
-    cropW,
-    cropH,
-    cx - (cropW * contentScale) / 2 + pose.pan * zoom * opening,
-    bottom - height / 2 - (cropH * contentScale) / 2,
-    cropW * contentScale,
-    cropH * contentScale,
-  );
+  // Fine cyan/white star traffic, without new rings or a replacement map.
+  for (let i = 0; i < 4; i++) {
+    const speed = (i % 2 === 0 ? 1 : -1) * (0.32 + i * 0.08);
+    const angle = time * speed + i * 1.7;
+    const rx = w * (0.21 + i * 0.035);
+    const ry = h * (0.18 + i * 0.025);
+    for (let tail = 4; tail >= 0; tail--) {
+      const phase = angle - speed * tail * 0.13;
+      const x = Math.round(cx + Math.cos(phase) * rx);
+      const y = Math.round(cy + Math.sin(phase) * ry);
+      ctx.globalAlpha = open * (tail === 0 ? 0.8 : (5 - tail) * 0.07);
+      ctx.fillStyle = tail === 0 ? '#e3fbff' : '#69dfff';
+      ctx.fillRect(x - 0.7, y - 0.7, 1.4, 1.4);
+      if (tail === 0) {
+        ctx.globalAlpha *= 0.45;
+        ctx.fillRect(x - 2.2, y - 0.5, 4.4, 1);
+        ctx.fillRect(x - 0.5, y - 2.2, 1, 4.4);
+      }
+    }
+  }
+  ctx.restore();
+}
+
+export function drawAlecKeyboard(ctx: CanvasRenderingContext2D, a: StarshipAgent): void {
+  if (!isAlecUsingHologram(a)) return;
+  const x = a.x + 10;
+  const y = a.y - 60;
+  const time = a.hologramTime ?? 0;
+  ctx.save();
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 0.95;
+  ctx.shadowBlur = 0;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + 54, y);
+  ctx.lineTo(x + 62, y + 25);
+  ctx.lineTo(x - 6, y + 25);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(6, 29, 42, 0.92)';
+  ctx.fill();
+  ctx.strokeStyle = '#70dcf0';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  const pressed = getAlecKeyboardFrame(time) === 0;
+  const active = Math.floor(time / 0.32) % 2;
+  for (let row = 0; row < 3; row++) {
+    const rowLeft = x + 3 - row * 1.5;
+    const step = 6.0 + row * 0.5;
+    for (let col = 0; col < 8; col++) {
+      const lit = pressed && row === 1 && col === active;
+      ctx.fillStyle = lit ? '#d9fbff' : '#31869c';
+      ctx.globalAlpha = lit ? 1 : 0.65;
+      ctx.fillRect(rowLeft + col * step, y + 4 + row * 5, step - 1.5, 2.5);
+    }
+  }
+  ctx.globalAlpha = 0.7;
+  ctx.fillStyle = '#70dcf0';
+  ctx.fillRect(x + 15, y + 20, 25, 1.5);
   ctx.restore();
 }
 
@@ -1505,6 +1464,7 @@ export function drawStage(
   panX: number = 0,
   panY: number = 0,
   zoom: number = 1,
+  alecKeyboardImg?: HTMLImageElement,
 ): { scale: number; offX: number; offY: number } {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, rect.width, rect.height);
@@ -1525,10 +1485,12 @@ export function drawStage(
   drawWorkstationScreens(ctx, agents, timeSec);
   drawFloorMarkers(ctx, showStations);
   drawHologramTopGlow(ctx, agents, timeSec, bgImg);
+  const alec = agents.find((a) => a.name === 'Alec');
+  if (alec) drawAlecKeyboard(ctx, alec);
 
   const sorted = [...agents].sort((a, b) => a.y - b.y);
   for (const a of sorted) {
-    drawAgent(ctx, a, sheetImg, timeSec);
+    drawAgent(ctx, a, sheetImg, timeSec, alecKeyboardImg);
   }
 
   // Draw desk occlusion cutouts over sitting/standing agents' lower bodies

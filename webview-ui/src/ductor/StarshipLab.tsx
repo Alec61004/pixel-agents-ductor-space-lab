@@ -144,6 +144,13 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
       'themes/ductor-space-lab/starship-sheet.png',
     );
 
+  const resolvedKeyboardUrl = ductorAssetUrl(
+    typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL
+      ? import.meta.env.BASE_URL
+      : './',
+    'themes/ductor-space-lab/alec-keyboard.png',
+  );
+
   const stageWrapRef = useRef<HTMLDivElement | null>(null);
   const stageCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const starsCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -236,6 +243,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
     let disposed = false;
     const bgImg = new Image();
     const sheetImg = new Image();
+    const keyboardImg = new Image();
     let loadedCount = 0;
 
     const onAssetLoaded = () => {
@@ -249,6 +257,8 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
     sheetImg.onload = onAssetLoaded;
     bgImg.src = resolvedBgUrl;
     sheetImg.src = resolvedSheetUrl;
+    // Optional: keep the original sheet fallback if this asset is unavailable.
+    keyboardImg.src = resolvedKeyboardUrl;
 
     let stars: Star[] = [];
     let starTime = 0;
@@ -308,11 +318,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
         const rect = wrap?.getBoundingClientRect();
         if (rect) {
           const baseScale = Math.max(rect.width / CW, rect.height / CH);
-          panRef.current = clampPanToViewport(
-            nextPan,
-            rect,
-            baseScale * zoomRef.current,
-          );
+          panRef.current = clampPanToViewport(nextPan, rect, baseScale * zoomRef.current);
         }
       } else if (e.touches.length === 2 && touchStateRef.current) {
         const dx = e.touches[0].clientX - e.touches[1].clientX;
@@ -348,11 +354,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
       const rect = wrap?.getBoundingClientRect();
       if (rect) {
         const baseScale = Math.max(rect.width / CW, rect.height / CH);
-        panRef.current = clampPanToViewport(
-          panRef.current,
-          rect,
-          baseScale * zoomRef.current,
-        );
+        panRef.current = clampPanToViewport(panRef.current, rect, baseScale * zoomRef.current);
       }
     };
     if (wrap) {
@@ -390,6 +392,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
             panRef.current.x,
             panRef.current.y,
             zoomRef.current,
+            keyboardImg.complete && keyboardImg.naturalWidth > 0 ? keyboardImg : undefined,
           );
         }
       }
@@ -425,7 +428,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
       }
       cancelAnimationFrame(animId);
     };
-  }, [resolvedBgUrl, resolvedSheetUrl]);
+  }, [resolvedBgUrl, resolvedSheetUrl, resolvedKeyboardUrl]);
 
   const isCloud = Boolean(snapshot?.publishedAt);
   const isStale = Boolean(snapshot?.stale);
