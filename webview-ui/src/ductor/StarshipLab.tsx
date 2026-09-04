@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import type { DuctorRoleName, DuctorStatusSnapshot } from './ductorLabModel.js';
 import { ductorAssetUrl } from './ductorLabModel.js';
+import { loadStarshipImage } from './starshipImageLoader.js';
 import {
   type AgentStatusBubble,
   applyCloudStatus,
@@ -156,7 +157,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
     typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL
       ? import.meta.env.BASE_URL
       : './',
-    'themes/ductor-space-lab/crew-walk.png',
+    'themes/ductor-space-lab/crew-walk.png?v=2',
   );
 
   const stageWrapRef = useRef<HTMLDivElement | null>(null);
@@ -253,23 +254,31 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
     const sheetImg = new Image();
     const hologramImg = new Image();
     const walkImg = new Image();
-    let loadedCount = 0;
+    let sceneReady = false;
+    let hologramReady = false;
+    let walkReady = false;
+    setLoaded(false);
 
-    const onAssetLoaded = () => {
-      loadedCount++;
-      if (loadedCount === 3 && !disposed) {
-        setLoaded(true);
-      }
-    };
-
-    bgImg.onload = onAssetLoaded;
-    sheetImg.onload = onAssetLoaded;
-    bgImg.src = resolvedBgUrl;
-    sheetImg.src = resolvedSheetUrl;
-    // Optional: keep the original sheet fallback if this asset is unavailable.
-    hologramImg.src = resolvedHologramUrl;
-    walkImg.onload = onAssetLoaded;
-    walkImg.src = resolvedWalkUrl;
+    // Only the background and original sheet are required. Optional sprite
+    // failures must neither block the scene nor replace a complete character.
+    void Promise.all([
+      loadStarshipImage(bgImg, resolvedBgUrl),
+      loadStarshipImage(sheetImg, resolvedSheetUrl),
+    ]).then(([backgroundReady, sheetReady]) => {
+      if (disposed) return;
+      sceneReady = backgroundReady && sheetReady;
+      setLoaded(sceneReady);
+    });
+    void loadStarshipImage(hologramImg, resolvedHologramUrl, { width: 160, height: 112 }).then(
+      (ready) => {
+        if (!disposed) hologramReady = ready;
+      },
+    );
+    void loadStarshipImage(walkImg, resolvedWalkUrl, { width: 960, height: 336 }).then(
+      (ready) => {
+        if (!disposed) walkReady = ready;
+      },
+    );
 
     let stars: Star[] = [];
     let starTime = 0;
@@ -386,7 +395,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
       const stage = stageCanvasRef.current;
       const starsCanvas = starsCanvasRef.current;
 
-      if (wrap && stage && loadedCount >= 2) {
+      if (wrap && stage && sceneReady) {
         const ctx = stage.getContext('2d');
         if (ctx) {
           const rect = wrap.getBoundingClientRect();
@@ -403,8 +412,8 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
             panRef.current.x,
             panRef.current.y,
             zoomRef.current,
-            hologramImg.complete && hologramImg.naturalWidth > 0 ? hologramImg : undefined,
-            walkImg.complete && walkImg.naturalWidth > 0 ? walkImg : undefined,
+            hologramReady ? hologramImg : undefined,
+            walkReady ? walkImg : undefined,
           );
         }
       }
