@@ -1280,27 +1280,91 @@ export function drawHologramTopGlow(
   ctx.translate(cx - w / 2, bottom - h);
   ctx.scale(zoom, zoom);
 
-  // Move only the chart interior. The cyan frame remains attached to the table.
-  // A slow change of viewpoint plus a small settling motion follows each typing cycle.
+  // Reconstruct the original chart layout as resolution-independent geometry.
+  // Only its painted frame is enlarged; no low-resolution image is stretched inside.
   const gesture = Math.sin((time * Math.PI) / 1.28) ** 2;
-  const yaw = Math.sin(time * 0.24) * 0.22 + gesture * 0.045;
-  const inclination = 0.43 + Math.sin(time * 0.19) * 0.06;
+  const yaw = Math.sin(time * 0.24) * 0.16 + gesture * 0.025;
+  const inclination = 0.43 + Math.sin(time * 0.19) * 0.04;
+  const space = ctx.createLinearGradient(0, 5, 0, 66);
+  space.addColorStop(0, '#071724');
+  space.addColorStop(0.65, '#092333');
+  space.addColorStop(1, '#0c3444');
+  ctx.fillStyle = space;
+  ctx.fillRect(5, 5, 96, 61);
+
+  // Faint blue interstellar light gives the clean star field depth.
+  for (let cloud = 0; cloud < 3; cloud++) {
+    const cloudX = 21 + cloud * 28;
+    const cloudY = 54 - cloud * 13;
+    const haze = ctx.createRadialGradient(cloudX, cloudY, 0, cloudX, cloudY, 28);
+    haze.addColorStop(0, '#327e9920');
+    haze.addColorStop(0.45, '#23586f10');
+    haze.addColorStop(1, '#163d5000');
+    ctx.fillStyle = haze;
+    ctx.fillRect(5, 5, 96, 61);
+  }
+
+  // Sparse distant stars avoid the coarse noise in the original enlarged bitmap.
+  for (let i = 0; i < 42; i++) {
+    const x = 7 + ((i * 37.73) % 91) + Math.sin(time * 0.035 + i) * 0.3;
+    const y = 7 + ((i * 19.31) % 57);
+    ctx.globalAlpha = 0.18 + (i % 4) * 0.09;
+    ctx.fillStyle = '#acd4e3';
+    ctx.beginPath();
+    ctx.arc(x, y, i % 7 === 0 ? 0.25 : 0.13, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
   ctx.save();
   ctx.translate(54, 38);
-  ctx.transform(1 + open * 0.04, yaw * open * 0.045, yaw * open * 0.09, 1 + open * 0.04, 0, 0);
-  ctx.drawImage(bgImg, source.x + 4, source.y + 4, 98, 63, -50, -34, 98, 63);
-  ctx.restore();
-
-  // Distant stars drift more slowly than the foreground planets.
-  for (let i = 0; i < 9; i++) {
-    const phase = i * 2.399 + time * (0.035 + (i % 3) * 0.012);
-    const radius = 15 + (i % 4) * 6;
-    const x = 54 + Math.cos(phase + yaw * 0.3) * radius;
-    const y = 36 + Math.sin(phase) * radius * 0.6;
-    ctx.globalAlpha = open * (0.18 + 0.16 * (0.5 + Math.sin(time + i) * 0.5));
-    ctx.fillStyle = '#b9eafa';
-    ctx.fillRect(Math.round(x), Math.round(y), 0.7, 0.7);
+  ctx.transform(1, yaw * 0.035, yaw * 0.07, 1, 0, 0);
+  ctx.translate(-54, -38);
+  // The same orange hub and cyan branches as the original map.
+  const stars = [
+    [12, 32],
+    [24, 21],
+    [32, 15],
+    [34, 29],
+    [54, 38],
+    [86, 20],
+    [87, 51],
+    [34, 57],
+    [19, 44],
+    [70, 28],
+    [76, 10],
+  ];
+  const edges = [
+    [0, 1],
+    [1, 2],
+    [1, 3],
+    [0, 3],
+    [3, 4],
+    [2, 4],
+    [4, 5],
+    [4, 6],
+    [4, 7],
+    [7, 8],
+    [8, 0],
+    [3, 9],
+    [9, 5],
+    [5, 10],
+  ];
+  ctx.lineWidth = 0.35;
+  ctx.strokeStyle = '#42b3d7';
+  ctx.globalAlpha = 0.48;
+  ctx.beginPath();
+  for (const [from, to] of edges) {
+    ctx.moveTo(stars[from]![0]!, stars[from]![1]!);
+    ctx.lineTo(stars[to]![0]!, stars[to]![1]!);
   }
+  ctx.stroke();
+  for (let i = 0; i < stars.length; i++) {
+    if (i === 4) continue;
+    const [sx, sy] = stars[i]!;
+    const major = i === 5 || i === 6;
+    drawMapStar(ctx, sx!, sy!, major ? 0.7 : 0.32, i === 2 ? '#ff9d72' : '#bceeff', 0.7);
+  }
+  ctx.restore();
 
   const planets = HOLOGRAM_PLANETS.map((planet) => {
     const angle = planet.phase + time * planet.speed;
@@ -1321,20 +1385,9 @@ export function drawHologramTopGlow(
     if (planet.depth < 0) drawHologramPlanet(ctx, planet, time, open);
   }
 
-  // Warm energy gently breathes from the existing orange star, without replacing it.
-  const pulse = 0.5 + 0.5 * Math.sin(time * 1.8);
-  ctx.globalCompositeOperation = 'lighter';
-  ctx.fillStyle = '#ffa54f';
-  for (let halo = 3; halo > 0; halo--) {
-    ctx.globalAlpha = open * (0.025 + pulse * 0.018);
-    ctx.beginPath();
-    ctx.arc(54, 38, 3 + halo * 1.5 + pulse * 0.6, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.globalAlpha = open * (0.12 + pulse * 0.13);
-  ctx.fillStyle = '#fff0b9';
-  ctx.fillRect(53, 37, 2, 2);
-  ctx.globalCompositeOperation = 'source-over';
+  // A compact luminous core and soft corona replace the enlarged orange pixels.
+  const pulse = 0.5 + 0.5 * Math.sin(time * 1.4);
+  drawMapStar(ctx, 54, 38, 2.05 + pulse * 0.08, '#ffb468', 1);
 
   for (const planet of planets) {
     if (planet.depth >= 0) drawHologramPlanet(ctx, planet, time, open);
@@ -1347,7 +1400,7 @@ const HOLOGRAM_PLANETS = [
     orbit: 31,
     phase: 2.5,
     speed: 0.18,
-    radius: 3.6,
+    radius: 4.1,
     ring: true,
     colors: ['#183e50', '#296578', '#4799a7', '#8ad8d5', '#d5f4dd'],
   },
@@ -1378,6 +1431,31 @@ type HologramPlanet = {
   colors: readonly string[];
 };
 
+function drawMapStar(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  radius: number,
+  color: string,
+  opacity: number,
+): void {
+  ctx.globalAlpha = opacity;
+  const glow = ctx.createRadialGradient(x, y, 0, x, y, radius * 4.5);
+  glow.addColorStop(0, '#fff9eb');
+  glow.addColorStop(0.14, '#fff0ce');
+  glow.addColorStop(0.3, color);
+  glow.addColorStop(0.55, color + '42');
+  glow.addColorStop(1, color + '00');
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(x, y, radius * 4.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#fff5dc';
+  ctx.beginPath();
+  ctx.arc(x, y, radius * 0.55, 0, Math.PI * 2);
+  ctx.fill();
+}
+
 function drawHologramPlanet(
   ctx: CanvasRenderingContext2D,
   planet: HologramPlanet,
@@ -1385,69 +1463,109 @@ function drawHologramPlanet(
   open: number,
 ): void {
   const { x, y, radius, colors } = planet;
-  const opacity = open * (planet.depth < 0 ? 0.78 : 0.95);
-  const moonAngle = time * 0.9 + 0.5;
+  const opacity = open * (planet.depth < 0 ? 0.85 : 1);
+  const lightLength = Math.max(1, Math.hypot(54 - x, 38 - y));
+  const lightX = (54 - x) / lightLength;
+  const lightY = (38 - y) / lightLength;
+  const moonAngle = time * 0.65 + 0.5;
   const moonX = x + Math.cos(moonAngle) * radius * 2.7;
   const moonY = y + Math.sin(moonAngle) * radius * 0.9;
   const drawMoon = () => {
+    const shade = ctx.createRadialGradient(moonX - 0.25, moonY - 0.25, 0, moonX, moonY, 0.65);
+    shade.addColorStop(0, '#d7e2df');
+    shade.addColorStop(0.5, '#77959f');
+    shade.addColorStop(1, '#1c394b');
     ctx.globalAlpha = opacity;
-    ctx.fillStyle = '#416779';
-    ctx.fillRect(Math.round(moonX) - 0.5, Math.round(moonY) - 0.5, 1.5, 1.5);
-    ctx.fillStyle = '#c7e7e6';
-    ctx.fillRect(Math.round(moonX) - 0.5, Math.round(moonY) - 0.5, 1, 1);
+    ctx.fillStyle = shade;
+    ctx.beginPath();
+    ctx.arc(moonX, moonY, 0.65, 0, Math.PI * 2);
+    ctx.fill();
   };
   const drawRing = (front: boolean) => {
-    ctx.globalAlpha = opacity * (front ? 0.8 : 0.36);
-    ctx.strokeStyle = '#96ddd9';
-    ctx.lineWidth = front ? 0.85 : 0.6;
-    ctx.beginPath();
-    ctx.ellipse(
-      x,
-      y,
-      radius * 2,
-      radius * 0.53,
-      -0.24,
-      front ? 0 : Math.PI,
-      front ? Math.PI : Math.PI * 2,
-    );
-    ctx.stroke();
-    ctx.strokeStyle = '#5ba6b4';
-    ctx.lineWidth = 0.4;
-    ctx.beginPath();
-    ctx.ellipse(
-      x,
-      y,
-      radius * 2.3,
-      radius * 0.66,
-      -0.24,
-      front ? 0 : Math.PI,
-      front ? Math.PI : Math.PI * 2,
-    );
-    ctx.stroke();
+    // Multiple fine translucent bands form a dust ring, with the planet occluding its rear.
+    for (let band = 0; band < 9; band++) {
+      const ringRadius = radius * (1.55 + band * 0.065);
+      ctx.globalAlpha = opacity * (front ? 0.42 : 0.2) * (band === 5 ? 0.25 : 1);
+      ctx.strokeStyle = band % 3 === 0 ? '#cee2d9' : '#81acb7';
+      ctx.lineWidth = 0.23;
+      ctx.beginPath();
+      ctx.ellipse(
+        x,
+        y,
+        ringRadius,
+        ringRadius * 0.28,
+        -0.3,
+        front ? 0 : Math.PI,
+        front ? Math.PI : Math.PI * 2,
+      );
+      ctx.stroke();
+    }
   };
   if (planet.ring && Math.sin(moonAngle) < 0) drawMoon();
   if (planet.ring) drawRing(false);
 
-  // Pixel-shaded spheres: their illuminated side always faces the orange star.
-  const lightLength = Math.max(1, Math.hypot(54 - x, 38 - y));
-  const lightX = (54 - x) / lightLength;
-  const lightY = (38 - y) / lightLength;
-  const extent = Math.ceil(radius);
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.clip();
   ctx.globalAlpha = opacity;
-  for (let py = -extent; py <= extent; py++) {
-    for (let px = -extent; px <= extent; px++) {
-      const nx = px / radius;
-      const ny = py / radius;
-      const distance = nx * nx + ny * ny;
-      if (distance > 1) continue;
-      const nz = Math.sqrt(1 - distance);
-      const band = Math.sin(ny * 11 + time * 0.4) * 0.08;
-      const light = nx * lightX * 0.55 + ny * lightY * 0.55 + nz * 0.5 + band;
-      const shade = Math.max(0, Math.min(4, Math.floor((light + 0.25) * 4)));
-      ctx.fillStyle = colors[shade]!;
-      ctx.fillRect(Math.round(x) + px - 0.5, Math.round(y) + py - 0.5, 1, 1);
-    }
+  const body = ctx.createRadialGradient(
+    x + lightX * radius * 0.45,
+    y + lightY * radius * 0.45,
+    radius * 0.05,
+    x,
+    y,
+    radius * 1.15,
+  );
+  body.addColorStop(0, colors[4]!);
+  body.addColorStop(0.35, colors[3]!);
+  body.addColorStop(0.65, colors[2]!);
+  body.addColorStop(0.85, colors[1]!);
+  body.addColorStop(1, colors[0]!);
+  ctx.fillStyle = body;
+  ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+
+  // Delicate curved cloud bands, clipped to the sphere.
+  for (let band = -3; band <= 3; band++) {
+    const offset = band * radius * 0.26;
+    ctx.globalAlpha = opacity * (band % 2 === 0 ? 0.13 : 0.08);
+    ctx.strokeStyle = band % 2 === 0 ? '#e0f3ed' : '#19394b';
+    ctx.lineWidth = radius * 0.15;
+    ctx.beginPath();
+    ctx.moveTo(x - radius, y + offset);
+    ctx.bezierCurveTo(
+      x - radius * 0.25,
+      y + offset + radius * 0.4,
+      x + radius * 0.4,
+      y + offset - radius * 0.18 + Math.sin(time * 0.15 + band) * 0.2,
+      x + radius,
+      y + offset - radius * 0.1,
+    );
+    ctx.stroke();
   }
+  const night = ctx.createLinearGradient(
+    x + lightX * radius,
+    y + lightY * radius,
+    x - lightX * radius,
+    y - lightY * radius,
+  );
+  night.addColorStop(0, '#020d1800');
+  night.addColorStop(0.4, '#020d1800');
+  night.addColorStop(0.7, '#020d1880');
+  night.addColorStop(1, '#020d18f0');
+  ctx.globalAlpha = opacity;
+  ctx.fillStyle = night;
+  ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+  ctx.restore();
+
+  // A fine atmospheric limb catches the light from the central star.
+  ctx.globalAlpha = opacity * 0.45;
+  ctx.strokeStyle = '#b6dde7';
+  ctx.lineWidth = 0.18;
+  const lightAngle = Math.atan2(lightY, lightX);
+  ctx.beginPath();
+  ctx.arc(x, y, radius, lightAngle - 1, lightAngle + 1);
+  ctx.stroke();
   if (planet.ring) drawRing(true);
   if (planet.ring && Math.sin(moonAngle) >= 0) drawMoon();
 }

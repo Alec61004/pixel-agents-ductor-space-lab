@@ -1491,9 +1491,16 @@ test('Alec uses intact original typing frames with a keyboard and enlarged cyan 
       {},
       {
         get: (_, name) =>
-          name === 'measureText'
-            ? () => ({ width: 80 })
-            : (...args: any[]) => calls.push([name, ...args]),
+          name === 'createRadialGradient' || name === 'createLinearGradient'
+            ? (...args: any[]) => {
+                calls.push([name, ...args]);
+                return {
+                  addColorStop: (...stops: any[]) => calls.push(['addColorStop', ...stops]),
+                };
+              }
+            : name === 'measureText'
+              ? () => ({ width: 80 })
+              : (...args: any[]) => calls.push([name, ...args]),
         set: () => true,
       },
     ) as CanvasRenderingContext2D;
