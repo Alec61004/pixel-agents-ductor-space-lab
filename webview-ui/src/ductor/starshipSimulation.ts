@@ -1208,13 +1208,16 @@ export function drawDeskCutouts(
   }
 }
 
-// Fixed geometry avoids random flicker and keeps the map continuous between frames.
-// These are stylized navigation constellations, not astronomical coordinates.
-const HOLOGRAM_CONSTELLATIONS = [
-  [[-0.9, -0.4], [-0.4, -0.65], [0.05, -0.15], [0.65, -0.35], [0.85, 0.3]],
-  [[-0.8, 0.35], [-0.35, -0.45], [0.2, 0.15], [0.65, -0.5]],
-  [[-0.65, -0.5], [0.35, -0.65], [0.75, 0.05], [0.15, 0.6], [-0.65, -0.5]],
+// Anchors on the original cyan map in starship-bg.png (1600 × 678).
+// Keep the painted stars and their layout; animate light along their existing links.
+const HOLOGRAM_STARS = [
+  { x: 570, y: 482 }, // warm central star
+  { x: 548, y: 460 },
+  { x: 600, y: 465 },
+  { x: 602, y: 493 },
+  { x: 532, y: 478 },
 ] as const;
+const HOLOGRAM_LINKS = [[1, 0], [0, 2], [0, 3], [4, 0]] as const;
 
 export function drawHologramTopGlow(
   ctx: CanvasRenderingContext2D,
@@ -1229,174 +1232,70 @@ export function drawHologramTopGlow(
     (alec.state === STATE.WORKING ||
       alec.reportedState === 'working' ||
       alec.reportedState === 'review');
-
   if (!isWorking || !isAgentAtStation(alec)) return;
-
-  // Interior of the painted projection in the 1600 × 678 background.
-  // Keep the cyan frame, projection cone and physical table visible.
-  const r = { x: 520, y: 447, w: 98, h: 62 };
-  const color = ROLE_GLOW_COLORS.Alec ?? '#c98bff';
-  const pulse = 0.25 + 0.12 * Math.sin(timeSec * 3.5 + (alec.bob ?? 0));
-
-  ctx.save();
-  if (typeof ctx.rect === 'function' && typeof ctx.clip === 'function') {
-    ctx.beginPath();
-    ctx.rect(r.x, r.y, r.w, r.h);
-    ctx.clip();
-    ctx.fillStyle = '#102b40';
-    ctx.globalAlpha = 0.94;
-    ctx.fill();
-  }
-  // Glowing hologram ellipse on table surface
-  ctx.beginPath();
-  const cx = r.x + r.w / 2;
-  const cy = r.y + r.h / 2;
-  ctx.ellipse(cx, cy, r.w * 0.42, r.h * 0.38, 0, 0, Math.PI * 2);
-  ctx.fillStyle = color;
-  ctx.globalAlpha = Math.max(0.12, Math.min(0.4, pulse));
-  ctx.fill();
-  ctx.strokeStyle = '#e9d5ff';
-  ctx.lineWidth = 1.5;
-  ctx.globalAlpha = Math.max(0.25, Math.min(0.65, pulse * 1.5));
-  ctx.stroke();
-
-  // Starmap concentric rings
-  ctx.beginPath();
-  ctx.ellipse(cx, cy, r.w * 0.25, r.h * 0.22, 0, 0, Math.PI * 2);
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 1;
-  ctx.globalAlpha = Math.max(0.2, Math.min(0.5, pulse));
-  ctx.stroke();
-
-  // Floating star points / starmap nodes
-  const starOffsets = [
-    { dx: -35, dy: -10, speed: 1.2, phase: 0 },
-    { dx: 25, dy: -15, speed: 1.6, phase: 1.5 },
-    { dx: -15, dy: 10, speed: 1.0, phase: 3.0 },
-    { dx: 30, dy: 12, speed: 1.4, phase: 4.2 },
-    { dx: 0, dy: -5, speed: 2.0, phase: 2.1 },
-  ];
-  ctx.fillStyle = '#ffffff';
-  for (const s of starOffsets) {
-    const floatY = Math.sin(timeSec * s.speed + s.phase) * 6;
-    const starAlpha = 0.4 + 0.5 * Math.sin(timeSec * 2 + s.phase);
-    ctx.globalAlpha = Math.max(0.2, Math.min(0.9, starAlpha));
-    ctx.beginPath();
-    ctx.arc(cx + s.dx, cy + s.dy + floatY, 2, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // Deterministic sci-fi traffic: short comet trails orbit the map while Alec works.
   if (
     typeof ctx.rect !== 'function' ||
     typeof ctx.clip !== 'function' ||
-    typeof ctx.createLinearGradient !== 'function' ||
     typeof ctx.moveTo !== 'function' ||
     typeof ctx.lineTo !== 'function'
-  ) {
-    ctx.restore();
-    return;
-  }
+  ) return;
+
+  ctx.save();
+  // Clip inside the original blue frame. Never paint over the map or its cone.
   ctx.beginPath();
-  ctx.rect(r.x, r.y, r.w, r.h);
+  ctx.rect(520, 447, 98, 62);
   ctx.clip();
-
-  // Three connected constellations drift around a tilted celestial sphere.
-  // Depth changes size and brightness; all points in a group move together.
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.shadowBlur = 0;
   ctx.lineCap = 'round';
-  for (let group = 0; group < HOLOGRAM_CONSTELLATIONS.length; group++) {
-    const shape = HOLOGRAM_CONSTELLATIONS[group];
-    const orbit = timeSec * 0.32 + group * (Math.PI * 2 / 3);
-    const depth = (Math.sin(orbit) + 1) / 2;
-    const size = 0.68 + depth * 0.32;
-    const anchorX = cx + Math.cos(orbit) * r.w * 0.24;
-    const anchorY = cy + Math.sin(orbit) * r.h * 0.22;
-    const rotation = timeSec * 0.13 + group * 1.7;
-    const cos = Math.cos(rotation);
-    const sin = Math.sin(rotation);
-    const points = shape.map(([x, y]) => ({
-      x: anchorX + (x * cos - y * sin) * r.w * 0.17 * size,
-      y: anchorY + (x * sin + y * cos) * r.h * 0.2 * size,
-    }));
 
-    ctx.strokeStyle = group === 1 ? '#bda2ff' : '#7deaff';
-    ctx.globalAlpha = 0.3 + depth * 0.35;
-    ctx.lineWidth = 0.7 + depth * 0.4;
+  for (let index = 0; index < HOLOGRAM_STARS.length; index++) {
+    const star = HOLOGRAM_STARS[index];
+    const pulse = 0.5 + 0.5 * Math.sin(timeSec * 2.2 + index * 1.8);
+    ctx.fillStyle = index === 0 ? '#ffcf87' : '#9ceeff';
+    ctx.globalAlpha = 0.1 + pulse * 0.16;
     ctx.beginPath();
-    points.forEach((point, index) => {
-      if (index === 0) ctx.moveTo(point.x, point.y);
-      else ctx.lineTo(point.x, point.y);
-    });
-    ctx.stroke();
+    ctx.arc(star.x, star.y, 2.4 + pulse * 1.1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#edfcff';
+    ctx.globalAlpha = 0.35 + pulse * 0.5;
+    ctx.beginPath();
+    ctx.arc(star.x, star.y, 0.7 + pulse * 0.35, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
-    for (let index = 0; index < points.length; index++) {
-      const point = points[index];
-      const twinkle = 0.65 + 0.35 * Math.sin(timeSec * 2.4 + index * 2 + group);
-      // Soft halo plus a crisp core preserves the pixel-art background.
-      ctx.fillStyle = '#72ddff';
-      ctx.globalAlpha = (0.12 + depth * 0.12) * twinkle;
+  // Small moving glints follow the map's star connections. Short segmented
+  // tails suggest traffic without adding another diagram or a colored sphere.
+  for (let index = 0; index < HOLOGRAM_LINKS.length; index++) {
+    const [from, to] = HOLOGRAM_LINKS[index];
+    const start = HOLOGRAM_STARS[from];
+    const end = HOLOGRAM_STARS[to];
+    const cycle = timeSec * 0.28 + index * 0.27;
+    const phase = ((cycle % 2) + 2) % 2;
+    const progress = phase <= 1 ? phase : 2 - phase;
+    const direction = phase <= 1 ? 1 : -1;
+    for (let segment = 5; segment >= 0; segment--) {
+      const t = progress - direction * segment * 0.025;
+      const next = t - direction * 0.025;
+      if (t < 0 || t > 1 || next < 0 || next > 1) continue;
+      ctx.strokeStyle = '#80e9ff';
+      ctx.globalAlpha = (1 - segment / 6) * 0.65;
+      ctx.lineWidth = 0.9;
       ctx.beginPath();
-      ctx.arc(point.x, point.y, 3.2 * size, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#e6fbff';
-      ctx.globalAlpha = (0.6 + depth * 0.4) * twinkle;
-      ctx.beginPath();
-      ctx.arc(point.x, point.y, 1.25 * size, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.moveTo(start.x + (end.x - start.x) * next, start.y + (end.y - start.y) * next);
+      ctx.lineTo(start.x + (end.x - start.x) * t, start.y + (end.y - start.y) * t);
+      ctx.stroke();
     }
-
-    // A bright signal travels along each constellation's connecting lines.
-    const progress = ((timeSec * 0.65 + group * 0.8) % (points.length - 1)
-      + points.length - 1) % (points.length - 1);
-    const segment = Math.floor(progress);
-    const fraction = progress - segment;
-    const start = points[segment];
-    const end = points[segment + 1];
-    ctx.fillStyle = '#ffffff';
-    ctx.globalAlpha = 0.85;
+    ctx.fillStyle = '#e5fbff';
+    ctx.globalAlpha = 0.9;
     ctx.beginPath();
     ctx.arc(
-      start.x + (end.x - start.x) * fraction,
-      start.y + (end.y - start.y) * fraction,
-      1.1, 0, Math.PI * 2,
+      start.x + (end.x - start.x) * progress,
+      start.y + (end.y - start.y) * progress,
+      1.05, 0, Math.PI * 2,
     );
     ctx.fill();
   }
-
-  const comets = [
-    { orbitW: 0.34, orbitH: 0.24, speed: 1.35, phase: 0.2, tail: 0.16 },
-    { orbitW: 0.27, orbitH: 0.31, speed: -1.05, phase: 2.1, tail: 0.13 },
-    { orbitW: 0.39, orbitH: 0.18, speed: 0.82, phase: 4.3, tail: 0.19 },
-    { orbitW: 0.2, orbitH: 0.34, speed: -1.55, phase: 5.2, tail: 0.11 },
-  ];
-  for (const comet of comets) {
-    const angle = timeSec * comet.speed + comet.phase;
-    const x = cx + Math.cos(angle) * r.w * comet.orbitW;
-    const y = cy + Math.sin(angle) * r.h * comet.orbitH;
-    const tailAngle = angle - comet.tail * comet.speed;
-    const tailX = cx + Math.cos(tailAngle) * r.w * comet.orbitW;
-    const tailY = cy + Math.sin(tailAngle) * r.h * comet.orbitH;
-
-    const trail = ctx.createLinearGradient(tailX, tailY, x, y);
-    trail.addColorStop(0, 'rgba(233, 213, 255, 0)');
-    trail.addColorStop(0.7, 'rgba(214, 170, 255, 0.35)');
-    trail.addColorStop(1, 'rgba(255, 255, 255, 0.9)');
-    ctx.strokeStyle = trail;
-    ctx.lineWidth = 2.5;
-    ctx.lineCap = 'round';
-    ctx.globalAlpha = 0.9;
-    ctx.beginPath();
-    ctx.moveTo(tailX, tailY);
-    ctx.lineTo(x, y);
-    ctx.stroke();
-
-    ctx.fillStyle = '#ffffff';
-    ctx.globalAlpha = 0.95;
-    ctx.beginPath();
-    ctx.arc(x, y, 2.6, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
   ctx.restore();
 }
 
