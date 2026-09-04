@@ -1280,147 +1280,145 @@ export function drawHologramTopGlow(
   ctx.translate(cx - w / 2, bottom - h);
   ctx.scale(zoom, zoom);
 
-  // Reconstruct the original chart layout as resolution-independent geometry.
-  // Only its painted frame is enlarged; no low-resolution image is stretched inside.
-  const gesture = Math.sin((time * Math.PI) / 1.28) ** 2;
-  const yaw = Math.sin(time * 0.24) * 0.16 + gesture * 0.025;
-  const inclination = 0.43 + Math.sin(time * 0.19) * 0.04;
+  // A translucent upper glass layer reveals the actual room behind the enlarged panel.
+  // Stop above the baked-in small map, so the old artwork cannot ghost through.
   const space = ctx.createLinearGradient(0, 5, 0, 66);
-  space.addColorStop(0, '#071724');
-  space.addColorStop(0.65, '#092333');
-  space.addColorStop(1, '#0c3444');
+  space.addColorStop(0, '#112d3b');
+  space.addColorStop(0.55, '#0b2635');
+  space.addColorStop(1, '#164454');
   ctx.fillStyle = space;
   ctx.fillRect(5, 5, 96, 61);
-
-  // Faint blue interstellar light gives the clean star field depth.
-  for (let cloud = 0; cloud < 3; cloud++) {
-    const cloudX = 21 + cloud * 28;
-    const cloudY = 54 - cloud * 13;
-    const haze = ctx.createRadialGradient(cloudX, cloudY, 0, cloudX, cloudY, 28);
-    haze.addColorStop(0, '#327e9920');
-    haze.addColorStop(0.45, '#23586f10');
-    haze.addColorStop(1, '#163d5000');
-    ctx.fillStyle = haze;
-    ctx.fillRect(5, 5, 96, 61);
+  const roomTop = bottom - h + 5 * zoom;
+  const roomHeight = Math.max(0, source.y - roomTop - 2);
+  if (roomHeight > 0) {
+    ctx.globalAlpha = 0.22;
+    ctx.drawImage(
+      bgImg,
+      cx - w / 2 + 5 * zoom,
+      roomTop,
+      96 * zoom,
+      roomHeight,
+      5,
+      5,
+      96,
+      roomHeight / zoom,
+    );
+    const glass = ctx.createLinearGradient(0, 5, 0, 5 + roomHeight / zoom);
+    glass.addColorStop(0, '#112d3b00');
+    glass.addColorStop(1, '#0b2635ff');
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = glass;
+    ctx.fillRect(5, 5, 96, roomHeight / zoom);
   }
 
-  // Sparse distant stars avoid the coarse noise in the original enlarged bitmap.
-  for (let i = 0; i < 42; i++) {
-    const x = 7 + ((i * 37.73) % 91) + Math.sin(time * 0.035 + i) * 0.3;
-    const y = 7 + ((i * 19.31) % 57);
-    ctx.globalAlpha = 0.18 + (i % 4) * 0.09;
-    ctx.fillStyle = '#acd4e3';
+  // The operator brings a region closer, pauses to inspect it, then lets it settle.
+  // This long gesture is shared by every layer instead of making each object bob.
+  const inspection = Math.pow(0.5 - 0.5 * Math.cos((time * Math.PI) / 5.12), 2);
+  const focus = 1 + 0.09 * inspection;
+  const yaw = Math.sin(time * 0.13) * 0.1 + inspection * 0.035;
+  ctx.save();
+  ctx.translate(54, 35);
+  ctx.scale(focus, focus);
+  ctx.transform(Math.cos(yaw), Math.sin(yaw) * 0.65, -Math.sin(yaw), Math.cos(yaw), 0, 0);
+  ctx.translate(-54, -35);
+
+  // Broad wisps build depth around the star field without a solid nebula disc.
+  ctx.globalCompositeOperation = 'lighter';
+  for (let cloud = 0; cloud < 12; cloud++) {
+    const u = cloud / 11;
+    const x = 14 + u * 78;
+    const y = 53 - u * 36 + Math.sin(u * 6 + time * 0.025) * 3;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(1.7, 0.6 + (cloud % 3) * 0.12);
+    const haze = ctx.createRadialGradient(0, 0, 0, 0, 0, 11);
+    haze.addColorStop(0, '#56bdd624');
+    haze.addColorStop(0.35, '#348da918');
+    haze.addColorStop(1, '#16435b00');
+    ctx.globalAlpha = open;
+    ctx.fillStyle = haze;
+    ctx.fillRect(-11, -11, 22, 22);
+    ctx.restore();
+  }
+  ctx.globalCompositeOperation = 'source-over';
+
+  // The fixed seed keeps fine dust stable between frames; depth controls parallax.
+  for (const mote of HOLOGRAM_DUST) {
+    const x = mote.x + Math.sin(time * 0.045 + mote.depth) * mote.depth * 0.08;
+    const y = mote.y + Math.cos(time * 0.035 + mote.depth) * 0.2;
+    ctx.globalAlpha = open * mote.alpha;
+    ctx.fillStyle = mote.depth > 0 ? '#beedf0' : '#5ba8c3';
     ctx.beginPath();
-    ctx.arc(x, y, i % 7 === 0 ? 0.25 : 0.13, 0, Math.PI * 2);
+    ctx.arc(x, y, mote.radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  for (let i = 0; i < 38; i++) {
+    const x = 7 + ((i * 37.73) % 91);
+    const y = 7 + ((i * 19.31) % 57);
+    ctx.globalAlpha = open * (0.16 + (i % 4) * 0.1);
+    ctx.fillStyle = '#bedee8';
+    ctx.beginPath();
+    ctx.arc(x, y, i % 7 === 0 ? 0.25 : 0.12, 0, Math.PI * 2);
     ctx.fill();
   }
 
-  ctx.save();
-  ctx.translate(54, 38);
-  ctx.transform(1, yaw * 0.035, yaw * 0.07, 1, 0, 0);
-  ctx.translate(-54, -38);
-  // The same orange hub and cyan branches as the original map.
-  const stars = [
-    [12, 32],
-    [24, 21],
-    [32, 15],
-    [34, 29],
-    [54, 38],
-    [86, 20],
-    [87, 51],
-    [34, 57],
-    [19, 44],
-    [70, 28],
-    [76, 10],
-  ];
-  const edges = [
-    [0, 1],
-    [1, 2],
-    [1, 3],
-    [0, 3],
-    [3, 4],
-    [2, 4],
-    [4, 5],
-    [4, 6],
-    [4, 7],
-    [7, 8],
-    [8, 0],
-    [3, 9],
-    [9, 5],
-    [5, 10],
-  ];
-  ctx.lineWidth = 0.35;
-  ctx.strokeStyle = '#42b3d7';
-  ctx.globalAlpha = 0.48;
+  // A few subdued navigation branches preserve the original map's identity.
+  // Most of the field is carried by star clusters rather than a polygon mesh.
+  ctx.globalAlpha = open * 0.14;
+  ctx.strokeStyle = '#70c4d8';
+  ctx.lineWidth = 0.28;
   ctx.beginPath();
-  for (const [from, to] of edges) {
-    ctx.moveTo(stars[from]![0]!, stars[from]![1]!);
-    ctx.lineTo(stars[to]![0]!, stars[to]![1]!);
-  }
+  ctx.moveTo(32, 15);
+  ctx.bezierCurveTo(35, 28, 43, 35, 54, 38);
+  ctx.bezierCurveTo(66, 32, 76, 23, 86, 20);
+  ctx.moveTo(54, 38);
+  ctx.bezierCurveTo(68, 44, 79, 46, 87, 51);
   ctx.stroke();
-  for (let i = 0; i < stars.length; i++) {
-    if (i === 4) continue;
-    const [sx, sy] = stars[i]!;
-    const major = i === 5 || i === 6;
-    drawMapStar(ctx, sx!, sy!, major ? 0.7 : 0.32, i === 2 ? '#ff9d72' : '#bceeff', 0.7);
-  }
+  drawMapStar(ctx, 32, 15, 0.42, '#ffae83', open * 0.65);
+  drawMapStar(ctx, 86, 20, 0.68, '#c1f3ff', open * 0.85);
+  drawMapStar(ctx, 87, 51, 0.5, '#bceeff', open * 0.65);
+  drawMapStar(ctx, 69, 27, 0.28, '#bceeff', open * 0.8);
+  drawMapStar(ctx, 18, 45, 0.3, '#bceeff', open * 0.55);
+
+  // The orange hub stays recognisable; one nearby ringed world becomes the focal object.
+  const pulse = 0.5 + 0.5 * Math.sin(time * 1.1);
+  drawMapStar(ctx, 54, 38, 1.65 + pulse * 0.05, '#ffb468', open);
+  const planet = {
+    x: 31 + Math.sin(time * 0.09) * 2.4,
+    y: 43 + Math.sin(time * 0.07) * 1.2,
+    depth: 12,
+    radius: 7.3 + inspection * 0.55,
+    ring: true,
+    colors: ['#132f42', '#225b71', '#488f9c', '#9bc9c6', '#e0e9d5'],
+  };
+  drawHologramPlanet(ctx, planet, time, open);
   ctx.restore();
 
-  const planets = HOLOGRAM_PLANETS.map((planet) => {
-    const angle = planet.phase + time * planet.speed;
-    const worldX = Math.cos(angle) * planet.orbit;
-    const worldZ = Math.sin(angle) * planet.orbit;
-    const depth = worldZ * Math.cos(yaw) - worldX * Math.sin(yaw);
-    const perspective = 1 + depth / 180;
-    return {
-      ...planet,
-      x: 54 + (worldX * Math.cos(yaw) + worldZ * Math.sin(yaw)) * perspective,
-      y: 38 + depth * inclination,
-      depth,
-      radius: planet.radius * perspective,
-    };
-  }).sort((left, right) => left.depth - right.depth);
-
-  for (const planet of planets) {
-    if (planet.depth < 0) drawHologramPlanet(ctx, planet, time, open);
-  }
-
-  // A compact luminous core and soft corona replace the enlarged orange pixels.
-  const pulse = 0.5 + 0.5 * Math.sin(time * 1.4);
-  drawMapStar(ctx, 54, 38, 2.05 + pulse * 0.08, '#ffb468', 1);
-
-  for (const planet of planets) {
-    if (planet.depth >= 0) drawHologramPlanet(ctx, planet, time, open);
-  }
+  // Restrained spill at the lower glass edge ties the projection to its cyan emitter.
+  ctx.globalAlpha = open;
+  const spill = ctx.createLinearGradient(0, 55, 0, 66);
+  spill.addColorStop(0, '#6ce8f000');
+  spill.addColorStop(1, '#6ce8f025');
+  ctx.fillStyle = spill;
+  ctx.fillRect(5, 55, 96, 11);
   ctx.restore();
 }
 
-const HOLOGRAM_PLANETS = [
-  {
-    orbit: 31,
-    phase: 2.5,
-    speed: 0.18,
-    radius: 4.1,
-    ring: true,
-    colors: ['#183e50', '#296578', '#4799a7', '#8ad8d5', '#d5f4dd'],
-  },
-  {
-    orbit: 23,
-    phase: 5.6,
-    speed: -0.27,
-    radius: 3.2,
-    ring: false,
-    colors: ['#243a68', '#365e94', '#5e9db9', '#9fd8e7', '#def8ff'],
-  },
-  {
-    orbit: 37,
-    phase: 0.2,
-    speed: 0.12,
-    radius: 2.4,
-    ring: false,
-    colors: ['#514653', '#79655b', '#ab906b', '#d1bb8e', '#f2e1b5'],
-  },
-] as const;
+const HOLOGRAM_DUST = Array.from({ length: 420 }, (_, index) => {
+  const random = (salt: number) => {
+    const value = Math.sin(index * 127.1 + salt * 311.7) * 43758.5453;
+    return value - Math.floor(value);
+  };
+  const u = random(1);
+  const spread = (random(2) + random(3) + random(4) - 1.5) * (4 + Math.sin(u * Math.PI) * 7);
+  return {
+    x: 12 + u * 81 + spread * 0.3,
+    y: 54 - u * 38 + Math.sin(u * 6) * 3 + spread,
+    depth: random(5) * 12 - 6,
+    radius: 0.075 + random(6) * 0.18,
+    alpha: 0.12 + random(7) * 0.48,
+  };
+});
 
 type HologramPlanet = {
   x: number;
