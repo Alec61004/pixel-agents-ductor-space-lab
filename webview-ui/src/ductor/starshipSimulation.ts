@@ -323,28 +323,31 @@ export const ROLE_IDLE_SLOT_OFFSETS: Record<DuctorRoleName, { dx: number; dy: nu
 export const IDLE_PATROL_POINTS: Record<DuctorRoleName, readonly Point2D[]> = {
   Alec: [
     { x: 170, y: 642 },
+    { x: 170, y: 570 },
     { x: 330, y: 646 },
     { x: 470, y: 646 },
     { x: 700, y: 646 },
-    { x: 900, y: 646 },
+    { x: 900, y: 610 },
     { x: 1240, y: 646 },
-    { x: 1460, y: 640 },
+    { x: 1460, y: 570 },
   ],
   Kevin: [
     { x: 220, y: 646 },
+    { x: 300, y: 570 },
     { x: 470, y: 646 },
-    { x: 700, y: 646 },
+    { x: 700, y: 470 },
     { x: 900, y: 646 },
-    { x: 1240, y: 646 },
+    { x: 1240, y: 600 },
     { x: 1480, y: 640 },
   ],
   Benjamin: [
     { x: 190, y: 646 },
+    { x: 190, y: 570 },
     { x: 470, y: 646 },
-    { x: 700, y: 646 },
+    { x: 700, y: 620 },
     { x: 930, y: 646 },
     { x: 1240, y: 646 },
-    { x: 1480, y: 640 },
+    { x: 1480, y: 570 },
   ],
 };
 
@@ -766,11 +769,19 @@ export function updateAgent(
       const nx = a.x + (dx / dist) * Math.min(step, dist);
       const ny = a.y + (dy / dist) * Math.min(step, dist);
       const clamped = clampPointToPolygon({ x: nx, y: ny }, WALKABLE_POLYGON);
-      a.facing = dx >= 0 ? 1 : -1;
+      // Use authored front/back cycles for mainly vertical routes; side poses
+      // are reserved for true left/right travel.
+      if (Math.abs(dy) > Math.abs(dx) * 1.15) {
+        a.facing = dy >= 0 ? 'front' : 'back';
+      } else {
+        a.facing = dx >= 0 ? 1 : -1;
+      }
       a.x = clamped.x;
       a.y = clamped.y;
       a.animTimer += dt;
-      const stridePeriod = Math.max(0.12, 0.18 - a.moveVelocity / 900);
+      // Four authored walk frames advance at a steady 8.3 fps; movement speed
+      // is expressed by the eased distance between steps, not frame skipping.
+      const stridePeriod = 0.12;
       if (a.animTimer > stridePeriod) {
         a.animTimer -= stridePeriod;
         a.animFrame = (a.animFrame + 1) % 4; // 4-frame walk cycle
@@ -1154,7 +1165,7 @@ export function drawAgent(
   const cw = hologramSprite
     ? hologramSprite.width / 2
     : walkSprite
-      ? walkSprite.width / 4
+      ? walkSprite.width / 12
       : sheetImg.width / SHEET_COLS;
   const ch = hologramSprite
     ? hologramSprite.height
@@ -1172,7 +1183,7 @@ export function drawAgent(
   const col = hologramSprite
     ? getAlecHologramFrame(a.hologramTime ?? 0)
     : walkSprite
-      ? a.animFrame % 4
+      ? (a.facing === 'front' ? 4 : a.facing === 'back' ? 8 : 0) + (a.animFrame % 4)
       : hologramControlActive
         ? 8 + getAlecHologramFrame(a.hologramTime ?? 0)
         : a.state === STATE.MOVING

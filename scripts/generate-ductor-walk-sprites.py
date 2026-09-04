@@ -56,13 +56,20 @@ def remove_background(cell):
 
 def main():
     source = Image.open(SOURCE).convert("RGBA")
-    # These are the lower-row side-walk poses: the legs alternate naturally.
+    # Each role gets three complete four-frame cycles: side, front, and back.
+    # The lower rows contain the authored alternating-leg poses for all three.
     row_ranges = [(124, 236), (366, 478), (608, 718)]  # Benjamin, Kevin, Alec
-    output = Image.new("RGBA", (320, 336), (0, 0, 0, 0))
+    output = Image.new("RGBA", (960, 336), (0, 0, 0, 0))
     for role_row, (top, bottom) in enumerate(row_ranges):
         for frame, column in enumerate((2, 3, 4, 5)):
             cell = source.crop((column * 80, top, (column + 1) * 80, bottom))
             output.paste(remove_background(cell), (frame * 80, role_row * 112))
+        for frame, column in enumerate((0, 1, 2, 3)):
+            cell = source.crop((column * 80, top, (column + 1) * 80, bottom))
+            output.paste(remove_background(cell), ((frame + 4) * 80, role_row * 112))
+        for frame, column in enumerate((8, 9, 10, 11)):
+            cell = source.crop((column * 80, top, (column + 1) * 80, bottom))
+            output.paste(remove_background(cell), ((frame + 8) * 80, role_row * 112))
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     output.save(OUTPUT)
     print(f"Generated {OUTPUT} ({output.width}x{output.height})")
