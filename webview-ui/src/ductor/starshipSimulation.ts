@@ -126,9 +126,9 @@ export const OFFLINE_POINTS: Record<DuctorRoleName, { x: number; y: number }> = 
 };
 
 export const IDLE_POINTS: Record<DuctorRoleName, { x: number; y: number }> = {
-  Alec: { x: 500, y: 550 },
-  Kevin: { x: 800, y: 560 },
-  Benjamin: { x: 1120, y: 550 },
+  Alec: { x: 350, y: 640 },
+  Kevin: { x: 850, y: 640 },
+  Benjamin: { x: 1250, y: 640 },
 };
 
 export const WAITING_POINTS: Record<DuctorRoleName, { x: number; y: number }> = {
@@ -292,6 +292,8 @@ export interface StarshipAgent {
   stateTimer: number;
   animFrame: number;
   animTimer: number;
+  idleAnimStep: number;
+  moveVelocity: number;
   bob: number;
   stationIndex: number | null;
   currentStation: string;
@@ -316,6 +318,38 @@ export const ROLE_IDLE_SLOT_OFFSETS: Record<DuctorRoleName, { dx: number; dy: nu
   Kevin: { dx: 0, dy: 14 },
   Benjamin: { dx: 28, dy: -10 },
 };
+
+// Open foreground patrol lanes keep idle crew clear of consoles and specimen pods.
+export const IDLE_PATROL_POINTS: Record<DuctorRoleName, readonly Point2D[]> = {
+  Alec: [
+    { x: 170, y: 642 },
+    { x: 330, y: 646 },
+    { x: 470, y: 646 },
+    { x: 700, y: 646 },
+    { x: 900, y: 646 },
+    { x: 1240, y: 646 },
+    { x: 1460, y: 640 },
+  ],
+  Kevin: [
+    { x: 220, y: 646 },
+    { x: 470, y: 646 },
+    { x: 700, y: 646 },
+    { x: 900, y: 646 },
+    { x: 1240, y: 646 },
+    { x: 1480, y: 640 },
+  ],
+  Benjamin: [
+    { x: 190, y: 646 },
+    { x: 470, y: 646 },
+    { x: 700, y: 646 },
+    { x: 930, y: 646 },
+    { x: 1240, y: 646 },
+    { x: 1480, y: 640 },
+  ],
+};
+
+// Intact authored poses are sequenced into a brief look-around while stopped.
+export const IDLE_GESTURE_FRAMES = [0, 0, 1, 1, 0, 2, 3, 2] as const;
 
 export function pickStation(
   agents: StarshipAgent[],
@@ -365,15 +399,20 @@ export function pickNewTarget(agent: StarshipAgent, agents: StarshipAgent[]): vo
     }
   }
 
-  // Idle wander mode or demo mode: pick among stations with distinct role slot offsets to prevent overlap
+  // Idle wander mode uses an open foreground patrol lane rather than crossing furniture.
   const { stationIndex, slot } = pickStation(agents, agent.id);
   const roleOffset = ROLE_IDLE_SLOT_OFFSETS[agent.name] ?? { dx: 0, dy: 0 };
+  const patrol = IDLE_PATROL_POINTS[agent.name] ?? IDLE_PATROL_POINTS.Alec;
+  const candidates = patrol.filter((p) => Math.hypot(p.x - agent.x, p.y - agent.y) > 70);
+  const point =
+    candidates[Math.floor(Math.random() * Math.max(1, candidates.length))] ?? patrol[0]!;
   const st = STATIONS[stationIndex] ?? STATIONS[0];
   agent.stationIndex = stationIndex;
-  agent.targetX = st.x + slot.dx + roleOffset.dx;
-  agent.targetY = st.y + slot.dy + roleOffset.dy;
+  agent.targetX = point.x + roleOffset.dx * 0.35 + slot.dx * 0.15;
+  agent.targetY = point.y + roleOffset.dy * 0.2 + slot.dy * 0.15;
   agent.currentStation = st.label;
   agent.state = STATE.MOVING;
+  agent.moveVelocity = 0;
 }
 
 export function routeToPoint(
@@ -449,6 +488,8 @@ export function makeAgent(spec: {
     stateTimer: 2 + Math.random() * 2,
     animFrame: 0,
     animTimer: 0,
+    idleAnimStep: 0,
+    moveVelocity: 0,
     bob: Math.random() * Math.PI * 2,
     stationIndex: spec.stationIndex ?? null,
     currentStation: spec.currentStation ?? '',
@@ -712,9 +753,16 @@ export function updateAgent(
         }
       }
       a.animFrame = 0;
+      a.moveVelocity = 0;
+      a.idleAnimStep = 0;
       if (pushLog) pushLog(`${a.name} arrived at ${a.currentStation}.`);
     } else {
-      const step = a.speed * speedMult * dt;
+      // Ease into and out of each walk so direction changes read as footsteps,
+      // rather than a sprite teleporting at a constant velocity.
+      const cruise = a.speed * speedMult;
+      const braking = Math.min(1, dist / 34);
+      a.moveVelocity += (cruise * braking - a.moveVelocity) * Math.min(1, dt * 8);
+      const step = Math.max(8, a.moveVelocity) * dt;
       const nx = a.x + (dx / dist) * Math.min(step, dist);
       const ny = a.y + (dy / dist) * Math.min(step, dist);
       const clamped = clampPointToPolygon({ x: nx, y: ny }, WALKABLE_POLYGON);
@@ -722,8 +770,9 @@ export function updateAgent(
       a.x = clamped.x;
       a.y = clamped.y;
       a.animTimer += dt;
-      if (a.animTimer > 0.12) {
-        a.animTimer = 0;
+      const stridePeriod = Math.max(0.12, 0.18 - a.moveVelocity / 900);
+      if (a.animTimer > stridePeriod) {
+        a.animTimer -= stridePeriod;
         a.animFrame = (a.animFrame + 1) % 4; // 4-frame walk cycle
       }
     }
@@ -775,9 +824,10 @@ export function updateAgent(
   } else if (a.state === STATE.IDLE) {
     a.stateTimer -= dt * speedMult;
     a.animTimer += dt;
-    if (a.animTimer > 0.8) {
-      a.animTimer = 0;
-      a.animFrame = (a.animFrame + 1) % 4;
+    if (a.animTimer > 0.42) {
+      a.animTimer -= 0.42;
+      a.idleAnimStep = (a.idleAnimStep + 1) % IDLE_GESTURE_FRAMES.length;
+      a.animFrame = IDLE_GESTURE_FRAMES[a.idleAnimStep]!;
     }
     if (a.stateTimer <= 0) {
       if (a.reportedState === 'working' || a.reportedState === 'review') {
@@ -1102,6 +1152,12 @@ export function drawAgent(
   const cw = hologramSprite ? hologramSprite.width / 2 : sheetImg.width / SHEET_COLS;
   const ch = hologramSprite ? hologramSprite.height : sheetImg.height / SHEET_ROWS;
   const row = hologramSprite ? 0 : a.skin.row;
+  const idleFrame =
+    a.state === STATE.IDLE
+      ? a.idleAnimStep === 0 && a.animTimer === 0
+        ? a.animFrame
+        : IDLE_GESTURE_FRAMES[a.idleAnimStep % IDLE_GESTURE_FRAMES.length]!
+      : a.animFrame;
   const col = hologramSprite
     ? getAlecHologramFrame(a.hologramTime ?? 0)
     : hologramControlActive
@@ -1109,8 +1165,8 @@ export function drawAgent(
       : a.state === STATE.MOVING
         ? 4 + (a.animFrame % 4)
         : a.facing === 'back' || (atDesk && a.facing !== 'front')
-          ? 8 + (a.animFrame % 4)
-          : 0 + (a.animFrame % 4);
+          ? 8 + (idleFrame % 4)
+          : 0 + (idleFrame % 4);
 
   const sx = col * cw;
   const sy = row * ch;
