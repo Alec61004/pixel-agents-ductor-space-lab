@@ -1112,11 +1112,14 @@ test('drawHologramTopGlow renders pulsing violet hologram ellipse, starmap rings
   const crew = createInitialCrew(snapshot);
   const ellipseCalls: any[] = [];
   const arcCalls: any[] = [];
+  const cometEndpoints: Array<[number, number]> = [];
 
   const mockCtx = {
     save: () => {},
     restore: () => {},
     beginPath: () => {},
+    rect: () => {},
+    clip: () => {},
     ellipse: (...args: any[]) => {
       ellipseCalls.push(args);
     },
@@ -1125,6 +1128,11 @@ test('drawHologramTopGlow renders pulsing violet hologram ellipse, starmap rings
     },
     fill: () => {},
     stroke: () => {},
+    createLinearGradient: () => ({ addColorStop: () => {} }),
+    moveTo: () => {},
+    lineTo: (x: number, y: number) => {
+      cometEndpoints.push([x, y]);
+    },
     fillStyle: '',
     strokeStyle: '',
     globalAlpha: 1.0,
@@ -1136,6 +1144,12 @@ test('drawHologramTopGlow renders pulsing violet hologram ellipse, starmap rings
   // Must render at least 2 hologram ellipses (table surface + concentric ring) and multiple star nodes
   assert.ok(ellipseCalls.length >= 2);
   assert.ok(arcCalls.length >= 4);
+  assert.equal(cometEndpoints.length, 4);
+  const firstFrame = [...cometEndpoints];
+  cometEndpoints.length = 0;
+  drawHologramTopGlow(mockCtx, crew, 0.5);
+  assert.equal(cometEndpoints.length, 4);
+  assert.notDeepEqual(cometEndpoints, firstFrame, 'comet endpoints must move with time');
 
   // Ellipse center must be at Alec displayBounds center
   const r = WORKSTATIONS.Alec.displayBounds;
