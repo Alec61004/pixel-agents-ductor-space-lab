@@ -1509,6 +1509,12 @@ test('Alec uses intact original typing frames with a keyboard and enlarged cyan 
     drawAgent(ctx, alec, sheet, time, keyboardSprite);
     return calls;
   }
+  for (const time of [0.15, 0.65, 1.13]) assert.equal(getAlecKeyboardFrame(time), 0);
+  for (const time of [0, 0.4, 0.9, 1.8, 2.8]) assert.equal(getAlecKeyboardFrame(time), 1);
+  const heldFocus = frame(1.3).filter((c) => c[0] === 'scale')[1];
+  const releasedFocus = frame(1.9).filter((c) => c[0] === 'scale')[1];
+  assert.equal(heldFocus?.[1], 1, 'map waits for the last key release');
+  assert.ok(releasedFocus && releasedFocus[1] > 1, 'map responds after the typing phrase');
   const first = frame(0);
   assert.deepEqual(
     first.find((c) => c[0] === 'drawImage')?.slice(1, 6),

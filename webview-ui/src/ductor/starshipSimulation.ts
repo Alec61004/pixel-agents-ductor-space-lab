@@ -1039,10 +1039,25 @@ export const WORK_HAND_PHASE_OFFSETS = [
 
 // Whole authored poses from crew-sprites.webp, row 4, columns 5 and 6.
 // Do not infer limb bounds or rotate pieces of the character.
+const ALEC_TOUCH_STARTS = [0.12, 0.6, 1.08] as const;
+const ALEC_TOUCH_DURATION = 0.22;
+const ALEC_CONSOLE_CYCLE = 3.2;
+
+function getAlecConsoleCycle(timeSec: number) {
+  const time = Math.max(0, timeSec);
+  const cycle = Math.floor(time / ALEC_CONSOLE_CYCLE);
+  const phase = time - cycle * ALEC_CONSOLE_CYCLE;
+  const contact = ALEC_TOUCH_STARTS.some(
+    (start) => phase >= start && phase < start + ALEC_TOUCH_DURATION,
+  );
+  const response = Math.max(0, Math.min(1, (phase - 1.38) / 1.1));
+  const settled = response * response * (3 - 2 * response);
+  return { phase, contact, responseTime: (cycle + settled) * ALEC_CONSOLE_CYCLE };
+}
+
 export function getAlecKeyboardFrame(timeSec: number): number {
-  const cadence = [0, 0, 1, 0, 1, 1, 0, 0];
-  const index = ((Math.floor(timeSec / 0.16) % cadence.length) + cadence.length) % cadence.length;
-  return cadence[index]!;
+  // Whole original poses: lower hands only during contact, raise them between taps.
+  return getAlecConsoleCycle(timeSec).contact ? 0 : 1;
 }
 
 function isAlecUsingHologram(a: StarshipAgent): boolean {
@@ -1313,7 +1328,8 @@ export function drawHologramTopGlow(
 
   // The operator brings a region closer, pauses to inspect it, then lets it settle.
   // This long gesture is shared by every layer instead of making each object bob.
-  const inspection = Math.pow(0.5 - 0.5 * Math.cos((time * Math.PI) / 5.12), 2);
+  const responseTime = getAlecConsoleCycle(time).responseTime;
+  const inspection = Math.pow(0.5 - 0.5 * Math.cos((responseTime * Math.PI) / 5.12), 2);
   const focus = 1 + 0.09 * inspection;
   const yaw = Math.sin(time * 0.13) * 0.1 + inspection * 0.035;
   ctx.save();
@@ -1570,123 +1586,167 @@ function drawHologramPlanet(
 
 export function drawAlecKeyboard(ctx: CanvasRenderingContext2D, a: StarshipAgent): void {
   if (!isAlecUsingHologram(a)) return;
-  const x = a.x + 10;
-  const y = a.y - 60;
+  const x = a.x - 6;
+  const y = a.y - 59;
   const time = a.hologramTime ?? 0;
-  const pressed = getAlecKeyboardFrame(time) === 0;
-  const active = Math.floor(time / 0.32) % 3;
+  const { phase, responseTime } = getAlecConsoleCycle(time);
   ctx.save();
   ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 1;
   ctx.shadowBlur = 0;
-  ctx.lineWidth = 0.8;
+  ctx.lineWidth = 0.7;
 
-  // The console is projected from a small emitter on the table's front apron.
-  ctx.fillStyle = '#142832';
-  ctx.fillRect(x + 31, y + 36, 17, 4);
-  ctx.fillStyle = '#7de9ef';
-  ctx.fillRect(x + 34, y + 36, 11, 1);
+  // Two short metal hinges attach the touch deck to the table's front apron.
+  for (const mount of [60, 79]) {
+    ctx.beginPath();
+    ctx.moveTo(x + mount, y + 13);
+    ctx.lineTo(x + mount + 5, y + 14);
+    ctx.lineTo(x + mount + 2, y + 34);
+    ctx.lineTo(x + mount - 4, y + 36);
+    ctx.lineTo(x + mount - 6, y + 33);
+    ctx.closePath();
+    ctx.fillStyle = '#1b2631';
+    ctx.fill();
+    ctx.strokeStyle = '#526775';
+    ctx.stroke();
+    ctx.fillStyle = '#82bdc8';
+    ctx.fillRect(x + mount - 3, y + 32, 3, 1);
+  }
+
+  // The front rail has physical thickness; the illuminated glass sits above it.
   ctx.beginPath();
-  ctx.moveTo(x + 35, y + 36);
-  ctx.lineTo(x - 4, y + 24);
-  ctx.lineTo(x + 70, y + 24);
-  ctx.lineTo(x + 44, y + 36);
+  ctx.moveTo(x - 6, y + 25);
+  ctx.lineTo(x + 88, y + 25);
+  ctx.lineTo(x + 86, y + 29);
+  ctx.lineTo(x - 3, y + 29);
   ctx.closePath();
-  ctx.fillStyle = 'rgba(71, 213, 235, 0.08)';
+  ctx.fillStyle = '#263c49';
   ctx.fill();
-  ctx.strokeStyle = 'rgba(104, 230, 246, 0.24)';
+  ctx.strokeStyle = '#587b8b';
   ctx.stroke();
 
-  // A shallow glass flight deck, with clipped corners and a lit lower rail.
+  const deckPath = () => {
+    ctx.beginPath();
+    ctx.moveTo(x + 4, y - 5);
+    ctx.lineTo(x + 78, y - 5);
+    ctx.lineTo(x + 82, y - 2);
+    ctx.lineTo(x + 90, y + 22);
+    ctx.lineTo(x + 87, y + 25);
+    ctx.lineTo(x - 6, y + 25);
+    ctx.lineTo(x - 8, y + 22);
+    ctx.lineTo(x, y - 2);
+    ctx.closePath();
+  };
+  deckPath();
+  const glass = ctx.createLinearGradient(x, y - 5, x + 25, y + 25);
+  glass.addColorStop(0, 'rgba(45, 82, 99, 0.86)');
+  glass.addColorStop(0.4, 'rgba(16, 43, 57, 0.84)');
+  glass.addColorStop(1, 'rgba(8, 32, 45, 0.72)');
+  ctx.fillStyle = glass;
+  ctx.fill();
+  ctx.strokeStyle = '#86c6d0';
+  ctx.stroke();
+  ctx.save();
+  ctx.clip();
+
+  // A restrained reflection gives the surface a glass finish.
   ctx.beginPath();
-  ctx.moveTo(x + 3, y - 2);
-  ctx.lineTo(x + 58, y - 2);
-  ctx.lineTo(x + 66, y + 3);
-  ctx.lineTo(x + 71, y + 22);
-  ctx.lineTo(x + 66, y + 26);
-  ctx.lineTo(x - 5, y + 26);
-  ctx.lineTo(x - 7, y + 22);
-  ctx.lineTo(x - 1, y + 2);
+  ctx.moveTo(x + 38, y - 5);
+  ctx.lineTo(x + 46, y - 5);
+  ctx.lineTo(x + 59, y + 25);
+  ctx.lineTo(x + 50, y + 25);
   ctx.closePath();
-  ctx.fillStyle = 'rgba(8, 36, 49, 0.78)';
+  ctx.fillStyle = 'rgba(167, 227, 237, 0.055)';
   ctx.fill();
-  ctx.strokeStyle = '#4d9faf';
-  ctx.stroke();
-  ctx.strokeStyle = '#a0f6ff';
-  ctx.beginPath();
-  ctx.moveTo(x - 5, y + 22);
-  ctx.lineTo(x - 3, y + 24);
-  ctx.lineTo(x + 22, y + 24);
-  ctx.moveTo(x + 53, y + 24);
-  ctx.lineTo(x + 65, y + 24);
-  ctx.lineTo(x + 68, y + 21);
-  ctx.stroke();
 
-  // Large touch zones sit under the original sprite's hands, not QWERTY rows.
-  for (let row = 0; row < 2; row++) {
-    for (let col = 0; col < 3; col++) {
-      const kx = x + 2 + col * 10 - row * 2;
-      const ky = y + 5 + row * 8;
-      const lit = pressed && row === 1 && col === active;
+  // Both banks are anchored under the full original sprite's lowered fists.
+  // The active row lights as a contact surface; nothing jumps between random keys.
+  for (let hand = 0; hand < 2; hand++) {
+    const hx = x + 10 + hand * 16;
+    const hy = y + 19;
+    let pressure = 0;
+    let echo = 0;
+    let echoAge = 0;
+    for (let tap = 0; tap < ALEC_TOUCH_STARTS.length; tap++) {
+      if (tap !== hand && tap !== 2) continue;
+      const age = phase - ALEC_TOUCH_STARTS[tap]!;
+      if (age >= 0 && age < ALEC_TOUCH_DURATION) {
+        pressure = 0.85 - age;
+        echo = 0.5;
+        echoAge = age;
+      } else if (age >= ALEC_TOUCH_DURATION && age < ALEC_TOUCH_DURATION + 0.18) {
+        echo = (1 - (age - ALEC_TOUCH_DURATION) / 0.18) * 0.3;
+        echoAge = age;
+      }
+    }
+    for (let row = 0; row < 2; row++) {
+      for (let col = 0; col < 2; col++) {
+        const kx = hx - 7 + col * 7;
+        const ky = hy - 9 + row * 7;
+        ctx.fillStyle =
+          row === 1 && pressure > 0
+            ? `rgba(163, 242, 246, ${pressure})`
+            : 'rgba(103, 178, 196, 0.1)';
+        ctx.fillRect(kx, ky, 6, 5);
+        ctx.strokeStyle = row === 1 && pressure > 0 ? '#d9ffff' : '#568b9c';
+        ctx.lineWidth = 0.45;
+        ctx.strokeRect(kx, ky, 6, 5);
+        ctx.fillStyle = '#9cc9d1';
+        ctx.fillRect(kx + 2, ky + 2, 2, 0.6);
+      }
+    }
+    if (echo > 0) {
+      const glow = ctx.createRadialGradient(hx, hy, 0, hx, hy, 8);
+      glow.addColorStop(0, `rgba(172, 249, 255, ${echo * 0.4})`);
+      glow.addColorStop(1, 'rgba(80, 213, 238, 0)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(hx - 8, hy - 8, 16, 16);
+      ctx.globalAlpha = echo;
+      ctx.strokeStyle = '#c6faff';
       ctx.beginPath();
-      ctx.moveTo(kx, ky);
-      ctx.lineTo(kx + 7, ky);
-      ctx.lineTo(kx + 8, ky + 5);
-      ctx.lineTo(kx - 1, ky + 5);
-      ctx.closePath();
-      ctx.fillStyle = lit ? 'rgba(149, 245, 255, 0.7)' : 'rgba(45, 140, 164, 0.24)';
-      ctx.fill();
-      ctx.strokeStyle = lit ? '#dbfcff' : '#4694a7';
+      ctx.ellipse(hx, hy, 5 + echoAge * 9, 2.2 + echoAge * 3, 0, 0, Math.PI * 2);
       ctx.stroke();
-      ctx.fillStyle = lit ? '#ffffff' : '#7acbd7';
-      ctx.fillRect(kx + 2, ky + 2, col === 1 ? 3 : 2, 1);
+      ctx.globalAlpha = 1;
     }
   }
 
-  // Navigation dial: segmented bearings and a moving heading indicator.
-  const dialX = x + 48;
-  const dialY = y + 12;
-  for (let i = 0; i < 8; i++) {
-    const angle = (i * Math.PI) / 4;
-    ctx.beginPath();
-    ctx.ellipse(dialX, dialY, 12, 7, 0, angle + 0.08, angle + 0.59);
-    ctx.strokeStyle = i === Math.floor(time * 1.5) % 8 ? '#c4faff' : '#428fa5';
-    ctx.stroke();
-  }
-  const heading = time * 0.65;
+  // Compact embedded navigation readout, secondary to the touch banks.
+  const dialX = x + 62;
+  const dialY = y + 11;
+  ctx.lineWidth = 0.55;
+  ctx.strokeStyle = '#6595a7';
+  ctx.beginPath();
+  ctx.ellipse(dialX, dialY, 7.5, 4.4, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  const heading = responseTime * 0.22;
   ctx.beginPath();
   ctx.moveTo(dialX, dialY);
-  ctx.lineTo(dialX + Math.cos(heading) * 9, dialY + Math.sin(heading) * 5);
-  ctx.strokeStyle = '#86e5ed';
+  ctx.lineTo(dialX + Math.cos(heading) * 6, dialY + Math.sin(heading) * 3.5);
+  ctx.strokeStyle = '#b1e3e9';
   ctx.stroke();
-  ctx.fillStyle = '#ffd39a';
-  ctx.fillRect(dialX - 1, dialY - 1, 2, 2);
-  ctx.fillStyle = '#65bdcf';
-  ctx.fillRect(x + 38, y + 22, 9, 1);
-
-  // A small upright telemetry pane rises from the far edge of the touch deck.
-  ctx.beginPath();
-  ctx.moveTo(x + 36, y - 18);
-  ctx.lineTo(x + 63, y - 18);
-  ctx.lineTo(x + 66, y - 15);
-  ctx.lineTo(x + 66, y - 4);
-  ctx.lineTo(x + 36, y - 4);
-  ctx.closePath();
-  ctx.fillStyle = 'rgba(10, 47, 62, 0.65)';
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(109, 224, 242, 0.65)';
-  ctx.stroke();
-  ctx.fillStyle = '#9ae7ee';
-  ctx.fillRect(x + 39, y - 15, 8, 1);
-  ctx.fillStyle = '#e8bc76';
-  ctx.fillRect(x + 61, y - 15, 2, 1);
-  for (let i = 0; i < 5; i++) {
-    const height = 2 + Math.floor(2 + 2 * Math.sin(time * 2 + i * 1.4));
-    ctx.fillStyle = i === active ? '#b0f7ff' : '#4b9eb2';
-    ctx.fillRect(x + 39 + i * 3, y - 6 - height, 2, height);
+  ctx.fillStyle = '#c1dfe0';
+  ctx.fillRect(dialX - 0.6, dialY - 0.6, 1.2, 1.2);
+  for (let i = 0; i < 4; i++) {
+    ctx.fillStyle = '#719ea9';
+    ctx.fillRect(x + 76, y + 5 + i * 3, 5 - i * 0.7, 0.7);
   }
-  ctx.fillStyle = '#4b9eb2';
-  ctx.fillRect(x + 56, y - 11, 7, 1);
-  ctx.fillRect(x + 56, y - 8, pressed ? 5 : 3, 1);
+  const acknowledging = phase >= 1.38 && phase < 2.48;
+  ctx.fillStyle = acknowledging ? '#c5f2e8' : '#588496';
+  ctx.fillRect(x + 43, y + 20, acknowledging ? 35 : 10, 0.8);
+  ctx.fillStyle = acknowledging ? '#efcf94' : '#819491';
+  ctx.fillRect(x + 80, y + 20, 2, 1);
+  ctx.restore();
+
+  // Quiet edge highlights unify the glass with the table's existing cyan hardware.
+  ctx.globalAlpha = 0.8;
+  ctx.strokeStyle = '#b0e8e9';
+  ctx.lineWidth = 0.7;
+  ctx.beginPath();
+  ctx.moveTo(x + 4, y - 4);
+  ctx.lineTo(x + 76, y - 4);
+  ctx.moveTo(x - 3, y + 25);
+  ctx.lineTo(x + 34, y + 25);
+  ctx.stroke();
   ctx.restore();
 }
 
@@ -1842,6 +1902,17 @@ export function drawStage(
   const sorted = [...agents].sort((a, b) => a.y - b.y);
   for (const a of sorted) {
     drawAgent(ctx, a, sheetImg, timeSec, alecKeyboardImg);
+  }
+
+  // The front lip and near touch row sit in front of Alec's waist, below his hands.
+  // Reuse the same deck with a depth clip; the complete authored sprite stays intact.
+  if (alec && isAlecUsingHologram(alec)) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(alec.x - 14, alec.y - 41, 104, 12);
+    ctx.clip();
+    drawAlecKeyboard(ctx, alec);
+    ctx.restore();
   }
 
   // Draw desk occlusion cutouts over sitting/standing agents' lower bodies
