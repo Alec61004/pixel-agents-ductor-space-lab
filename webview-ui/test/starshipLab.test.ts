@@ -47,6 +47,8 @@ import {
 import {
   drawAlecHologramControl,
   getAlecHologramFrame,
+  getHologramNavigation,
+  getHologramOrbit,
   WORK_HAND_PHASE_OFFSETS,
 } from '../src/ductor/starshipSimulation.js';
 
@@ -1544,10 +1546,9 @@ test('Alec uses intact original rear poses with gesture fields and the same cyan
   }
   for (const time of [0.15, 0.65, 1.13]) assert.equal(getAlecHologramFrame(time), 0);
   for (const time of [0, 0.4, 0.9, 1.8, 2.8]) assert.equal(getAlecHologramFrame(time), 1);
-  const heldFocus = frame(1.3).filter((c) => c[0] === 'scale')[1];
-  const releasedFocus = frame(1.9).filter((c) => c[0] === 'scale')[1];
-  assert.equal(heldFocus?.[1], 1, 'map waits for the last key release');
-  assert.ok(releasedFocus && releasedFocus[1] > 1, 'map responds after the typing phrase');
+  assert.equal(getHologramNavigation(1.3, true).route, 0, 'route waits for the last key release');
+  assert.ok(getHologramNavigation(1.9, true).route > 0, 'route draws after the typing phrase');
+  assert.equal(frame(1.9).some((c) => c[0] === 'transform'), false, 'the map camera stays still');
   const first = frame(0);
   assert.deepEqual(
     first.find((c) => c[0] === 'drawImage')?.slice(1, 6),
@@ -1621,4 +1622,23 @@ test('Alec uses intact original rear poses with gesture fields and the same cyan
   const resting = frame(0).find((c) => c[0] === 'drawImage' && c[1] === bgImg);
   assert.equal(resting![8], 106);
   assert.ok(alec.hologramSceneTime! > sceneTime!, 'ambient field keeps moving while idle');
+});
+
+test('the ringed world travels around the fixed star while navigation follows Alec gestures', () => {
+  const start = getHologramOrbit(0);
+  const later = getHologramOrbit(6);
+  assert.ok(Math.hypot(later.x - start.x, later.y - start.y) > 10);
+  const fullOrbit = getHologramOrbit(Math.PI * 2 / 0.22);
+  assert.ok(Math.hypot(start.x - fullOrbit.x, start.y - fullOrbit.y) < 0.0001);
+  for (let time = 0; time < 30; time += 0.1) {
+    const planet = getHologramOrbit(time);
+    assert.ok(planet.x > 25 && planet.x < 83 && planet.y > 25 && planet.y < 51);
+  }
+  assert.equal(getHologramNavigation(1, true).route, 0);
+  assert.ok(getHologramNavigation(1.9, true).route > 0);
+  assert.equal(getHologramNavigation(2.5, true).route, 1);
+  assert.ok(getHologramNavigation(2.8, true).signal > 0);
+  assert.notDeepEqual(getHologramNavigation(1, true).target, getHologramNavigation(4.2, true).target);
+  assert.equal(getHologramNavigation(2.8, false).opacity, 0);
+  assert.equal(getHologramNavigation(2.8, false).route, 0);
 });

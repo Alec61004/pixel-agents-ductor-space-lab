@@ -889,7 +889,8 @@ export function updateAgent(
   // Ambient map motion persists while the control's gesture clock remains work-only.
   const usingHologram = isAlecUsingHologram(a);
   if (a.name === 'Alec') {
-    a.hologramSceneTime = (a.hologramSceneTime ?? 0) + dt * speedMult;
+    a.hologramSceneTime =
+      (a.hologramSceneTime ?? 0) + dt * speedMult * (usingHologram ? 1 : 0.22);
     const expansion = a.hologramExpansion ?? 0;
     const change = (dt * speedMult) / 0.6;
     a.hologramExpansion = Math.max(0, Math.min(1, expansion + (usingHologram ? change : -change)));
@@ -1434,17 +1435,10 @@ export function drawHologramTopGlow(
     ctx.fillRect(5, 5, 96, roomHeight / zoom);
   }
 
-  // The operator brings a region closer, pauses to inspect it, then lets it settle.
-  // This long gesture is shared by every layer instead of making each object bob.
-  const responseTime = getAlecConsoleCycle(working ? controlTime : 0).responseTime;
-  const inspection = Math.pow(0.5 - 0.5 * Math.cos((responseTime * Math.PI) / 5.12), 2);
-  const focus = 1 + 0.09 * inspection;
-  const yaw = Math.sin(time * 0.13) * 0.1 + inspection * 0.035;
+  // The viewport stays still. Independent orbits and navigation responses make
+  // the system move instead of repeatedly magnifying the whole picture.
+  const navigation = getHologramNavigation(controlTime, working);
   ctx.save();
-  ctx.translate(54, 35);
-  ctx.scale(focus, focus);
-  ctx.transform(Math.cos(yaw), Math.sin(yaw) * 0.65, -Math.sin(yaw), Math.cos(yaw), 0, 0);
-  ctx.translate(-54, -35);
 
   // Broad wisps build depth around the star field without a solid nebula disc.
   ctx.globalCompositeOperation = 'lighter';
@@ -1468,9 +1462,10 @@ export function drawHologramTopGlow(
 
   // The fixed seed keeps fine dust stable between frames; depth controls parallax.
   for (const mote of HOLOGRAM_DUST) {
-    const x = mote.x + Math.sin(time * 0.045 + mote.depth) * mote.depth * 0.08;
-    const y = mote.y + Math.cos(time * 0.035 + mote.depth) * 0.2;
-    ctx.globalAlpha = open * mote.alpha;
+    const drift = Math.sin(time * 0.18 + mote.depth * 0.13);
+    const x = mote.x + drift * mote.depth * 0.65;
+    const y = mote.y + Math.cos(time * 0.13 + mote.depth * 0.2) * mote.depth * 0.3;
+    ctx.globalAlpha = open * mote.alpha * (0.8 + Math.sin(time * 0.8 + mote.x) * 0.2);
     ctx.fillStyle = mote.depth > 0 ? '#beedf0' : '#5ba8c3';
     ctx.beginPath();
     ctx.arc(x, y, mote.radius, 0, Math.PI * 2);
@@ -1504,18 +1499,51 @@ export function drawHologramTopGlow(
   drawMapStar(ctx, 69, 27, 0.28, '#bceeff', open * 0.8);
   drawMapStar(ctx, 18, 45, 0.3, '#bceeff', open * 0.55);
 
-  // The orange hub stays recognisable; one nearby ringed world becomes the focal object.
+  // Thin orbital tracks sit behind the shaded planets, with shorter trails
+  // indicating their direction of travel rather than a spinning flat panel.
+  const orbit = getHologramOrbit(time);
+  ctx.strokeStyle = '#70c4d8';
+  ctx.lineWidth = 0.22;
+  ctx.globalAlpha = 0.2;
+  ctx.beginPath();
+  ctx.ellipse(54, 38, 28, 12, -0.14, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.globalAlpha = 0.1;
+  ctx.beginPath();
+  ctx.ellipse(54, 38, 15, 7, -0.14, 0, Math.PI * 2);
+  ctx.stroke();
+  for (let segment = 0; segment < 18; segment++) {
+    const previous = getHologramOrbit(time - (18 - segment) * 0.16);
+    const next = getHologramOrbit(time - (17 - segment) * 0.16);
+    ctx.globalAlpha = (segment / 18) * 0.38;
+    ctx.lineWidth = 0.45;
+    ctx.beginPath();
+    ctx.moveTo(previous.x, previous.y);
+    ctx.lineTo(next.x, next.y);
+    ctx.stroke();
+  }
+
+  // The orange hub stays fixed; a ringed world actually travels around it.
   const pulse = 0.5 + 0.5 * Math.sin(time * 1.1);
-  drawMapStar(ctx, 54, 38, 1.65 + pulse * 0.05, '#ffb468', open);
   const planet = {
-    x: 31 + Math.sin(time * 0.09) * 2.4,
-    y: 43 + Math.sin(time * 0.07) * 1.2,
-    depth: 12,
-    radius: 7.3 + inspection * 0.55,
+    ...orbit,
+    radius: 7.3,
     ring: true,
     colors: ['#132f42', '#225b71', '#488f9c', '#9bc9c6', '#e0e9d5'],
   };
-  drawHologramPlanet(ctx, planet, time, open);
+  const innerOrbit = getHologramOrbit(time * 1.8 + 8, 15, 7);
+  const innerPlanet = {
+    ...innerOrbit,
+    radius: 1.65,
+    ring: false,
+    colors: ['#132238', '#234966', '#448da5', '#80bdca', '#c7e5df'],
+  };
+  if (planet.depth < 0) drawHologramPlanet(ctx, planet, time, open);
+  if (innerPlanet.depth < 0) drawHologramPlanet(ctx, innerPlanet, time, open);
+  drawMapStar(ctx, 54, 38, 1.65 + pulse * 0.05, '#ffb468', open);
+  if (innerPlanet.depth >= 0) drawHologramPlanet(ctx, innerPlanet, time, open);
+  if (planet.depth >= 0) drawHologramPlanet(ctx, planet, time, open);
+  if (working) drawHologramNavigation(ctx, navigation);
   ctx.restore();
 
   // Restrained spill at the lower glass edge ties the projection to its cyan emitter.
@@ -1525,6 +1553,86 @@ export function drawHologramTopGlow(
   spill.addColorStop(1, '#6ce8f025');
   ctx.fillStyle = spill;
   ctx.fillRect(5, 55, 96, 11);
+  ctx.restore();
+}
+
+export function getHologramOrbit(time: number, radiusX = 28, radiusY = 12) {
+  const angle = 2.85 + time * 0.22;
+  const x = Math.cos(angle) * radiusX;
+  const y = Math.sin(angle) * radiusY;
+  const tilt = -0.14;
+  return {
+    x: 54 + x * Math.cos(tilt) - y * Math.sin(tilt),
+    y: 38 + x * Math.sin(tilt) + y * Math.cos(tilt),
+    depth: Math.sin(angle),
+  };
+}
+
+const HOLOGRAM_TARGETS = [{ x: 86, y: 20 }, { x: 32, y: 15 }, { x: 87, y: 51 }] as const;
+
+export function getHologramNavigation(time: number, working: boolean) {
+  const cycle = Math.floor(Math.max(0, time) / ALEC_CONSOLE_CYCLE);
+  const { phase } = getAlecConsoleCycle(time);
+  const progress = working ? Math.max(0, Math.min(1, (phase - 1.38) / 1.1)) : 0;
+  return {
+    target: HOLOGRAM_TARGETS[cycle % HOLOGRAM_TARGETS.length]!,
+    scan: Math.max(0, Math.min(1, (phase - 0.12) / 1.18)),
+    route: progress * progress * (3 - 2 * progress),
+    signal: Math.max(0, Math.min(1, (phase - 2.48) / 0.55)),
+    opacity: working ? Math.min(1, phase / 0.15, (ALEC_CONSOLE_CYCLE - phase) / 0.18) : 0,
+  };
+}
+
+function drawHologramNavigation(
+  ctx: CanvasRenderingContext2D,
+  navigation: ReturnType<typeof getHologramNavigation>,
+) {
+  const { target, route, scan, signal, opacity } = navigation;
+  const point = (t: number) => ({
+    x: (1 - t) ** 2 * 54 + 2 * (1 - t) * t * (target.x - 9) + t * t * target.x,
+    y: (1 - t) ** 2 * 38 + 2 * (1 - t) * t * (target.y - 5) + t * t * target.y,
+  });
+  ctx.save();
+  // Lock onto one existing star while Alec touches the controls.
+  ctx.strokeStyle = '#a1eff4';
+  ctx.lineWidth = 0.4;
+  ctx.globalAlpha = opacity * 0.8;
+  const radius = 2.6 + (1 - scan) * 3;
+  for (let corner = 0; corner < 4; corner++) {
+    const angle = corner * Math.PI / 2 + scan * 0.4;
+    ctx.beginPath();
+    ctx.arc(target.x, target.y, radius, angle, angle + 0.65);
+    ctx.stroke();
+  }
+  // Survey sweep stays local to the selected system and fades after locking.
+  ctx.globalAlpha = opacity * (1 - scan) * 0.24;
+  ctx.beginPath();
+  ctx.arc(target.x, target.y, 7, scan * Math.PI * 2, scan * Math.PI * 2 + 0.7);
+  ctx.stroke();
+  if (route > 0) {
+    ctx.globalAlpha = opacity * 0.65;
+    ctx.lineWidth = 0.35;
+    ctx.beginPath();
+    ctx.moveTo(54, 38);
+    for (let step = 1; step <= 32; step++) {
+      const p = point(route * step / 32);
+      ctx.lineTo(p.x, p.y);
+    }
+    ctx.stroke();
+    const head = point(route);
+    drawMapStar(ctx, head.x, head.y, 0.38, '#7cddf1', opacity * 0.9);
+  }
+  if (signal > 0) {
+    // A departing signal traverses the calculated route, followed by a
+    // confirmation ripple at the destination. No viewport zoom is involved.
+    const ship = point(signal);
+    drawMapStar(ctx, ship.x, ship.y, 0.5, '#a9f1fb', opacity);
+    ctx.globalAlpha = opacity * signal * (1 - signal * 0.7);
+    ctx.strokeStyle = '#a1eff4';
+    ctx.beginPath();
+    ctx.arc(target.x, target.y, 2 + signal * 5, 0, Math.PI * 2);
+    ctx.stroke();
+  }
   ctx.restore();
 }
 
@@ -1659,7 +1767,7 @@ function drawHologramPlanet(
       x - radius * 0.25,
       y + offset + radius * 0.4,
       x + radius * 0.4,
-      y + offset - radius * 0.18 + Math.sin(time * 0.15 + band) * 0.2,
+      y + offset - radius * 0.18 + Math.sin(time * 0.65 + band) * radius * 0.12,
       x + radius,
       y + offset - radius * 0.1,
     );
