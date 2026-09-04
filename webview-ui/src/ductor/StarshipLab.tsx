@@ -150,6 +150,12 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
       : './',
     'themes/ductor-space-lab/alec-hologram.png',
   );
+  const resolvedWalkUrl = ductorAssetUrl(
+    typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL
+      ? import.meta.env.BASE_URL
+      : './',
+    'themes/ductor-space-lab/crew-walk.png',
+  );
 
   const stageWrapRef = useRef<HTMLDivElement | null>(null);
   const stageCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -244,11 +250,12 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
     const bgImg = new Image();
     const sheetImg = new Image();
     const hologramImg = new Image();
+    const walkImg = new Image();
     let loadedCount = 0;
 
     const onAssetLoaded = () => {
       loadedCount++;
-      if (loadedCount === 2 && !disposed) {
+      if (loadedCount === 3 && !disposed) {
         setLoaded(true);
       }
     };
@@ -259,6 +266,8 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
     sheetImg.src = resolvedSheetUrl;
     // Optional: keep the original sheet fallback if this asset is unavailable.
     hologramImg.src = resolvedHologramUrl;
+    walkImg.onload = onAssetLoaded;
+    walkImg.src = resolvedWalkUrl;
 
     let stars: Star[] = [];
     let starTime = 0;
@@ -393,6 +402,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
             panRef.current.y,
             zoomRef.current,
             hologramImg.complete && hologramImg.naturalWidth > 0 ? hologramImg : undefined,
+            walkImg.complete && walkImg.naturalWidth > 0 ? walkImg : undefined,
           );
         }
       }
@@ -428,7 +438,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
       }
       cancelAnimationFrame(animId);
     };
-  }, [resolvedBgUrl, resolvedSheetUrl, resolvedHologramUrl]);
+  }, [resolvedBgUrl, resolvedSheetUrl, resolvedHologramUrl, resolvedWalkUrl]);
 
   const isCloud = Boolean(snapshot?.publishedAt);
   const isStale = Boolean(snapshot?.stale);

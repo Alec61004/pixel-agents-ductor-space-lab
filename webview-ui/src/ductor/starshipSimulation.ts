@@ -1133,6 +1133,7 @@ export function drawAgent(
   sheetImg: HTMLImageElement,
   _timeSec: number = Date.now() / 1000,
   alecHologramImg?: HTMLImageElement,
+  walkImg?: HTMLImageElement,
 ): void {
   void _timeSec;
   const hologramControlActive = isAlecUsingHologram(a);
@@ -1148,10 +1149,20 @@ export function drawAgent(
   }
 
   const hologramSprite = hologramControlActive && alecHologramImg ? alecHologramImg : undefined;
-  const sprite = hologramSprite ?? sheetImg;
-  const cw = hologramSprite ? hologramSprite.width / 2 : sheetImg.width / SHEET_COLS;
-  const ch = hologramSprite ? hologramSprite.height : sheetImg.height / SHEET_ROWS;
-  const row = hologramSprite ? 0 : a.skin.row;
+  const walkSprite = a.state === STATE.MOVING && walkImg ? walkImg : undefined;
+  const sprite = hologramSprite ?? walkSprite ?? sheetImg;
+  const cw = hologramSprite
+    ? hologramSprite.width / 2
+    : walkSprite
+      ? walkSprite.width / 4
+      : sheetImg.width / SHEET_COLS;
+  const ch = hologramSprite
+    ? hologramSprite.height
+    : walkSprite
+      ? walkSprite.height / 3
+      : sheetImg.height / SHEET_ROWS;
+  const walkRow = a.name === 'Benjamin' ? 0 : a.name === 'Kevin' ? 1 : 2;
+  const row = hologramSprite ? 0 : walkSprite ? walkRow : a.skin.row;
   const idleFrame =
     a.state === STATE.IDLE
       ? a.idleAnimStep === 0 && a.animTimer === 0
@@ -1160,13 +1171,15 @@ export function drawAgent(
       : a.animFrame;
   const col = hologramSprite
     ? getAlecHologramFrame(a.hologramTime ?? 0)
-    : hologramControlActive
-      ? 8 + getAlecHologramFrame(a.hologramTime ?? 0)
-      : a.state === STATE.MOVING
-        ? 4 + (a.animFrame % 4)
-        : a.facing === 'back' || (atDesk && a.facing !== 'front')
-          ? 8 + (idleFrame % 4)
-          : 0 + (idleFrame % 4);
+    : walkSprite
+      ? a.animFrame % 4
+      : hologramControlActive
+        ? 8 + getAlecHologramFrame(a.hologramTime ?? 0)
+        : a.state === STATE.MOVING
+          ? 4 + (a.animFrame % 4)
+          : a.facing === 'back' || (atDesk && a.facing !== 'front')
+            ? 8 + (idleFrame % 4)
+            : 0 + (idleFrame % 4);
 
   const sx = col * cw;
   const sy = row * ch;
@@ -1903,6 +1916,7 @@ export function drawStage(
   panY: number = 0,
   zoom: number = 1,
   alecHologramImg?: HTMLImageElement,
+  walkImg?: HTMLImageElement,
 ): { scale: number; offX: number; offY: number } {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, rect.width, rect.height);
@@ -1928,7 +1942,7 @@ export function drawStage(
 
   const sorted = [...agents].sort((a, b) => a.y - b.y);
   for (const a of sorted) {
-    drawAgent(ctx, a, sheetImg, timeSec, alecHologramImg);
+    drawAgent(ctx, a, sheetImg, timeSec, alecHologramImg, walkImg);
   }
 
   // Foreground arcs wrap around the hands without modifying the original character art.
