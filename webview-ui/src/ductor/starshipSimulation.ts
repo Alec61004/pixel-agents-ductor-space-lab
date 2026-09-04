@@ -1338,11 +1338,10 @@ export function drawDeskCutouts(
     if (!ws || !ws.occlusionBounds || agent.name === 'Alec') continue;
 
     const isOffline = agent.reportedState === 'offline' || agent.state === STATE.OFFLINE;
-    const isWorking =
-      !isOffline &&
-      (agent.state === STATE.WORKING ||
-        agent.reportedState === 'working' ||
-        agent.reportedState === 'review');
+    // A live snapshot can remain "working" for a few frames while the
+    // simulation is routing the crew member away. Never cover a moving or
+    // idle sprite with a desk cutout during that transition.
+    const isWorking = !isOffline && agent.state === STATE.WORKING;
 
     if (isWorking && isAgentAtStation(agent)) {
       const c = ws.occlusionBounds;

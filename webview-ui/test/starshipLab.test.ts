@@ -1145,6 +1145,26 @@ test('drawDeskCutouts renders occlusion bounds from bgImg to occlude agent lower
   assert.equal(alecIdleCutout, undefined);
 });
 
+test('drawDeskCutouts never hides a crew member while routing away from a desk', () => {
+  const crew = createInitialCrew(snapshot);
+  const drawImageCalls: any[] = [];
+  const mockCtx = {
+    save: () => {},
+    restore: () => {},
+    drawImage: (...args: any[]) => drawImageCalls.push(args),
+    imageSmoothingEnabled: true,
+  } as unknown as CanvasRenderingContext2D;
+  const mockBgImg = { width: 1600, height: 678 } as HTMLImageElement;
+  const kevin = crew.find((a) => a.name === 'Kevin')!;
+  kevin.state = STATE.MOVING;
+  kevin.reportedState = 'working';
+  drawDeskCutouts(mockCtx, mockBgImg, crew);
+  assert.equal(
+    drawImageCalls.some((call) => call[1] === WORKSTATIONS.Kevin.occlusionBounds.x),
+    false,
+  );
+});
+
 test('V1.9 typing effects: drawAgent renders 2 typing arms (3x2px) in role color oscillating in opposite phase with deterministic 0.20s cadence', () => {
   const crew = createInitialCrew(snapshot);
   const kevin = crew.find((a) => a.name === 'Kevin')!;
