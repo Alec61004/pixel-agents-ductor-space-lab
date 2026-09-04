@@ -1208,6 +1208,14 @@ export function drawDeskCutouts(
   }
 }
 
+// Fixed geometry avoids random flicker and keeps the map continuous between frames.
+// These are stylized navigation constellations, not astronomical coordinates.
+const HOLOGRAM_CONSTELLATIONS = [
+  [[-0.9, -0.4], [-0.4, -0.65], [0.05, -0.15], [0.65, -0.35], [0.85, 0.3]],
+  [[-0.8, 0.35], [-0.35, -0.45], [0.2, 0.15], [0.65, -0.5]],
+  [[-0.65, -0.5], [0.35, -0.65], [0.75, 0.05], [0.15, 0.6], [-0.65, -0.5]],
+] as const;
+
 export function drawHologramTopGlow(
   ctx: CanvasRenderingContext2D,
   agents: StarshipAgent[],
@@ -1224,12 +1232,21 @@ export function drawHologramTopGlow(
 
   if (!isWorking || !isAgentAtStation(alec)) return;
 
-  const ws = WORKSTATIONS.Alec;
-  const r = ws.displayBounds;
+  // Interior of the painted projection in the 1600 × 678 background.
+  // Keep the cyan frame, projection cone and physical table visible.
+  const r = { x: 520, y: 447, w: 98, h: 62 };
   const color = ROLE_GLOW_COLORS.Alec ?? '#c98bff';
   const pulse = 0.25 + 0.12 * Math.sin(timeSec * 3.5 + (alec.bob ?? 0));
 
   ctx.save();
+  if (typeof ctx.rect === 'function' && typeof ctx.clip === 'function') {
+    ctx.beginPath();
+    ctx.rect(r.x, r.y, r.w, r.h);
+    ctx.clip();
+    ctx.fillStyle = '#102b40';
+    ctx.globalAlpha = 0.94;
+    ctx.fill();
+  }
   // Glowing hologram ellipse on table surface
   ctx.beginPath();
   const cx = r.x + r.w / 2;
@@ -1253,10 +1270,10 @@ export function drawHologramTopGlow(
 
   // Floating star points / starmap nodes
   const starOffsets = [
-    { dx: -45, dy: -10, speed: 1.2, phase: 0 },
-    { dx: 35, dy: -15, speed: 1.6, phase: 1.5 },
+    { dx: -35, dy: -10, speed: 1.2, phase: 0 },
+    { dx: 25, dy: -15, speed: 1.6, phase: 1.5 },
     { dx: -15, dy: 10, speed: 1.0, phase: 3.0 },
-    { dx: 40, dy: 12, speed: 1.4, phase: 4.2 },
+    { dx: 30, dy: 12, speed: 1.4, phase: 4.2 },
     { dx: 0, dy: -5, speed: 2.0, phase: 2.1 },
   ];
   ctx.fillStyle = '#ffffff';
@@ -1283,6 +1300,69 @@ export function drawHologramTopGlow(
   ctx.beginPath();
   ctx.rect(r.x, r.y, r.w, r.h);
   ctx.clip();
+
+  // Three connected constellations drift around a tilted celestial sphere.
+  // Depth changes size and brightness; all points in a group move together.
+  ctx.lineCap = 'round';
+  for (let group = 0; group < HOLOGRAM_CONSTELLATIONS.length; group++) {
+    const shape = HOLOGRAM_CONSTELLATIONS[group];
+    const orbit = timeSec * 0.32 + group * (Math.PI * 2 / 3);
+    const depth = (Math.sin(orbit) + 1) / 2;
+    const size = 0.68 + depth * 0.32;
+    const anchorX = cx + Math.cos(orbit) * r.w * 0.24;
+    const anchorY = cy + Math.sin(orbit) * r.h * 0.22;
+    const rotation = timeSec * 0.13 + group * 1.7;
+    const cos = Math.cos(rotation);
+    const sin = Math.sin(rotation);
+    const points = shape.map(([x, y]) => ({
+      x: anchorX + (x * cos - y * sin) * r.w * 0.17 * size,
+      y: anchorY + (x * sin + y * cos) * r.h * 0.2 * size,
+    }));
+
+    ctx.strokeStyle = group === 1 ? '#bda2ff' : '#7deaff';
+    ctx.globalAlpha = 0.3 + depth * 0.35;
+    ctx.lineWidth = 0.7 + depth * 0.4;
+    ctx.beginPath();
+    points.forEach((point, index) => {
+      if (index === 0) ctx.moveTo(point.x, point.y);
+      else ctx.lineTo(point.x, point.y);
+    });
+    ctx.stroke();
+
+    for (let index = 0; index < points.length; index++) {
+      const point = points[index];
+      const twinkle = 0.65 + 0.35 * Math.sin(timeSec * 2.4 + index * 2 + group);
+      // Soft halo plus a crisp core preserves the pixel-art background.
+      ctx.fillStyle = '#72ddff';
+      ctx.globalAlpha = (0.12 + depth * 0.12) * twinkle;
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, 3.2 * size, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#e6fbff';
+      ctx.globalAlpha = (0.6 + depth * 0.4) * twinkle;
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, 1.25 * size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // A bright signal travels along each constellation's connecting lines.
+    const progress = ((timeSec * 0.65 + group * 0.8) % (points.length - 1)
+      + points.length - 1) % (points.length - 1);
+    const segment = Math.floor(progress);
+    const fraction = progress - segment;
+    const start = points[segment];
+    const end = points[segment + 1];
+    ctx.fillStyle = '#ffffff';
+    ctx.globalAlpha = 0.85;
+    ctx.beginPath();
+    ctx.arc(
+      start.x + (end.x - start.x) * fraction,
+      start.y + (end.y - start.y) * fraction,
+      1.1, 0, Math.PI * 2,
+    );
+    ctx.fill();
+  }
+
   const comets = [
     { orbitW: 0.34, orbitH: 0.24, speed: 1.35, phase: 0.2, tail: 0.16 },
     { orbitW: 0.27, orbitH: 0.31, speed: -1.05, phase: 2.1, tail: 0.13 },
