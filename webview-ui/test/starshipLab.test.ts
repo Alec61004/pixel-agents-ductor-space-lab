@@ -1108,32 +1108,6 @@ test('drawDeskCutouts renders occlusion bounds from bgImg to occlude agent lower
   assert.equal(alecIdleCutout, undefined);
 });
 
-test('Alec animates the existing cyan map without a replacement hologram', () => {
-  const crew = createInitialCrew(snapshot);
-  const calls: any[][] = [];
-  const colors: string[] = [];
-  const ctx = new Proxy({}, {
-    get: (_, name) => (...args: any[]) => calls.push([name, ...args]),
-    set: (_, name, value) => {
-      if (name === 'fillStyle' || name === 'strokeStyle') colors.push(value);
-      return true;
-    },
-  }) as CanvasRenderingContext2D;
-  drawHologramTopGlow(ctx, crew, 0.5);
-  assert.ok(calls.some(call => call[0] === 'lineTo'));
-  assert.ok(calls.some(call => call[0] === 'arc'));
-  assert.equal(calls.some(call => call[0] === 'ellipse'), false, 'no purple sphere or rings');
-  assert.equal(calls.some(call => call[0] === 'fillRect'), false, 'never cover the painted map');
-  assert.deepEqual(calls.find(call => call[0] === 'rect'), ['rect', 520, 447, 98, 62]);
-  assert.ok(colors.every(color => ['#ffcf87', '#9ceeff', '#edfcff', '#80e9ff', '#e5fbff'].includes(color)));
-  // Every fill must follow an arc: no large background wash.
-  let lastShape = '';
-  for (const call of calls) {
-    if (['rect', 'arc', 'ellipse'].includes(call[0])) lastShape = call[0];
-    if (call[0] === 'fill') assert.equal(lastShape, 'arc');
-  }
-});
-
 test('V1.9 typing effects: drawAgent renders 2 typing arms (3x2px) in role color oscillating in opposite phase with deterministic 0.20s cadence', () => {
   const crew = createInitialCrew(snapshot);
   const kevin = crew.find((a) => a.name === 'Kevin')!;
@@ -1452,37 +1426,44 @@ test('V1.9 idle wander: idle agent wanders between points every 2-4s and changes
 });
 
 
-test('hologram motion stays finite, clipped and gated by Alec activity', () => {
-  const alec = createInitialCrew().find(a => a.name === 'Alec')!;
-  Object.assign(alec, WORKSTATIONS.Alec.interactionPoint, { state: STATE.WORKING, reportedState: 'working' });
-  function frame(t: number) {
+test('Alec moves the original map image without drawing a replacement', () => {
+  const alec = createInitialCrew().find((a) => a.name === 'Alec')!;
+  const bgImg = { width: 1600, height: 678 } as HTMLImageElement;
+  Object.assign(alec, WORKSTATIONS.Alec.interactionPoint, {
+    state: STATE.WORKING, reportedState: 'working',
+  });
+  function frame(time: number, image: HTMLImageElement | undefined = bgImg) {
     const calls: any[][] = [];
     const ctx = new Proxy({}, {
-      get: (_, name) => name === 'createLinearGradient'
-        ? () => ({ addColorStop() {} })
-        : (...args: any[]) => calls.push([name, ...args]),
+      get: (_, name) => (...args: any[]) => calls.push([name, ...args]),
       set: () => true,
-    });
-    drawHologramTopGlow(ctx as CanvasRenderingContext2D, [alec], t);
+    }) as CanvasRenderingContext2D;
+    drawHologramTopGlow(ctx, [alec], time, image);
     return calls;
   }
   const first = frame(0);
-  assert.ok(first.filter(c => c[0] === 'lineTo').length > 4);
-  assert.notDeepEqual(frame(1), first);
-  assert.deepEqual(frame(0), first);
-  for (let t = 0; t < 120; t += 0.25) {
-    const calls = frame(t);
-    assert.equal(calls.filter(c => c[0] === 'save').length, calls.filter(c => c[0] === 'restore').length);
-    for (const call of calls) for (const n of call.slice(1)) if (typeof n === 'number') assert.ok(Number.isFinite(n));
-    const firstClip = calls.findIndex(c => c[0] === 'clip');
-    assert.ok(firstClip >= 0 && firstClip < calls.findIndex(c => c[0] === 'arc'));
+  assert.deepEqual(first.find((c) => c[0] === 'drawImage')?.slice(1, 6),
+    [bgImg, 520, 447, 98, 62], 'must sample the original cyan map');
+  assert.notDeepEqual(frame(1), first, 'original artwork must move with time');
+  assert.deepEqual(frame(0), first, 'animation is deterministic');
+  for (let time = 0; time < 120; time += 0.25) {
+    const calls = frame(time);
+    assert.equal(calls.filter((c) => c[0] === 'save').length, 1);
+    assert.equal(calls.filter((c) => c[0] === 'restore').length, 1);
+    assert.equal(calls.some((c) => ['fill', 'fillRect', 'arc', 'ellipse', 'stroke'].includes(c[0])), false);
+    const draw = calls.find((c) => c[0] === 'drawImage')!;
+    assert.ok(calls.findIndex((c) => c[0] === 'clip') < calls.indexOf(draw));
+    const [, , , , , , x, y, w, h] = draw;
+    assert.ok(x <= 520 && y <= 447 && x + w >= 618 && y + h >= 509,
+      'image covers the clipped interior at every point of the drift');
+    for (const n of draw.slice(2)) assert.ok(Number.isFinite(n));
   }
-  for (const status of ['idle', 'waiting', 'blocked', 'offline']) {
-    Object.assign(alec, {state: status, reportedState: status});
-    assert.equal(frame(0).length, 0, status);
+  for (const state of ['idle', 'waiting', 'blocked', 'offline']) {
+    Object.assign(alec, { state, reportedState: state });
+    assert.equal(frame(0).length, 0, state);
   }
-  Object.assign(alec, {state: STATE.WORKING, reportedState: 'review'});
+  Object.assign(alec, { state: STATE.WORKING, reportedState: 'review' });
   assert.ok(frame(0).length > 0);
   alec.x = 0;
-  assert.equal(frame(0).length, 0);
+  assert.equal(frame(0).length, 0, 'no animation away from the table');
 });
