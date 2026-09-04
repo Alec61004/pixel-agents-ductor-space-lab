@@ -1208,24 +1208,15 @@ export function drawDeskCutouts(
   }
 }
 
-// Anchors on the original cyan map in starship-bg.png (1600 × 678).
-// Keep the painted stars and their layout; animate light along their existing links.
-const HOLOGRAM_STARS = [
-  { x: 570, y: 482 }, // warm central star
-  { x: 548, y: 460 },
-  { x: 600, y: 465 },
-  { x: 602, y: 493 },
-  { x: 532, y: 478 },
-] as const;
-const HOLOGRAM_LINKS = [[1, 0], [0, 2], [0, 3], [4, 0]] as const;
-
+// Animate the existing artwork itself; do not draw another star map.
 export function drawHologramTopGlow(
   ctx: CanvasRenderingContext2D,
   agents: StarshipAgent[],
   timeSec: number = Date.now() / 1000,
+  bgImg?: HTMLImageElement,
 ): void {
   const alec = agents.find((a) => a.name === 'Alec');
-  if (!alec) return;
+  if (!alec || !bgImg) return;
   const isOffline = alec.reportedState === 'offline' || alec.state === STATE.OFFLINE;
   const isWorking =
     !isOffline &&
@@ -1233,69 +1224,34 @@ export function drawHologramTopGlow(
       alec.reportedState === 'working' ||
       alec.reportedState === 'review');
   if (!isWorking || !isAgentAtStation(alec)) return;
-  if (
-    typeof ctx.rect !== 'function' ||
-    typeof ctx.clip !== 'function' ||
-    typeof ctx.moveTo !== 'function' ||
-    typeof ctx.lineTo !== 'function'
-  ) return;
+
+  // Only the interior of the original blue projection. The frame, orange
+  // star, cyan links, projector cone and table retain their original artwork.
+  const r = { x: 520, y: 447, w: 98, h: 62 };
+  const scale = 1.035;
+  const w = r.w * scale;
+  const h = r.h * scale;
+  const dx = Math.sin(timeSec * 0.7) * 0.8;
+  const dy = Math.sin(timeSec * 0.9) * 0.5;
 
   ctx.save();
-  // Clip inside the original blue frame. Never paint over the map or its cone.
   ctx.beginPath();
-  ctx.rect(520, 447, 98, 62);
+  ctx.rect(r.x, r.y, r.w, r.h);
   ctx.clip();
   ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 1;
   ctx.shadowBlur = 0;
-  ctx.lineCap = 'round';
-
-  for (let index = 0; index < HOLOGRAM_STARS.length; index++) {
-    const star = HOLOGRAM_STARS[index];
-    const pulse = 0.5 + 0.5 * Math.sin(timeSec * 2.2 + index * 1.8);
-    ctx.fillStyle = index === 0 ? '#ffcf87' : '#9ceeff';
-    ctx.globalAlpha = 0.1 + pulse * 0.16;
-    ctx.beginPath();
-    ctx.arc(star.x, star.y, 2.4 + pulse * 1.1, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#edfcff';
-    ctx.globalAlpha = 0.35 + pulse * 0.5;
-    ctx.beginPath();
-    ctx.arc(star.x, star.y, 0.7 + pulse * 0.35, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // Small moving glints follow the map's star connections. Short segmented
-  // tails suggest traffic without adding another diagram or a colored sphere.
-  for (let index = 0; index < HOLOGRAM_LINKS.length; index++) {
-    const [from, to] = HOLOGRAM_LINKS[index];
-    const start = HOLOGRAM_STARS[from];
-    const end = HOLOGRAM_STARS[to];
-    const cycle = timeSec * 0.28 + index * 0.27;
-    const phase = ((cycle % 2) + 2) % 2;
-    const progress = phase <= 1 ? phase : 2 - phase;
-    const direction = phase <= 1 ? 1 : -1;
-    for (let segment = 5; segment >= 0; segment--) {
-      const t = progress - direction * segment * 0.025;
-      const next = t - direction * 0.025;
-      if (t < 0 || t > 1 || next < 0 || next > 1) continue;
-      ctx.strokeStyle = '#80e9ff';
-      ctx.globalAlpha = (1 - segment / 6) * 0.65;
-      ctx.lineWidth = 0.9;
-      ctx.beginPath();
-      ctx.moveTo(start.x + (end.x - start.x) * next, start.y + (end.y - start.y) * next);
-      ctx.lineTo(start.x + (end.x - start.x) * t, start.y + (end.y - start.y) * t);
-      ctx.stroke();
-    }
-    ctx.fillStyle = '#e5fbff';
-    ctx.globalAlpha = 0.9;
-    ctx.beginPath();
-    ctx.arc(
-      start.x + (end.x - start.x) * progress,
-      start.y + (end.y - start.y) * progress,
-      1.05, 0, Math.PI * 2,
-    );
-    ctx.fill();
-  }
+  ctx.imageSmoothingEnabled = false;
+  // A gentle light pulse changes brightness only, never the map's hue.
+  ctx.filter = `brightness(${1.025 + 0.025 * Math.sin(timeSec * 1.8)})`;
+  // A small overscan keeps the clipped interior covered during the drift.
+  // Read from the original image every frame to avoid trails or feedback.
+  ctx.drawImage(
+    bgImg, r.x, r.y, r.w, r.h,
+    r.x - (w - r.w) / 2 + dx,
+    r.y - (h - r.h) / 2 + dy,
+    w, h,
+  );
   ctx.restore();
 }
 
@@ -1453,7 +1409,7 @@ export function drawStage(
   drawDeskCutouts(ctx, bgImg, agents);
 
   // Redraw hologram effect on top of desk cutout for Alec
-  drawHologramTopGlow(ctx, agents, timeSec);
+  drawHologramTopGlow(ctx, agents, timeSec, bgImg);
 
   drawWorkstationLabels(ctx, agents);
 
