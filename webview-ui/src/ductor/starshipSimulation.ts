@@ -10,7 +10,7 @@ import {
   STARSHIP_VOID_TINT,
 } from '../constants.js';
 import type { DuctorRoleName, DuctorStatusSnapshot } from './ductorLabModel.js';
-import { ORIGINAL_COMPUTER_BAYS, STAR_MAP_WORKSTATION, drawPhotonicComputerBay } from './starshipComputerBay.js';
+import { ORIGINAL_COMPUTER_BAYS, STAR_MAP_WORKSTATION, drawPhotonicComputerBay, drawPhotonicActivity, drawAlecSeatBack, ALEC_SEAT } from './starshipComputerBay.js';
 import { drawStarshipExterior } from './starshipExterior.js';
 
 export const SHEET_COLS = 16;
@@ -2250,6 +2250,10 @@ export function drawStage(
 
   drawStarshipExterior(ctx, bgImg, timeSec);
   drawPhotonicComputerBay(ctx, computerBayImg);
+  const commander = agents.find((agent) => agent.name === 'Alec');
+  const seated = !!commander && commander.state === STATE.WORKING &&
+    commander.reportedState !== 'offline' && isAgentAtStation(commander);
+  if (computerBayImg) drawPhotonicActivity(ctx, timeSec, seated);
   // Keep Alec's and Kevin's original computer bays untouched. Only Benjamin's
   // separate QA display receives a telemetry tint.
   drawWorkstationScreens(
@@ -2264,6 +2268,22 @@ export function drawStage(
 
   const sorted = [...agents].sort((a, b) => a.y - b.y);
   for (const a of sorted) {
+    if (a.name === 'Alec' && seated && computerBayImg && alecHologramImg) {
+      // Use the intact authored rear poses, with the seat back hiding the legs.
+      const { x, feetY, height } = ALEC_SEAT;
+      const frame = Math.floor(timeSec * 3) % 2;
+      const sw = alecHologramImg.width / 2;
+      const sh = alecHologramImg.height;
+      const width = height * sw / sh;
+      ctx.save();
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(alecHologramImg, frame * sw, 0, sw, sh,
+        x - width / 2, feetY - height + Math.sin(timeSec * 1.6) * 0.35, width, height);
+      drawAlecSeatBack(ctx, computerBayImg);
+      ctx.restore();
+      drawAgentStatusBubble(ctx, { ...a, x, y: feetY }, height, 0);
+      continue;
+    }
     drawAgent(ctx, a, sheetImg, timeSec, alecHologramImg, walkImg);
   }
 
