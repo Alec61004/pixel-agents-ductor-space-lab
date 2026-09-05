@@ -53,8 +53,8 @@ export const ORIGINAL_COMPUTER_BAYS: Record<ComputerBayOperator, OriginalCompute
     roleDescription: 'Strategy',
     bayId: 'central-command',
     backgroundBounds: { x: 407, y: 299, w: 327, h: 130 },
-    approachPoint: { x: 475, y: 500 },
-    interactionPoint: { x: 475, y: 465 },
+    approachPoint: { x: 560, y: 500 },
+    interactionPoint: { x: 560, y: 450 },
     facing: 'back',
     displayBounds: { x: 455, y: 302, w: 255, h: 110 },
     displayAreas: [
@@ -84,3 +84,36 @@ export const ORIGINAL_COMPUTER_BAYS: Record<ComputerBayOperator, OriginalCompute
   },
 };
 
+/** Approved photonic bay artwork; coordinates remain in the original room space. */
+export const PHOTONIC_BAY_ASSET = 'themes/ductor-space-lab/photonic-bay-v1.png';
+
+export const STAR_MAP_WORKSTATION = {
+  approachPoint: { x: 569, y: 656 },
+  interactionPoint: { x: 569, y: 638 },
+  displayBounds: { x: 505, y: 442, w: 140, h: 98 },
+  displayAreas: [{ x: 505, y: 442, w: 140, h: 98 }],
+  occlusionBounds: { x: 500, y: 525, w: 145, h: 65 },
+};
+
+/** Only replace the furniture area. Preserve the original star map and exterior. */
+export function drawPhotonicComputerBay(
+  ctx: CanvasRenderingContext2D,
+  artwork?: HTMLImageElement,
+): void {
+  if (!artwork || !artwork.width || !artwork.height) return;
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  ctx.beginPath();
+  ctx.moveTo(303, 315);
+  ctx.lineTo(380, 315);
+  ctx.lineTo(380, 299);
+  ctx.lineTo(790, 299);
+  ctx.lineTo(790, 438);
+  ctx.lineTo(500, 438);
+  ctx.lineTo(500, 498);
+  ctx.lineTo(303, 498);
+  ctx.closePath();
+  ctx.clip();
+  ctx.drawImage(artwork, 0, 0, artwork.width, artwork.height, 0, 0, 1600, 678);
+  ctx.restore();
+}

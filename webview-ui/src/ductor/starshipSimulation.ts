@@ -10,7 +10,7 @@ import {
   STARSHIP_VOID_TINT,
 } from '../constants.js';
 import type { DuctorRoleName, DuctorStatusSnapshot } from './ductorLabModel.js';
-import { ORIGINAL_COMPUTER_BAYS } from './starshipComputerBay.js';
+import { ORIGINAL_COMPUTER_BAYS, STAR_MAP_WORKSTATION, drawPhotonicComputerBay } from './starshipComputerBay.js';
 import { drawStarshipExterior } from './starshipExterior.js';
 
 export const SHEET_COLS = 16;
@@ -84,6 +84,7 @@ export const WORKSTATIONS: Record<DuctorRoleName, WorkstationConfig> = {
   Kevin: {
     agentName: 'Kevin',
     ...ORIGINAL_COMPUTER_BAYS.Kevin,
+    ...STAR_MAP_WORKSTATION,
   },
   Benjamin: {
     agentName: 'Benjamin',
@@ -870,7 +871,7 @@ export function updateAgent(
 
   // Ambient map motion persists while the control's gesture clock remains work-only.
   const usingHologram = isAlecUsingHologram(a);
-  if (a.name === 'Alec') {
+  if (a.name === 'Kevin') {
     a.hologramSceneTime =
       (a.hologramSceneTime ?? 0) + dt * speedMult * (usingHologram ? 1 : 0.22);
     const expansion = a.hologramExpansion ?? 0;
@@ -1127,7 +1128,7 @@ export function getAlecHologramFrame(timeSec: number): number {
 
 function isAlecUsingHologram(a: StarshipAgent): boolean {
   return (
-    a.name === 'Alec' &&
+    a.name === 'Kevin' &&
     a.state === STATE.WORKING &&
     a.reportedState !== 'offline' &&
     (a.reportedState === undefined ||
@@ -1159,7 +1160,8 @@ export function drawAgent(
     ctx.globalAlpha = 0.35;
   }
 
-  const hologramSprite = hologramControlActive && alecHologramImg ? alecHologramImg : undefined;
+  // The dedicated purple sprite belongs to Alec, never reuse it for Kevin.
+  const hologramSprite = hologramControlActive && a.name === 'Alec' && alecHologramImg ? alecHologramImg : undefined;
   const walkSprite = a.state === STATE.MOVING && walkImg ? walkImg : undefined;
   const sprite = hologramSprite ?? walkSprite ?? sheetImg;
   const cw = hologramSprite
@@ -1363,7 +1365,7 @@ export function drawHologramTopGlow(
 ): void {
   void _timeSec;
   if (!bgImg) return;
-  const alec = agents.find((a) => a.name === 'Alec');
+  const alec = agents.find((a) => a.name === 'Kevin');
   const working = !!alec && isAlecUsingHologram(alec);
   const controlTime = alec?.hologramTime ?? 0;
   const time = alec?.hologramSceneTime ?? controlTime;
@@ -2085,6 +2087,7 @@ export function drawStage(
   zoom: number = 1,
   alecHologramImg?: HTMLImageElement,
   walkImg?: HTMLImageElement,
+  computerBayImg?: HTMLImageElement,
 ): { scale: number; offX: number; offY: number } {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, rect.width, rect.height);
@@ -2103,6 +2106,7 @@ export function drawStage(
   ctx.scale(scale, scale);
 
   drawStarshipExterior(ctx, bgImg, timeSec);
+  drawPhotonicComputerBay(ctx, computerBayImg);
   // Keep Alec's and Kevin's original computer bays untouched. Only Benjamin's
   // separate QA display receives a telemetry tint.
   drawWorkstationScreens(
@@ -2115,14 +2119,14 @@ export function drawStage(
   // the central command bank; it is no longer used as his workstation here.
   drawHologramTopGlow(
     ctx,
-    agents.filter((agent) => agent.name !== 'Alec'),
+    agents,
     timeSec,
     bgImg,
   );
 
   const sorted = [...agents].sort((a, b) => a.y - b.y);
   for (const a of sorted) {
-    drawAgent(ctx, a, sheetImg, timeSec, alecHologramImg, walkImg, true);
+    drawAgent(ctx, a, sheetImg, timeSec, alecHologramImg, walkImg, a.name !== 'Kevin');
   }
 
   // Crew members stand in front of the consoles in this top-down room. Do not

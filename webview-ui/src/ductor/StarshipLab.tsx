@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { DuctorRoleName, DuctorStatusSnapshot } from './ductorLabModel.js';
 import { ductorAssetUrl } from './ductorLabModel.js';
 import { loadStarshipImage } from './starshipImageLoader.js';
+import { PHOTONIC_BAY_ASSET } from './starshipComputerBay.js';
 import {
   type AgentStatusBubble,
   applyCloudStatus,
@@ -254,10 +255,15 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
     const sheetImg = new Image();
     const hologramImg = new Image();
     const walkImg = new Image();
+    const computerBayImg = new Image();
+    let computerBayReady = false;
     let sceneReady = false;
     let hologramReady = false;
     let walkReady = false;
     setLoaded(false);
+    void loadStarshipImage(computerBayImg, ductorAssetUrl(import.meta.env?.BASE_URL ?? './', PHOTONIC_BAY_ASSET)).then((ready) => {
+      if (!disposed) computerBayReady = ready;
+    });
 
     // Only the background and original sheet are required. Optional sprite
     // failures must neither block the scene nor replace a complete character.
@@ -414,6 +420,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
             zoomRef.current,
             hologramReady ? hologramImg : undefined,
             walkReady ? walkImg : undefined,
+            computerBayReady ? computerBayImg : undefined,
           );
         }
       }
