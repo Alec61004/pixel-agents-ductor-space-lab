@@ -10,7 +10,6 @@ import {
   STARSHIP_VOID_TINT,
 } from '../constants.js';
 import type { DuctorRoleName, DuctorStatusSnapshot } from './ductorLabModel.js';
-import { drawAlienCommandBridge } from './starshipCommandBridge.js';
 import { drawStarshipExterior } from './starshipExterior.js';
 
 export const SHEET_COLS = 16;
@@ -2040,21 +2039,16 @@ export function drawStage(
   ctx.scale(scale, scale);
 
   drawStarshipExterior(ctx, bgImg, timeSec);
-  const alec = agents.find((a) => a.name === 'Alec');
-  const alecAtCommand = !!alec && isAlecUsingHologram(alec);
-  drawAlienCommandBridge(ctx, alec?.hologramSceneTime ?? timeSec, alecAtCommand);
+  // The computer bank is part of the original pixel-art room background. Keep
+  // that source art intact; do not paint a second console membrane over it.
   drawWorkstationScreens(ctx, agents, timeSec);
   drawFloorMarkers(ctx, showStations);
   drawHologramTopGlow(ctx, agents, timeSec, bgImg);
-  if (alec) drawAlecHologramControl(ctx, alec);
 
   const sorted = [...agents].sort((a, b) => a.y - b.y);
   for (const a of sorted) {
     drawAgent(ctx, a, sheetImg, timeSec, alecHologramImg, walkImg);
   }
-
-  // Foreground arcs wrap around the hands without modifying the original character art.
-  if (alec) drawAlecHologramControl(ctx, alec, true);
 
   // Crew members stand in front of the consoles in this top-down room. Do not
   // repaint the background over their lower bodies: that made walking sprites
