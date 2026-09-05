@@ -746,13 +746,14 @@ test('work particles spawn every ~0.9s for working agents with role-specific ico
 
   // Advance another 0.5s (total 1.0s >= 0.9s): particle spawns
   updateAgent(alec, 0.5, 1, crew);
-  assert.equal(alec.particles?.length ?? 0, 0, 'Alec uses gestures instead of typing particles');
-  assert.equal(alec.hologramTime, 1);
+  assert.equal(alec.particles?.length, 1, 'Alec works at the photonic command bay');
+  const ap = alec.particles![0]!;
 
   // Test Kevin code particle
   updateAgent(kevin, 1.0, 1, crew);
-  assert.equal(kevin.particles?.length, 1);
-  const kp = kevin.particles![0]!;
+  assert.equal(kevin.particles?.length ?? 0, 0, 'Kevin uses map gestures instead of particles');
+  assert.equal(kevin.hologramTime, 1);
+  const kp = { icon: ROLE_PARTICLE_ICONS.Kevin, color: ROLE_GLOW_COLORS.Kevin };
   assert.equal(kp.icon, '</>');
   assert.equal(kp.color, '#5ce1ff');
 
@@ -764,10 +765,10 @@ test('work particles spawn every ~0.9s for working agents with role-specific ico
   assert.equal(bp.color, '#ff5c5c');
 
   // Particles float upward and decay over time
-  const initialY = kp.y;
-  updateAgent(kevin, 0.1, 1, crew);
-  assert.ok(kp.y < initialY, 'Particle must move upwards (y decreases)');
-  assert.ok(kp.alpha < 1, 'Particle alpha must decay');
+  const initialY = ap.y;
+  updateAgent(alec, 0.1, 1, crew);
+  assert.ok(ap.y < initialY, 'Particle must move upwards (y decreases)');
+  assert.ok(ap.alpha < 1, 'Particle alpha must decay');
 });
 
 test('working agent faces into desk/station according to assigned workstation config', () => {
@@ -915,7 +916,7 @@ test('drawAgent selects front-idle frames for Alec (facing front) and back-idle 
 
   for (const { agent, row, name } of skinTestCases) {
     // This checks generic idle sheets; dedicated Alec typing frames are covered below.
-    if (name === 'Alec') agent.state = STATE.IDLE;
+    if (name === 'Alec' || name === 'Kevin') agent.state = STATE.IDLE;
     for (let phase = 0; phase < 4; phase++) {
       // Front facing: col = 0..3 (sx = 0,1,2,3 * cw), row = row (sy = row * ch)
       drawCalls.length = 0;
@@ -1065,17 +1066,17 @@ test('drawWorkstationScreens draws low-alpha glow only inside painted display ar
   // Working crew: screens should be drawn
   drawWorkstationScreens(mockCtx, crew, 0);
 
-  // Verify every real Kevin monitor display area
+  // Alec's photonic command bay receives the workstation activity tint.
   const kevinDisplayFills = fillRectCalls.filter((c) =>
-    WORKSTATIONS.Kevin.displayAreas.some(
+    WORKSTATIONS.Alec.displayAreas.some(
       (area) => c.x === area.x && c.y === area.y && c.w === area.w && c.h === area.h,
     ),
   );
-  assert.equal(kevinDisplayFills.length, WORKSTATIONS.Kevin.displayAreas.length);
+  assert.equal(kevinDisplayFills.length, WORKSTATIONS.Alec.displayAreas.length);
 
   const kevinFill = kevinDisplayFills[0];
   assert.ok(kevinFill);
-  assert.equal(kevinFill.fillStyle, ROLE_GLOW_COLORS.Kevin);
+  assert.equal(kevinFill.fillStyle, ROLE_GLOW_COLORS.Alec);
   assert.ok(kevinFill.globalAlpha >= 0.12 && kevinFill.globalAlpha <= 0.22);
 
   // Verify Benjamin display area
@@ -1092,15 +1093,15 @@ test('drawWorkstationScreens draws low-alpha glow only inside painted display ar
 
   // Test idle state: screen turns off (no rect drawn for idle agent)
   fillRectCalls.length = 0;
-  const kevin = crew.find((a) => a.name === 'Kevin')!;
+  const kevin = crew.find((a) => a.name === 'Alec')!;
   kevin.state = STATE.IDLE;
   kevin.reportedState = 'idle';
 
   drawWorkstationScreens(mockCtx, crew, 0);
 
-  // Kevin's displayBounds must NOT be drawn when idle
+  // Alec's displayBounds must NOT be drawn when idle.
   const kevinIdleFill = fillRectCalls.find(
-    (c) => c.x === WORKSTATIONS.Kevin.displayBounds.x && c.y === WORKSTATIONS.Kevin.displayBounds.y,
+    (c) => c.x === WORKSTATIONS.Alec.displayBounds.x && c.y === WORKSTATIONS.Alec.displayBounds.y,
   );
   assert.equal(kevinIdleFill, undefined);
 });
@@ -1122,7 +1123,7 @@ test('drawDeskCutouts renders occlusion bounds from bgImg to occlude agent lower
 
   drawDeskCutouts(mockCtx, mockBgImg, crew);
 
-  // Only seated operators are behind their desks; Alec is in front.
+  // Alec and Benjamin sit behind their consoles; Kevin stands at the map.
   assert.equal(drawImageCalls.length, 2);
 
   // Alec occlusion bounds
@@ -1130,7 +1131,7 @@ test('drawDeskCutouts renders occlusion bounds from bgImg to occlude agent lower
     (c) =>
       c[1] === WORKSTATIONS.Alec.occlusionBounds.x && c[2] === WORKSTATIONS.Alec.occlusionBounds.y,
   );
-  assert.equal(alecCutout, undefined);
+  assert.ok(alecCutout);
 
   // Kevin occlusion bounds
   const kevinCutout = drawImageCalls.find(
@@ -1138,9 +1139,7 @@ test('drawDeskCutouts renders occlusion bounds from bgImg to occlude agent lower
       c[1] === WORKSTATIONS.Kevin.occlusionBounds.x &&
       c[2] === WORKSTATIONS.Kevin.occlusionBounds.y,
   );
-  assert.ok(kevinCutout);
-  assert.equal(kevinCutout[3], WORKSTATIONS.Kevin.occlusionBounds.w);
-  assert.equal(kevinCutout[4], WORKSTATIONS.Kevin.occlusionBounds.h);
+  assert.equal(kevinCutout, undefined);
 
   // Benjamin occlusion bounds
   const benjaminCutout = drawImageCalls.find(
@@ -1159,7 +1158,7 @@ test('drawDeskCutouts renders occlusion bounds from bgImg to occlude agent lower
   alec.reportedState = 'idle';
 
   drawDeskCutouts(mockCtx, mockBgImg, crew);
-  assert.equal(drawImageCalls.length, 2);
+  assert.equal(drawImageCalls.length, 1);
   const alecIdleCutout = drawImageCalls.find(
     (c) =>
       c[1] === WORKSTATIONS.Alec.occlusionBounds.x && c[2] === WORKSTATIONS.Alec.occlusionBounds.y,
@@ -1189,7 +1188,7 @@ test('drawDeskCutouts never hides a crew member while routing away from a desk',
 
 test('V1.9 typing effects: drawAgent renders 2 typing arms (3x2px) in role color oscillating in opposite phase with deterministic 0.20s cadence', () => {
   const crew = createInitialCrew(snapshot);
-  const kevin = crew.find((a) => a.name === 'Kevin')!;
+  const kevin = crew.find((a) => a.name === 'Alec')!;
   assert.equal(kevin.state, STATE.WORKING);
 
   const fillRectCalls: Array<{
@@ -1357,8 +1356,8 @@ test('V1.9 typing effects: drawAgent renders 2 typing arms (3x2px) in role color
     const leftArm = fillRectCalls[0]!;
     const rightArm = fillRectCalls[1]!;
 
-    assert.equal(leftArm.fillStyle, ROLE_GLOW_COLORS.Kevin);
-    assert.equal(rightArm.fillStyle, ROLE_GLOW_COLORS.Kevin);
+    assert.equal(leftArm.fillStyle, ROLE_GLOW_COLORS.Alec);
+    assert.equal(rightArm.fillStyle, ROLE_GLOW_COLORS.Alec);
     // Dimensions roughly 3x2px (scaled with depthScale ~0.8-1.1)
     assert.ok(leftArm.w >= 2 && leftArm.w <= 4);
     assert.ok(leftArm.h >= 1.5 && leftArm.h <= 3);
@@ -1567,7 +1566,7 @@ test('Kevin uses intact original rear poses with gesture fields and the same cya
   for (let time = 0; time < 8; time += 0.05) {
     const calls = frame(time);
     const map = calls.find((c) => c[0] === 'drawImage' && c[1] === bgImg)!;
-    if (time >= 0.6) assert.ok(Math.abs(map[8] - 106 * 1.05) < 0.0001);
+    if (time >= 0.6) assert.ok(Math.abs(map[8] - 106 * 1.65) < 0.0001);
     const poses = calls.filter((c) => c[0] === 'drawImage' && c[1] === sheet);
     assert.equal(poses.length, 2, 'whole sprite plus its existing brightness pass');
     for (const pose of poses) {
@@ -1619,7 +1618,7 @@ test('Kevin uses intact original rear poses with gesture fields and the same cya
   });
   for (let i = 0; i < 10; i++) updateAgent(alec, 0.1, 1, crew);
   const expanded = frame(1).find((c) => c[0] === 'drawImage' && c[1] === bgImg);
-  assert.ok(Math.abs(expanded![8] - 106 * 1.05) < 0.001);
+  assert.ok(Math.abs(expanded![8] - 106 * 1.65) < 0.001);
   const sceneTime = alec.hologramSceneTime;
   Object.assign(alec, { state: STATE.IDLE, reportedState: 'idle', stateTimer: 10 });
   updateAgent(alec, 0.2, 1, crew);
@@ -1631,7 +1630,7 @@ test('Kevin uses intact original rear poses with gesture fields and the same cya
   assert.ok(alec.hologramSceneTime! > sceneTime!, 'ambient field keeps moving while idle');
 });
 
-test('the ringed world travels around the fixed star while navigation follows Alec gestures', () => {
+test('the ringed world travels around the fixed star while navigation follows Kevin gestures', () => {
   const start = getHologramOrbit(0);
   const later = getHologramOrbit(6);
   assert.ok(Math.hypot(later.x - start.x, later.y - start.y) > 10);

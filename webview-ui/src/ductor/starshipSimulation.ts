@@ -881,7 +881,7 @@ export function updateAgent(
   a.hologramTime = usingHologram ? (a.hologramTime ?? 0) + dt * speedMult : 0;
 
   // Work particles: spawn every ~0.9s when working at desk
-  if (a.state === STATE.WORKING && !isOffline && a.name !== 'Alec') {
+  if (a.state === STATE.WORKING && !isOffline && a.name !== 'Kevin') {
     a.particleTimer = (a.particleTimer ?? 0) + dt * speedMult;
     if (a.particleTimer >= 0.9) {
       a.particleTimer = 0;
@@ -1145,10 +1145,9 @@ export function drawAgent(
   _timeSec: number = Date.now() / 1000,
   alecHologramImg?: HTMLImageElement,
   walkImg?: HTMLImageElement,
-  suppressAlecHologram = false,
 ): void {
   void _timeSec;
-  const hologramControlActive = !suppressAlecHologram && isAlecUsingHologram(a);
+  const hologramControlActive = isAlecUsingHologram(a);
   const isOffline = a.reportedState === 'offline' || a.state === STATE.OFFLINE;
   const isReview = !isOffline && a.reportedState === 'review';
   const isWorking =
@@ -1315,10 +1314,10 @@ export function drawAgent(
   }
 
   // Status bubble above head (always visible)
-  // Keep Alec's label beside his body, clear of the enlarged map.
+  // Keep Kevin's label beside his body, clear of the enlarged map.
   drawAgentStatusBubble(
     ctx,
-    hologramControlActive ? { ...a, x: a.x - 185, y: a.y + 35 } : a,
+    hologramControlActive ? { ...a, x: a.x - 105, y: a.y + 40 } : a,
     drawH,
     bobY,
   );
@@ -1336,8 +1335,8 @@ export function drawDeskCutouts(
 ): void {
   for (const agent of agents) {
     const ws = WORKSTATIONS[agent.name];
-    // Alec stands in front of the physical table, not behind its front panel.
-    if (!ws || !ws.occlusionBounds || agent.name === 'Alec') continue;
+    // Kevin stands in front of the hologram table, not behind its front panel.
+    if (!ws || !ws.occlusionBounds || agent.name === 'Kevin') continue;
 
     const isOffline = agent.reportedState === 'offline' || agent.state === STATE.OFFLINE;
     // A live snapshot can remain "working" for a few frames while the
@@ -1365,16 +1364,14 @@ export function drawHologramTopGlow(
 ): void {
   void _timeSec;
   if (!bgImg) return;
-  const alec = agents.find((a) => a.name === 'Kevin');
-  const working = !!alec && isAlecUsingHologram(alec);
-  const controlTime = alec?.hologramTime ?? 0;
-  const time = alec?.hologramSceneTime ?? controlTime;
+  const operator = agents.find((a) => a.name === 'Kevin');
+  const working = !!operator && isAlecUsingHologram(operator);
+  const controlTime = operator?.hologramTime ?? 0;
+  const time = operator?.hologramSceneTime ?? controlTime;
   const source = { x: 516, y: 443, w: 106, h: 71 };
-  const expansion = alec?.hologramExpansion ?? (working ? Math.min(1, controlTime / 0.6) : 0);
+  const expansion = operator?.hologramExpansion ?? (working ? Math.min(1, controlTime / 0.6) : 0);
   const open = 1; // Content visibility is independent of the work-driven expansion.
-  // The table remains a compact repeater. Alec's larger command view now lives
-  // in the alien membrane above, so it never covers his body or touch deck.
-  const zoom = 1 + 0.05 * expansion * expansion * (3 - 2 * expansion);
+  const zoom = 1 + 0.65 * expansion * expansion * (3 - 2 * expansion);
   const w = source.w * zoom;
   const h = source.h * zoom;
   const cx = source.x + source.w / 2;
@@ -1547,7 +1544,7 @@ function drawHologramNavigation(
     y: (1 - t) ** 2 * 38 + 2 * (1 - t) * t * (target.y - 5) + t * t * target.y,
   });
   ctx.save();
-  // Lock onto one existing star while Alec touches the controls.
+  // Lock onto one existing star while Kevin touches the controls.
   ctx.strokeStyle = '#a1eff4';
   ctx.lineWidth = 0.4;
   ctx.globalAlpha = opacity * 0.8;
@@ -1897,8 +1894,8 @@ export function drawWorkstationScreens(
 
     if (!isWorking || !isAgentAtStation(agent)) continue;
 
-    // Alec workstation is a hologram table rendered with drawHologramTopGlow
-    if (agent.name === 'Alec') continue;
+    // Kevin's workstation is the hologram table rendered with drawHologramTopGlow.
+    if (agent.name === 'Kevin') continue;
 
     const roleColor = ROLE_GLOW_COLORS[agent.name] ?? agent.skin?.tint ?? '#5ce1ff';
 
@@ -2115,19 +2112,17 @@ export function drawStage(
     timeSec,
   );
   drawFloorMarkers(ctx, showStations);
-  // The star map remains a small ambient room prop while Alec is assigned to
-  // the central command bank; it is no longer used as his workstation here.
-  drawHologramTopGlow(
-    ctx,
-    agents,
-    timeSec,
-    bgImg,
-  );
+  drawHologramTopGlow(ctx, agents, timeSec, bgImg);
+  const mapOperator = agents.find((agent) => agent.name === 'Kevin');
+  if (mapOperator) drawAlecHologramControl(ctx, mapOperator);
 
   const sorted = [...agents].sort((a, b) => a.y - b.y);
   for (const a of sorted) {
-    drawAgent(ctx, a, sheetImg, timeSec, alecHologramImg, walkImg, a.name !== 'Kevin');
+    drawAgent(ctx, a, sheetImg, timeSec, alecHologramImg, walkImg);
   }
+
+  // Foreground arcs wrap around Kevin's hands while preserving his intact sprite.
+  if (mapOperator) drawAlecHologramControl(ctx, mapOperator, true);
 
   // Crew members stand in front of the consoles in this top-down room. Do not
   // repaint the background over their lower bodies: that made walking sprites
