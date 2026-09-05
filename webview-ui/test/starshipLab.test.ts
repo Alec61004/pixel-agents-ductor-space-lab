@@ -290,25 +290,25 @@ test('defines 3 fixed workstations (Alec, Kevin, Benjamin) with correct labels a
   assert.ok(WORKSTATIONS.Benjamin);
 
   // New device-anchored coordinates matching actual painted devices in starship-bg.png
-  assert.deepEqual(WORKSTATIONS.Alec.approachPoint, { x: 570, y: 490 });
-  assert.deepEqual(WORKSTATIONS.Alec.interactionPoint, { x: 570, y: 455 });
+  assert.deepEqual(WORKSTATIONS.Alec.approachPoint, { x: 475, y: 500 });
+  assert.deepEqual(WORKSTATIONS.Alec.interactionPoint, { x: 475, y: 465 });
   assert.equal(WORKSTATIONS.Alec.facing, 'back');
   assert.deepEqual(WORKSTATIONS.Alec.displayBounds, {
-    x: 415,
-    y: 296,
-    w: 327,
-    h: 147,
+    x: 455,
+    y: 302,
+    w: 255,
+    h: 110,
   });
   assert.deepEqual(WORKSTATIONS.Alec.displayAreas, [
-    { x: 438, y: 317, w: 60, h: 80 },
-    { x: 492, y: 297, w: 166, h: 92 },
-    { x: 650, y: 317, w: 73, h: 80 },
+    { x: 465, y: 312, w: 49, h: 25 },
+    { x: 560, y: 312, w: 48, h: 25 },
+    { x: 650, y: 312, w: 49, h: 25 },
   ]);
   assert.deepEqual(WORKSTATIONS.Alec.occlusionBounds, {
-    x: 439,
-    y: 388,
-    w: 265,
-    h: 56,
+    x: 442,
+    y: 389,
+    w: 72,
+    h: 60,
   });
   assert.equal(WORKSTATIONS.Alec.label, 'Alec — Strategy');
 
