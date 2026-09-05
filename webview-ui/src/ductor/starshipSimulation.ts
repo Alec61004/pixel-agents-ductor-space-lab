@@ -300,6 +300,7 @@ export interface StarshipAgent {
   hologramTime?: number;
   hologramSceneTime?: number;
   hologramExpansion?: number;
+  hologramCamera?: { x: number; y: number; zoom: number };
   particleTimer?: number;
   particles?: WorkParticle[];
 }
@@ -879,6 +880,16 @@ export function updateAgent(
     a.hologramExpansion = Math.max(0, Math.min(1, expansion + (usingHologram ? change : -change)));
   }
   a.hologramTime = usingHologram ? (a.hologramTime ?? 0) + dt * speedMult : 0;
+  if (a.name === 'Kevin') {
+    const desired = getHologramCamera(a.hologramTime, usingHologram, a.hologramSceneTime);
+    const previous = a.hologramCamera ?? desired;
+    const blend = usingHologram ? 1 : 1 - Math.exp(-dt * speedMult * 5);
+    a.hologramCamera = {
+      x: previous.x + (desired.x - previous.x) * blend,
+      y: previous.y + (desired.y - previous.y) * blend,
+      zoom: previous.zoom + (desired.zoom - previous.zoom) * blend,
+    };
+  }
 
   // Work particles: spawn every ~0.9s when working at desk
   if (a.state === STATE.WORKING && !isOffline && a.name !== 'Kevin') {
@@ -1107,7 +1118,7 @@ export const WORK_HAND_PHASE_OFFSETS = [
 // Do not infer limb bounds or rotate pieces of the character.
 const ALEC_TOUCH_STARTS = [0.12, 0.6, 1.08] as const;
 const ALEC_TOUCH_DURATION = 0.22;
-const ALEC_CONSOLE_CYCLE = 3.2;
+const ALEC_CONSOLE_CYCLE = 8.4;
 
 function getAlecConsoleCycle(timeSec: number) {
   const time = Math.max(0, timeSec);
@@ -1364,12 +1375,12 @@ export function drawHologramTopGlow(
 ): void {
   void _timeSec;
   if (!bgImg) return;
-  const operator = agents.find((a) => a.name === 'Kevin');
-  const working = !!operator && isAlecUsingHologram(operator);
-  const controlTime = operator?.hologramTime ?? 0;
-  const time = operator?.hologramSceneTime ?? controlTime;
+  const alec = agents.find((a) => a.name === 'Kevin');
+  const working = !!alec && isAlecUsingHologram(alec);
+  const controlTime = alec?.hologramTime ?? 0;
+  const time = alec?.hologramSceneTime ?? controlTime;
   const source = { x: 516, y: 443, w: 106, h: 71 };
-  const expansion = operator?.hologramExpansion ?? (working ? Math.min(1, controlTime / 0.6) : 0);
+  const expansion = alec?.hologramExpansion ?? (working ? Math.min(1, controlTime / 0.6) : 0);
   const open = 1; // Content visibility is independent of the work-driven expansion.
   const zoom = 1 + 0.65 * expansion * expansion * (3 - 2 * expansion);
   const w = source.w * zoom;
@@ -1419,10 +1430,14 @@ export function drawHologramTopGlow(
     ctx.fillRect(5, 5, 96, roomHeight / zoom);
   }
 
-  // The viewport stays still. Independent orbits and navigation responses make
-  // the system move instead of repeatedly magnifying the whole picture.
-  const navigation = getHologramNavigation(controlTime, working);
+  // Clip and glass stay in panel coordinates. Only the universe is transformed:
+  // neither the cyan frame, projector nor the room camera moves with this zoom.
+  const navigation = getHologramNavigation(controlTime, working, time);
+  const camera = alec?.hologramCamera ?? getHologramCamera(controlTime, working, time);
   ctx.save();
+  ctx.translate(53, 35.5);
+  ctx.scale(camera.zoom, camera.zoom);
+  ctx.translate(-camera.x, -camera.y);
 
   // Broad wisps build depth around the star field without a solid nebula disc.
   ctx.globalCompositeOperation = 'lighter';
@@ -1465,35 +1480,44 @@ export function drawHologramTopGlow(
     ctx.fill();
   }
 
+  // A few subdued navigation branches preserve the original map's identity.
+  // Most of the field is carried by star clusters rather than a polygon mesh.
+  ctx.globalAlpha = open * 0.14;
+  ctx.strokeStyle = '#70c4d8';
+  ctx.lineWidth = 0.28;
+  ctx.beginPath();
+  ctx.moveTo(32, 15);
+  ctx.bezierCurveTo(35, 28, 43, 35, 54, 38);
+  ctx.bezierCurveTo(66, 32, 76, 23, 86, 20);
+  ctx.moveTo(54, 38);
+  ctx.bezierCurveTo(68, 44, 79, 46, 87, 51);
+  ctx.stroke();
   drawMapStar(ctx, 32, 15, 0.42, '#ffae83', open * 0.65);
   drawMapStar(ctx, 86, 20, 0.68, '#c1f3ff', open * 0.85);
   drawMapStar(ctx, 87, 51, 0.5, '#bceeff', open * 0.65);
   drawMapStar(ctx, 69, 27, 0.28, '#bceeff', open * 0.8);
   drawMapStar(ctx, 18, 45, 0.3, '#bceeff', open * 0.55);
 
-  // Keep orbital motion without drawn tracks or a technical wireframe.
-  const orbit = getHologramOrbit(time);
+  // Sparse true orbital tracks preserve a readable overview.
+  ctx.strokeStyle = '#70c4d8';
+  ctx.lineWidth = 0.22;
+  ctx.globalAlpha = 0.12;
+  for (const world of [HOLOGRAM_WORLDS[0], HOLOGRAM_WORLDS[1], HOLOGRAM_WORLDS[7]]) {
+    ctx.beginPath();
+    ctx.ellipse(54, 35.5, world.orbitX, world.orbitY, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
 
   // The orange hub stays fixed; a ringed world actually travels around it.
   const pulse = 0.5 + 0.5 * Math.sin(time * 1.1);
-  const planet = {
-    ...orbit,
-    radius: 7.3,
-    ring: false,
-    colors: ['#132f42', '#225b71', '#488f9c', '#9bc9c6', '#e0e9d5'],
-  };
-  const innerOrbit = getHologramOrbit(time * 1.8 + 8, 15, 7);
-  const innerPlanet = {
-    ...innerOrbit,
-    radius: 1.65,
-    ring: false,
-    colors: ['#132238', '#234966', '#448da5', '#80bdca', '#c7e5df'],
-  };
-  if (planet.depth < 0) drawHologramPlanet(ctx, planet, time, open);
-  if (innerPlanet.depth < 0) drawHologramPlanet(ctx, innerPlanet, time, open);
+  const planets = getHologramPlanets(time);
+  for (const planet of planets.filter(p => p.depth < 0).sort((a, b) => a.depth - b.depth)) {
+    drawHologramPlanet(ctx, planet, time, open);
+  }
   drawMapStar(ctx, 54, 38, 1.65 + pulse * 0.05, '#ffb468', open);
-  if (innerPlanet.depth >= 0) drawHologramPlanet(ctx, innerPlanet, time, open);
-  if (planet.depth >= 0) drawHologramPlanet(ctx, planet, time, open);
+  for (const planet of planets.filter(p => p.depth >= 0).sort((a, b) => a.depth - b.depth)) {
+    drawHologramPlanet(ctx, planet, time, open);
+  }
   if (working) drawHologramNavigation(ctx, navigation);
   ctx.restore();
 
@@ -1519,18 +1543,97 @@ export function getHologramOrbit(time: number, radiusX = 28, radiusY = 12) {
   };
 }
 
-const HOLOGRAM_TARGETS = [{ x: 86, y: 20 }, { x: 32, y: 15 }, { x: 87, y: 51 }] as const;
+// Eight real worlds, not enlarged star dots. Their material and spin are stable
+// identities shared by the overview, close-ups and camera targets.
+const HOLOGRAM_WORLDS = [
+  { id: 'aurelia', radius: 5.2, ring: true, orbitX: 28, orbitY: 12, phase: 2.85, speed: 0.025, spin: 0.9, material: 'gas',
+    colors: ['#142f43', '#326778', '#6fadb4', '#b7dcd7', '#f0eed4'] },
+  { id: 'pelagia', radius: 4.1, ring: false, orbitX: 39, orbitY: 22, phase: 4.15, speed: 0.018, spin: 1.05, material: 'ocean',
+    colors: ['#10233d', '#175375', '#267eac', '#67c8d4', '#cef3e9'] },
+  { id: 'cinder', radius: 3.7, ring: false, orbitX: 36, orbitY: 20, phase: 5.25, speed: 0.021, spin: 0.8, material: 'lava',
+    colors: ['#301524', '#63312f', '#a45138', '#e89451', '#ffdc85'] },
+  { id: 'borealis', radius: 4.3, ring: false, orbitX: 40, orbitY: 21, phase: 6.15, speed: 0.017, spin: 0.85, material: 'ice',
+    colors: ['#26385c', '#486889', '#88b3ca', '#c7e5ee', '#f5fffe'] },
+  { id: 'ochre', radius: 4.5, ring: false, orbitX: 35, orbitY: 19, phase: 0.92, speed: 0.024, spin: 1, material: 'desert',
+    colors: ['#35233a', '#754747', '#b47d55', '#e4ba7c', '#ffe2ac'] },
+  { id: 'viridia', radius: 3.8, ring: false, orbitX: 40, orbitY: 22, phase: 1.9, speed: 0.019, spin: 1.1, material: 'ocean',
+    colors: ['#122d36', '#20535d', '#438d8a', '#8dc59c', '#dcf0c0'] },
+  { id: 'amethyst', radius: 3.6, ring: true, orbitX: 42, orbitY: 23, phase: 3.25, speed: 0.016, spin: 0.75, material: 'gas',
+    colors: ['#281b44', '#543c78', '#9274b3', '#c6a6da', '#f1dbea'] },
+  { id: 'basalt', radius: 3.1, ring: false, orbitX: 15, orbitY: 8, phase: 4.65, speed: 0.035, spin: 0.95, material: 'rock',
+    colors: ['#242737', '#505565', '#899095', '#bcc5c3', '#e4e5d7'] },
+] as const;
 
-export function getHologramNavigation(time: number, working: boolean) {
-  const cycle = Math.floor(Math.max(0, time) / ALEC_CONSOLE_CYCLE);
+export function getHologramPlanets(time: number) {
+  return HOLOGRAM_WORLDS.map((world, index) => {
+    const angle = world.phase + time * world.speed;
+    return {
+      ...world,
+      x: 54 + Math.cos(angle) * world.orbitX,
+      y: 35.5 + Math.sin(angle) * world.orbitY,
+      depth: Math.sin(angle),
+      seed: index + 1,
+    };
+  });
+}
+
+const TOUR_ARRIVAL = 4.5;
+const TOUR_HOLD = 3.2;
+const TOUR_TRANSFER = 1.8;
+const TOUR_LEG = TOUR_HOLD + TOUR_TRANSFER;
+
+function smoothHologram(value: number) {
+  const t = Math.max(0, Math.min(1, value));
+  return Math.max(0, Math.min(1, t * t * t * (t * (t * 6 - 15) + 10)));
+}
+
+function hologramTour(time: number) {
+  const elapsed = Math.max(0, time - TOUR_ARRIVAL);
+  const leg = Math.floor(elapsed / TOUR_LEG);
+  const phase = elapsed - leg * TOUR_LEG;
+  return {
+    index: leg % HOLOGRAM_WORLDS.length,
+    next: (leg + 1) % HOLOGRAM_WORLDS.length,
+    transfer: smoothHologram((phase - TOUR_HOLD) / TOUR_TRANSFER),
+  };
+}
+
+export function getHologramCamera(time: number, working: boolean, sceneTime = time) {
+  if (!working) return { x: 53, y: 35.5, zoom: 1 };
+  const planets = getHologramPlanets(sceneTime);
+  const tour = hologramTour(time);
+  const current = planets[tour.index]!;
+  const next = planets[tour.next]!;
+  const approach = smoothHologram((time - 3.2) / 1.3);
+  // Keep body diameter near 35 map units, leaving room for rings and moons.
+  const zoomFor = (radius: number) => Math.min(5.5, 17.5 / radius);
+  const targetX = current.x + (next.x - current.x) * tour.transfer;
+  const targetY = current.y + (next.y - current.y) * tour.transfer;
+  const targetZoom = zoomFor(current.radius) +
+    (zoomFor(next.radius) - zoomFor(current.radius)) * tour.transfer;
+  // Track orbital position while observing axial rotation. Transfers never
+  // return to the overview, including the final planet -> first planet.
+  return {
+    x: 53 + (targetX - 53) * approach,
+    y: 35.5 + (targetY - 35.5) * approach,
+    zoom: 1 + (targetZoom - 1) * approach,
+  };
+}
+
+export function getHologramNavigation(time: number, working: boolean, sceneTime = time) {
+  const planets = getHologramPlanets(sceneTime);
+  const tour = hologramTour(time);
+  const target = planets[tour.transfer > 0 ? tour.next : tour.index]!;
   const { phase } = getAlecConsoleCycle(time);
   const progress = working ? Math.max(0, Math.min(1, (phase - 1.38) / 1.1)) : 0;
   return {
-    target: HOLOGRAM_TARGETS[cycle % HOLOGRAM_TARGETS.length]!,
+    target: { x: target.x, y: target.y },
     scan: Math.max(0, Math.min(1, (phase - 0.12) / 1.18)),
     route: progress * progress * (3 - 2 * progress),
     signal: Math.max(0, Math.min(1, (phase - 2.48) / 0.55)),
-    opacity: working ? Math.min(1, phase / 0.15, (ALEC_CONSOLE_CYCLE - phase) / 0.18) : 0,
+    // Fade the route after arrival so the close-up is an unobstructed star view.
+    opacity: working && time < 3.5
+      ? Math.max(0, Math.min(1, phase / 0.15, (3.5 - phase) / 0.47)) : 0,
   };
 }
 
@@ -1544,7 +1647,7 @@ function drawHologramNavigation(
     y: (1 - t) ** 2 * 38 + 2 * (1 - t) * t * (target.y - 5) + t * t * target.y,
   });
   ctx.save();
-  // Lock onto one existing star while Kevin touches the controls.
+  // Lock onto one existing star while Alec touches the controls.
   ctx.strokeStyle = '#a1eff4';
   ctx.lineWidth = 0.4;
   ctx.globalAlpha = opacity * 0.8;
@@ -1575,7 +1678,7 @@ function drawHologramNavigation(
   }
   if (signal > 0) {
     // A departing signal traverses the calculated route, followed by a
-    // confirmation ripple at the destination. No viewport zoom is involved.
+    // confirmation ripple at the destination before the map camera approaches.
     const ship = point(signal);
     drawMapStar(ctx, ship.x, ship.y, 0.5, '#a9f1fb', opacity);
     ctx.globalAlpha = opacity * signal * (1 - signal * 0.7);
@@ -1603,14 +1706,24 @@ const HOLOGRAM_DUST = Array.from({ length: 420 }, (_, index) => {
   };
 });
 
-type HologramPlanet = {
-  x: number;
-  y: number;
-  depth: number;
-  radius: number;
-  ring: boolean;
-  colors: readonly string[];
-};
+type HologramPlanet = ReturnType<typeof getHologramPlanets>[number];
+
+// Orthographic projection of rotating longitudes: features compress at the limb
+// and disappear on the far hemisphere, unlike sliding a flat texture sideways.
+export function getHologramSurfacePoint(longitude: number, latitude: number, spin: number) {
+  const angle = longitude + spin;
+  return {
+    x: Math.sin(angle) * Math.cos(latitude),
+    y: Math.sin(latitude),
+    depth: Math.cos(angle) * Math.cos(latitude),
+  };
+}
+
+const PLANET_FEATURES = Array.from({ length: 48 }, (_, i) => ({
+  longitude: i * 2.399963229728653,
+  latitude: Math.asin(((i * 0.61803398875) % 1) * 1.7 - 0.85),
+  size: 0.07 + (i % 5) * 0.025,
+}));
 
 function drawMapStar(
   ctx: CanvasRenderingContext2D,
@@ -1682,7 +1795,7 @@ function drawHologramPlanet(
       ctx.stroke();
     }
   };
-  if (planet.radius > 3 && Math.sin(moonAngle) < 0) drawMoon();
+  if (planet.ring && Math.sin(moonAngle) < 0) drawMoon();
   if (planet.ring) drawRing(false);
 
   ctx.save();
@@ -1706,7 +1819,7 @@ function drawHologramPlanet(
   ctx.fillStyle = body;
   ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
 
-  // Delicate curved cloud bands, clipped to the sphere.
+  // Subtle cloud belts, clipped to the sphere.
   for (let band = -3; band <= 3; band++) {
     const offset = band * radius * 0.26;
     ctx.globalAlpha = opacity * (band % 2 === 0 ? 0.13 : 0.08);
@@ -1723,6 +1836,39 @@ function drawHologramPlanet(
       y + offset - radius * 0.1,
     );
     ctx.stroke();
+  }
+  // Actual axial rotation. Surface landmarks turn across the lit hemisphere
+  // while the terminator below remains aligned with the central light.
+  for (let i = 0; i < PLANET_FEATURES.length; i++) {
+    const feature = PLANET_FEATURES[i]!;
+    const point = getHologramSurfacePoint(
+      feature.longitude + planet.seed * 0.7,
+      feature.latitude,
+      time * planet.spin,
+    );
+    if (point.depth <= 0) continue;
+    const px = x + point.x * radius;
+    const py = y + point.y * radius;
+    const size = radius * feature.size;
+    const material = planet.material;
+    ctx.globalAlpha = opacity * Math.min(1, point.depth * 5) *
+      (material === 'gas' ? 0.45 : 0.8);
+    ctx.fillStyle = material === 'ocean' ? (i % 3 ? '#70ac75' : '#bbdcc8')
+      : material === 'lava' ? (i % 3 ? '#ffac53' : '#ffdc82')
+      : material === 'ice' ? (i % 3 ? '#e0f9ff' : '#6191b7')
+      : material === 'desert' ? (i % 3 ? '#976347' : '#f1cf8c')
+      : material === 'rock' ? (i % 3 ? '#4a5365' : '#c8cec6')
+      : planet.colors[i % 2 ? 3 : 1];
+    ctx.beginPath();
+    ctx.ellipse(px, py, Math.max(0.01, size * point.depth *
+      (material === 'gas' ? 2.5 : 1.3)), size * (material === 'gas' ? 0.45 : 0.8),
+      0, 0, Math.PI * 2);
+    ctx.fill();
+    if (material === 'rock') {
+      ctx.strokeStyle = '#ced5d5';
+      ctx.lineWidth = radius * 0.025;
+      ctx.stroke();
+    }
   }
   const night = ctx.createLinearGradient(
     x + lightX * radius,
@@ -1748,7 +1894,7 @@ function drawHologramPlanet(
   ctx.arc(x, y, radius, lightAngle - 1, lightAngle + 1);
   ctx.stroke();
   if (planet.ring) drawRing(true);
-  if (planet.radius > 3 && Math.sin(moonAngle) >= 0) drawMoon();
+  if (planet.ring && Math.sin(moonAngle) >= 0) drawMoon();
 }
 
 export function drawAlecHologramControl(
