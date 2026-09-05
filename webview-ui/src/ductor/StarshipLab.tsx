@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { DuctorRoleName, DuctorStatusSnapshot } from './ductorLabModel.js';
 import { ductorAssetUrl } from './ductorLabModel.js';
 import { loadStarshipImage } from './starshipImageLoader.js';
-import { PHOTONIC_BAY_ASSET } from './starshipComputerBay.js';
+import { ALEC_SEATED_ASSET, PHOTONIC_BAY_ASSET } from './starshipComputerBay.js';
 import {
   type AgentStatusBubble,
   applyCloudStatus,
@@ -256,13 +256,18 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
     const hologramImg = new Image();
     const walkImg = new Image();
     const computerBayImg = new Image();
+    const alecSeatedImg = new Image();
     let computerBayReady = false;
     let sceneReady = false;
     let hologramReady = false;
     let walkReady = false;
+    let alecSeatedReady = false;
     setLoaded(false);
     void loadStarshipImage(computerBayImg, ductorAssetUrl(import.meta.env?.BASE_URL ?? './', PHOTONIC_BAY_ASSET)).then((ready) => {
       if (!disposed) computerBayReady = ready;
+    });
+    void loadStarshipImage(alecSeatedImg, ductorAssetUrl(import.meta.env?.BASE_URL ?? './', ALEC_SEATED_ASSET), { width: 2172, height: 724 }).then((ready) => {
+      if (!disposed) alecSeatedReady = ready;
     });
 
     // Only the background and original sheet are required. Optional sprite
@@ -421,6 +426,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
             hologramReady ? hologramImg : undefined,
             walkReady ? walkImg : undefined,
             computerBayReady ? computerBayImg : undefined,
+            alecSeatedReady ? alecSeatedImg : undefined,
           );
         }
       }

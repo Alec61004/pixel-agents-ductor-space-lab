@@ -2231,6 +2231,7 @@ export function drawStage(
   alecHologramImg?: HTMLImageElement,
   walkImg?: HTMLImageElement,
   computerBayImg?: HTMLImageElement,
+  alecSeatedImg?: HTMLImageElement,
 ): { scale: number; offX: number; offY: number } {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, rect.width, rect.height);
@@ -2268,20 +2269,29 @@ export function drawStage(
 
   const sorted = [...agents].sort((a, b) => a.y - b.y);
   for (const a of sorted) {
-    if (a.name === 'Alec' && seated && computerBayImg && alecHologramImg) {
-      // Use the intact authored rear poses, with the seat back hiding the legs.
+    if (a.name === 'Alec' && seated && computerBayImg && (alecSeatedImg || alecHologramImg)) {
+      // Use the authored seated sheet when available. Its four poses keep
+      // Alec's bent knees and alternating hand contacts visible below the
+      // photonic seat back. The original two-frame rear sprite remains a
+      // safe fallback while the optional asset is loading.
       const { x, feetY, height } = ALEC_SEAT;
-      const frame = Math.floor(timeSec * 3) % 2;
-      const sw = alecHologramImg.width / 2;
-      const sh = alecHologramImg.height;
-      const width = height * sw / sh;
+      const seatedImg = alecSeatedImg || alecHologramImg!;
+      const frames = alecSeatedImg ? 4 : 2;
+      const frame = Math.floor(timeSec * 3) % frames;
+      const sw = seatedImg.width / frames;
+      const sh = seatedImg.height;
+      const cellHeight = alecSeatedImg ? height * (724 / 517) : height;
+      const width = cellHeight * sw / sh;
+      const cellY = feetY - cellHeight * (alecSeatedImg ? 633 / 724 : 1);
       ctx.save();
       ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(alecHologramImg, frame * sw, 0, sw, sh,
-        x - width / 2, feetY - height + Math.sin(timeSec * 1.6) * 0.35, width, height);
+      ctx.drawImage(seatedImg, frame * sw, 0, sw, sh,
+        x - width / 2, cellY + Math.sin(timeSec * 1.6) * 0.25, width, cellHeight);
       drawAlecSeatBack(ctx, computerBayImg);
       ctx.restore();
-      drawAgentStatusBubble(ctx, { ...a, x, y: feetY }, height, 0);
+      // The seated head is higher than the old standing anchor; lift the
+      // bubble slightly so it never sits on top of the helmet.
+      drawAgentStatusBubble(ctx, { ...a, x, y: feetY }, height, -10);
       continue;
     }
     drawAgent(ctx, a, sheetImg, timeSec, alecHologramImg, walkImg);

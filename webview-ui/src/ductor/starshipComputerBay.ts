@@ -86,8 +86,9 @@ export const ORIGINAL_COMPUTER_BAYS: Record<ComputerBayOperator, OriginalCompute
 
 /** Approved photonic bay artwork; coordinates remain in the original room space. */
 export const PHOTONIC_BAY_ASSET = 'themes/ductor-space-lab/photonic-bay-v1.png';
+export const ALEC_SEATED_ASSET = 'themes/ductor-space-lab/alec-seated.png';
 
-export const ALEC_SEAT = { x: 560, feetY: 405, height: 74 };
+export const ALEC_SEAT = { x: 560, feetY: 435, height: 74 };
 
 /** Light travels along the authored console, reacting to each hand contact. */
 export function drawPhotonicActivity(ctx: CanvasRenderingContext2D, time: number, active: boolean): void {
@@ -131,9 +132,12 @@ export function drawPhotonicActivity(ctx: CanvasRenderingContext2D, time: number
 /** The seat back is foreground furniture, and only occludes its seated occupant. */
 export function drawAlecSeatBack(ctx: CanvasRenderingContext2D, artwork: HTMLImageElement): void {
   ctx.save(); ctx.beginPath();
-  ctx.moveTo(538, 370); ctx.lineTo(547, 361); ctx.lineTo(572, 361);
-  ctx.lineTo(582, 370); ctx.lineTo(582, 396); ctx.lineTo(570, 412);
-  ctx.lineTo(548, 412); ctx.lineTo(537, 396); ctx.closePath(); ctx.clip();
+  // Keep the helmet and shoulders visible. The front lip of the chair hides
+  // only the pelvis and the lower thighs, which makes the bent-knee pose read
+  // as seated instead of a standing sprite behind furniture.
+  ctx.moveTo(536, 421); ctx.lineTo(547, 414); ctx.lineTo(573, 414);
+  ctx.lineTo(584, 421); ctx.lineTo(584, 443); ctx.lineTo(572, 454);
+  ctx.lineTo(548, 454); ctx.lineTo(536, 443); ctx.closePath(); ctx.clip();
   ctx.drawImage(artwork, 0, 0, artwork.width, artwork.height, 0, 0, 1600, 678);
   ctx.restore();
 }
