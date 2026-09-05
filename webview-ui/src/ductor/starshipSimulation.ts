@@ -11,7 +11,6 @@ import {
 } from '../constants.js';
 import type { DuctorRoleName, DuctorStatusSnapshot } from './ductorLabModel.js';
 import { drawStarshipExterior } from './starshipExterior.js';
-import { drawStarshipComputerBanks } from './starshipComputerBanks.js';
 
 export const SHEET_COLS = 16;
 export const SHEET_ROWS = 8;
@@ -2133,29 +2132,10 @@ export function drawStage(
   ctx.scale(scale, scale);
 
   drawStarshipExterior(ctx, bgImg, timeSec);
-  const workingAt = (name: DuctorRoleName) => {
-    const agent = agents.find((candidate) => candidate.name === name);
-    if (!agent || !isAgentAtStation(agent)) return false;
-    return (
-      agent.state === STATE.WORKING ||
-      agent.reportedState === 'working' ||
-      agent.reportedState === 'review'
-    );
-  };
-  // Rebuild the two original computer bays as one coherent pixel-art machine
-  // area. The renderer follows the source `consoleNeon` tile palette and
-  // geometry, instead of adding another floating panel over the room.
-  drawStarshipComputerBanks(ctx, timeSec, {
-    alec: workingAt('Alec'),
-    kevin: workingAt('Kevin'),
-  });
-  // Benjamin keeps the original QA screen; only his glass receives the
-  // generic telemetry tint because his desk is outside the rebuilt banks.
-  drawWorkstationScreens(
-    ctx,
-    agents.filter((agent) => agent.name === 'Benjamin'),
-    timeSec,
-  );
+  // The computer bank is part of the original pixel-art room background. Keep
+  // that source art intact; do not paint a second console membrane over it.
+  drawWorkstationScreens(ctx, agents, timeSec);
+  drawAlienConsoleEffects(ctx, agents, timeSec);
   drawFloorMarkers(ctx, showStations);
   // The star map remains a small ambient room prop while Alec is assigned to
   // the central command bank; it is no longer used as his workstation here.
