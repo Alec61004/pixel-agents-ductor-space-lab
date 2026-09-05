@@ -96,12 +96,19 @@ export const WORKSTATIONS: Record<DuctorRoleName, WorkstationConfig> = {
     agentName: 'Kevin',
     label: 'Kevin — Build',
     roleDescription: 'Build',
-    approachPoint: { x: 1450, y: 585 },
-    interactionPoint: { x: 1450, y: 535 },
+    // The build operator uses the original angled console on the port side,
+    // not the unrelated starboard terminal.  The chair is deliberately kept
+    // in front of the console so the authored rear-view sprite sits naturally
+    // in the existing perspective.
+    approachPoint: { x: 420, y: 535 },
+    interactionPoint: { x: 420, y: 500 },
     facing: 'back',
-    displayBounds: { x: 1427, y: 443, w: 65, h: 38 },
-    displayAreas: [{ x: 1427, y: 443, w: 65, h: 38 }],
-    occlusionBounds: { x: 1340, y: 486, w: 175, h: 48 },
+    displayBounds: { x: 314, y: 320, w: 111, h: 126 },
+    displayAreas: [
+      { x: 318, y: 331, w: 35, h: 62 },
+      { x: 365, y: 357, w: 49, h: 72 },
+    ],
+    occlusionBounds: { x: 391, y: 414, w: 62, h: 61 },
     stationIndex: 4,
   },
   Benjamin: {
@@ -1163,9 +1170,10 @@ export function drawAgent(
   _timeSec: number = Date.now() / 1000,
   alecHologramImg?: HTMLImageElement,
   walkImg?: HTMLImageElement,
+  suppressAlecHologram = false,
 ): void {
   void _timeSec;
-  const hologramControlActive = isAlecUsingHologram(a);
+  const hologramControlActive = !suppressAlecHologram && isAlecUsingHologram(a);
   const isOffline = a.reportedState === 'offline' || a.state === STATE.OFFLINE;
   const isReview = !isOffline && a.reportedState === 'review';
   const isWorking =
@@ -1959,6 +1967,88 @@ export function drawWorkstationScreens(
   ctx.restore();
 }
 
+/**
+ * Pixel-level interface accents for the two original bridge consoles.
+ *
+ * The room background already contains the authored hardware and bezels. The
+ * renderer therefore paints only inside the existing glass/panel interiors;
+ * it never draws a replacement desk or a second frame on top of the room.
+ * The palette follows the original `consoleNeon` tile: cyan glass, mint
+ * diagnostics, amber alerts and violet navigation data.
+ */
+export function drawAlienConsoleEffects(
+  ctx: CanvasRenderingContext2D,
+  agents: StarshipAgent[],
+  timeSec: number = Date.now() / 1000,
+): void {
+  const isWorkingAt = (name: DuctorRoleName) => {
+    const agent = agents.find((candidate) => candidate.name === name);
+    if (!agent || !isAgentAtStation(agent)) return false;
+    return (
+      agent.state === STATE.WORKING ||
+      agent.reportedState === 'working' ||
+      agent.reportedState === 'review'
+    );
+  };
+
+  const drawScreen = (
+    rect: DeviceBounds,
+    accent: string,
+    variant: 'command' | 'build',
+    active: boolean,
+  ) => {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(rect.x, rect.y, rect.w, rect.h);
+    ctx.clip();
+    const pulse = active ? 0.72 + Math.sin(timeSec * 3.2 + rect.x * 0.01) * 0.18 : 0.22;
+    ctx.globalAlpha = 0.12 + pulse * 0.1;
+    ctx.fillStyle = accent;
+    ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+
+    // Pixel scanline shimmer remains local to the original screen glass.
+    ctx.globalAlpha = active ? 0.22 : 0.08;
+    ctx.fillStyle = '#b0f6ff';
+    const scan = ((timeSec * 8 + rect.y) % Math.max(1, rect.h + 8)) - 4;
+    ctx.fillRect(rect.x, rect.y + scan, rect.w, 1);
+
+    ctx.globalAlpha = active ? 0.7 : 0.28;
+    ctx.fillStyle = variant === 'command' ? '#b0f6ff' : '#00ff99';
+    const pad = Math.max(3, Math.round(Math.min(rect.w, rect.h) * 0.12));
+    const lineH = Math.max(1, Math.floor(rect.h / 16));
+    const lines = variant === 'command' ? 5 : 6;
+    for (let row = 0; row < lines; row++) {
+      const y = rect.y + pad + row * lineH * 2;
+      const width = Math.max(2, rect.w * (0.28 + ((row * 17) % 51) / 100));
+      ctx.fillRect(rect.x + pad, y, width, 1);
+      if (row % 2 === 0) ctx.fillRect(rect.x + pad, y + 2, width * 0.35, 1);
+    }
+
+    // Alien navigation glyphs are block pixels, not a second vector panel.
+    ctx.globalAlpha = active ? 0.8 : 0.32;
+    const gx = rect.x + rect.w - pad - 5;
+    const gy = rect.y + pad + 1;
+    ctx.fillRect(gx, gy, 2, 2);
+    ctx.fillRect(gx + 3, gy + 2, 2, 2);
+    ctx.fillRect(gx, gy + 4, 5, 1);
+    ctx.restore();
+  };
+
+  const alecActive = isWorkingAt('Alec');
+  // Three original central displays: a tactical readout, a command core and
+  // a route/status display. Their shells remain entirely from the background.
+  for (const rect of WORKSTATIONS.Alec.displayAreas) {
+    drawScreen(rect, '#00f0ff', 'command', alecActive);
+  }
+
+  const kevinActive = isWorkingAt('Kevin');
+  // Kevin's two angled panels use the same neon tile language at a lower
+  // intensity so the original slanted glass and buttons stay readable.
+  for (const rect of WORKSTATIONS.Kevin.displayAreas) {
+    drawScreen(rect, '#00ff99', 'build', kevinActive);
+  }
+}
+
 export function drawWorkstationLabels(
   ctx: CanvasRenderingContext2D,
   agents?: StarshipAgent[],
@@ -2042,12 +2132,20 @@ export function drawStage(
   // The computer bank is part of the original pixel-art room background. Keep
   // that source art intact; do not paint a second console membrane over it.
   drawWorkstationScreens(ctx, agents, timeSec);
+  drawAlienConsoleEffects(ctx, agents, timeSec);
   drawFloorMarkers(ctx, showStations);
-  drawHologramTopGlow(ctx, agents, timeSec, bgImg);
+  // The star map remains a small ambient room prop while Alec is assigned to
+  // the central command bank; it is no longer used as his workstation here.
+  drawHologramTopGlow(
+    ctx,
+    agents.filter((agent) => agent.name !== 'Alec'),
+    timeSec,
+    bgImg,
+  );
 
   const sorted = [...agents].sort((a, b) => a.y - b.y);
   for (const a of sorted) {
-    drawAgent(ctx, a, sheetImg, timeSec, alecHologramImg, walkImg);
+    drawAgent(ctx, a, sheetImg, timeSec, alecHologramImg, walkImg, true);
   }
 
   // Crew members stand in front of the consoles in this top-down room. Do not

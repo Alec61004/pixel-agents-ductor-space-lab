@@ -312,21 +312,24 @@ test('defines 3 fixed workstations (Alec, Kevin, Benjamin) with correct labels a
   });
   assert.equal(WORKSTATIONS.Alec.label, 'Alec — Strategy');
 
-  assert.deepEqual(WORKSTATIONS.Kevin.approachPoint, { x: 1450, y: 585 });
-  assert.deepEqual(WORKSTATIONS.Kevin.interactionPoint, { x: 1450, y: 535 });
+  assert.deepEqual(WORKSTATIONS.Kevin.approachPoint, { x: 420, y: 535 });
+  assert.deepEqual(WORKSTATIONS.Kevin.interactionPoint, { x: 420, y: 500 });
   assert.equal(WORKSTATIONS.Kevin.facing, 'back');
   assert.deepEqual(WORKSTATIONS.Kevin.displayBounds, {
-    x: 1427,
-    y: 443,
-    w: 65,
-    h: 38,
+    x: 314,
+    y: 320,
+    w: 111,
+    h: 126,
   });
-  assert.deepEqual(WORKSTATIONS.Kevin.displayAreas, [{ x: 1427, y: 443, w: 65, h: 38 }]);
+  assert.deepEqual(WORKSTATIONS.Kevin.displayAreas, [
+    { x: 318, y: 331, w: 35, h: 62 },
+    { x: 365, y: 357, w: 49, h: 72 },
+  ]);
   assert.deepEqual(WORKSTATIONS.Kevin.occlusionBounds, {
-    x: 1340,
-    y: 486,
-    w: 175,
-    h: 48,
+    x: 391,
+    y: 414,
+    w: 62,
+    h: 61,
   });
   assert.equal(WORKSTATIONS.Kevin.label, 'Kevin — Build');
 
