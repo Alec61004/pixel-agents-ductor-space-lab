@@ -10,6 +10,7 @@ import {
   STARSHIP_VOID_TINT,
 } from '../constants.js';
 import type { DuctorRoleName, DuctorStatusSnapshot } from './ductorLabModel.js';
+import { drawStarshipExterior } from './starshipExterior.js';
 
 export const SHEET_COLS = 16;
 export const SHEET_ROWS = 8;
@@ -1481,54 +1482,21 @@ export function drawHologramTopGlow(
     ctx.fill();
   }
 
-  // A few subdued navigation branches preserve the original map's identity.
-  // Most of the field is carried by star clusters rather than a polygon mesh.
-  ctx.globalAlpha = open * 0.14;
-  ctx.strokeStyle = '#70c4d8';
-  ctx.lineWidth = 0.28;
-  ctx.beginPath();
-  ctx.moveTo(32, 15);
-  ctx.bezierCurveTo(35, 28, 43, 35, 54, 38);
-  ctx.bezierCurveTo(66, 32, 76, 23, 86, 20);
-  ctx.moveTo(54, 38);
-  ctx.bezierCurveTo(68, 44, 79, 46, 87, 51);
-  ctx.stroke();
   drawMapStar(ctx, 32, 15, 0.42, '#ffae83', open * 0.65);
   drawMapStar(ctx, 86, 20, 0.68, '#c1f3ff', open * 0.85);
   drawMapStar(ctx, 87, 51, 0.5, '#bceeff', open * 0.65);
   drawMapStar(ctx, 69, 27, 0.28, '#bceeff', open * 0.8);
   drawMapStar(ctx, 18, 45, 0.3, '#bceeff', open * 0.55);
 
-  // Thin orbital tracks sit behind the shaded planets, with shorter trails
-  // indicating their direction of travel rather than a spinning flat panel.
+  // Keep orbital motion without drawn tracks or a technical wireframe.
   const orbit = getHologramOrbit(time);
-  ctx.strokeStyle = '#70c4d8';
-  ctx.lineWidth = 0.22;
-  ctx.globalAlpha = 0.2;
-  ctx.beginPath();
-  ctx.ellipse(54, 38, 28, 12, -0.14, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.globalAlpha = 0.1;
-  ctx.beginPath();
-  ctx.ellipse(54, 38, 15, 7, -0.14, 0, Math.PI * 2);
-  ctx.stroke();
-  for (let segment = 0; segment < 18; segment++) {
-    const previous = getHologramOrbit(time - (18 - segment) * 0.16);
-    const next = getHologramOrbit(time - (17 - segment) * 0.16);
-    ctx.globalAlpha = (segment / 18) * 0.38;
-    ctx.lineWidth = 0.45;
-    ctx.beginPath();
-    ctx.moveTo(previous.x, previous.y);
-    ctx.lineTo(next.x, next.y);
-    ctx.stroke();
-  }
 
   // The orange hub stays fixed; a ringed world actually travels around it.
   const pulse = 0.5 + 0.5 * Math.sin(time * 1.1);
   const planet = {
     ...orbit,
     radius: 7.3,
-    ring: true,
+    ring: false,
     colors: ['#132f42', '#225b71', '#488f9c', '#9bc9c6', '#e0e9d5'],
   };
   const innerOrbit = getHologramOrbit(time * 1.8 + 8, 15, 7);
@@ -1731,7 +1699,7 @@ function drawHologramPlanet(
       ctx.stroke();
     }
   };
-  if (planet.ring && Math.sin(moonAngle) < 0) drawMoon();
+  if (planet.radius > 3 && Math.sin(moonAngle) < 0) drawMoon();
   if (planet.ring) drawRing(false);
 
   ctx.save();
@@ -1797,7 +1765,7 @@ function drawHologramPlanet(
   ctx.arc(x, y, radius, lightAngle - 1, lightAngle + 1);
   ctx.stroke();
   if (planet.ring) drawRing(true);
-  if (planet.ring && Math.sin(moonAngle) >= 0) drawMoon();
+  if (planet.radius > 3 && Math.sin(moonAngle) >= 0) drawMoon();
 }
 
 export function drawAlecHologramControl(
@@ -2068,6 +2036,7 @@ export function drawStage(
   ctx.translate(offX, offY);
   ctx.scale(scale, scale);
 
+  drawStarshipExterior(ctx, bgImg, timeSec);
   drawWorkstationScreens(ctx, agents, timeSec);
   drawFloorMarkers(ctx, showStations);
   drawHologramTopGlow(ctx, agents, timeSec, bgImg);
