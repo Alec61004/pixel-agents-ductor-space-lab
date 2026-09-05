@@ -2,66 +2,84 @@ import assert from 'node:assert/strict';
 import { test } from 'vitest';
 import {
   createInitialCrew, drawHologramTopGlow, getHologramCamera,
-  getHologramNavigation, STATE, updateAgent, WORKSTATIONS,
+  getHologramNavigation, getHologramPlanets, getHologramSurfacePoint,
+  STATE, updateAgent, WORKSTATIONS,
 } from '../src/ductor/starshipSimulation.js';
 
-test('camera waits until signal arrival, then eases into the selected star', () => {
-  for (const time of [0, 1.3, 2.8, 3.03, 3.2]) {
-    assert.deepEqual(getHologramCamera(time, true), { x: 53, y: 35.5, zoom: 1 });
+test('eight distinct planets have visible bodies, materials and axial rotation', () => {
+  const planets = getHologramPlanets(0);
+  assert.equal(planets.length, 8);
+  assert.equal(new Set(planets.map(p => p.id)).size, 8);
+  assert.equal(new Set(planets.map(p => p.material)).size, 6);
+  assert.equal(planets.filter(p => p.ring).length, 2);
+  for (const p of planets) {
+    assert.ok(p.radius >= 3 && p.spin > 0);
+    assert.equal(p.colors.length, 5);
   }
+  assert.notDeepEqual(getHologramPlanets(0), getHologramPlanets(1));
+});
+
+test('surface features rotate around the sphere and disappear behind the limb', () => {
+  const front = getHologramSurfacePoint(0, 0, 0);
+  const side = getHologramSurfacePoint(0, 0, Math.PI / 2);
+  const back = getHologramSurfacePoint(0, 0, Math.PI);
+  assert.deepEqual(front, { x: 0, y: 0, depth: 1 });
+  assert.ok(Math.abs(side.x - 1) < 1e-8 && Math.abs(side.depth) < 1e-8);
+  assert.ok(back.depth < 0);
+});
+
+test('initial signal targets a real planet and arrives before approach', () => {
+  for (const t of [0, 1.3, 2.8, 3.03, 3.2]) {
+    assert.deepEqual(getHologramCamera(t, true), { x: 53, y: 35.5, zoom: 1 });
+  }
+  const sceneTime = 27;
+  const planet = getHologramPlanets(sceneTime)[0]!;
+  assert.deepEqual(getHologramNavigation(2.8, true, sceneTime).target,
+    { x: planet.x, y: planet.y });
   assert.equal(getHologramNavigation(3.2, true).signal, 1);
   assert.ok(getHologramCamera(3.85, true).zoom > 1);
-  assert.ok(getHologramCamera(3.85, true).zoom < 4);
-  for (const time of [4.5, 5.4, 6.3]) {
-    assert.deepEqual(getHologramCamera(time, true), {
-      ...getHologramNavigation(time, true).target, zoom: 4,
-    });
-    assert.equal(getHologramNavigation(time, true).opacity, 0);
+});
+
+test('tour holds each moving planet then transfers directly including last to first', () => {
+  for (let visit = 0; visit < 10; visit++) {
+    const t = 4.5 + visit * 5 + 1.6;
+    const sceneTime = 100 + t; // independent clock must be used for orbit tracking
+    const planet = getHologramPlanets(sceneTime)[visit % 8]!;
+    const camera = getHologramCamera(t, true, sceneTime);
+    assert.ok(Math.abs(camera.x - planet.x) < 1e-9);
+    assert.ok(Math.abs(camera.y - planet.y) < 1e-9);
+    assert.ok(camera.zoom > 3);
+    assert.equal(getHologramNavigation(t, true, sceneTime).opacity, 0);
+  }
+  for (let t = 4.5; t < 90; t += 0.05) {
+    const camera = getHologramCamera(t, true);
+    assert.ok(camera.zoom > 3 && camera.zoom <= 5.5, 'never return to overview');
+    const next = getHologramCamera(t + 0.00001, true);
+    assert.ok(Math.hypot(next.x - camera.x, next.y - camera.y) < 0.01);
+    assert.ok(Math.abs(next.zoom - camera.zoom) < 0.001);
   }
 });
 
-test('camera returns home before advancing targets with no cycle jump', () => {
-  assert.ok(getHologramCamera(7, true).zoom > 1);
-  assert.ok(getHologramCamera(7, true).zoom < 4);
-  for (const time of [8, 8.399999, 8.4, 8.400001]) {
-    assert.deepEqual(getHologramCamera(time, true), { x: 53, y: 35.5, zoom: 1 });
-  }
-  const targets = [4.5, 12.9, 21.3].map(t => getHologramCamera(t, true));
-  assert.equal(new Set(targets.map(t => t.x + ',' + t.y)).size, 3);
-});
-
-test('camera remains bounded and continuous across all phase boundaries', () => {
-  for (let t = 0; t < 25.2; t += 0.01) {
-    const a = getHologramCamera(t, true);
-    const b = getHologramCamera(t + 0.00001, true);
-    assert.ok(a.zoom >= 1 && a.zoom <= 4);
-    assert.ok(Math.abs(a.zoom - b.zoom) < 0.001);
-    assert.ok(Math.hypot(a.x - b.x, a.y - b.y) < 0.01);
-  }
-});
-
-test('inactive camera uses the overview at every phase', () => {
-  for (const t of [0, 3.8, 5.5, 7, 12.9]) {
+test('inactive view stays wide and interruption eases home', () => {
+  for (const t of [0, 5, 12.9, 45]) {
     assert.deepEqual(getHologramCamera(t, false), { x: 53, y: 35.5, zoom: 1 });
   }
-});
-
-test('stopping work during a close-up eases home rather than snapping', () => {
   const crew = createInitialCrew();
   const alec = crew.find(a => a.name === 'Alec')!;
   Object.assign(alec, WORKSTATIONS.Alec.interactionPoint, {
     state: STATE.WORKING, reportedState: 'working', hologramTime: 5,
   });
   updateAgent(alec, 0.1, 1, crew);
-  assert.equal(alec.hologramCamera!.zoom, 4);
+  const zoom = alec.hologramCamera!.zoom;
+  assert.ok(zoom > 3);
   Object.assign(alec, { state: STATE.IDLE, reportedState: 'idle', stateTimer: 100 });
   updateAgent(alec, 0.1, 1, crew);
-  assert.ok(alec.hologramCamera!.zoom > 1 && alec.hologramCamera!.zoom < 4);
+  assert.ok(alec.hologramCamera!.zoom > 1 && alec.hologramCamera!.zoom < zoom);
   for (let i = 0; i < 30; i++) updateAgent(alec, 0.1, 1, crew);
   assert.ok(Math.abs(alec.hologramCamera!.zoom - 1) < 0.001);
 });
 
-test('zoom is clipped inside the map, leaving frame and projector unchanged', () => {
+test('frame and projector stay fixed while every planet is rendered in clipped map', () => {
   const crew = createInitialCrew();
   const alec = crew.find(a => a.name === 'Alec')!;
   Object.assign(alec, WORKSTATIONS.Alec.interactionPoint, {
@@ -82,14 +100,17 @@ test('zoom is clipped inside the map, leaving frame and projector unchanged', ()
   };
   const overview = record(1);
   const closeup = record(5);
-  assert.deepEqual(
-    overview.filter(c => c[0] === 'drawImage'),
-    closeup.filter(c => c[0] === 'drawImage'),
-  );
-  const zoomIndex = closeup.findIndex(c => c[0] === 'scale' && c[1] === 4);
+  assert.deepEqual(overview.filter(c => c[0] === 'drawImage'),
+    closeup.filter(c => c[0] === 'drawImage'));
+  const camera = getHologramCamera(5, true);
+  const zoomIndex = closeup.findIndex(c => c[0] === 'scale' && c[1] === camera.zoom);
   assert.ok(zoomIndex > closeup.findIndex(c => c[0] === 'clip'));
   assert.deepEqual(closeup[zoomIndex - 1], ['translate', 53, 35.5]);
-  assert.deepEqual(closeup[zoomIndex + 1], ['translate', -86, -20]);
+  assert.deepEqual(closeup[zoomIndex + 1], ['translate', -camera.x, -camera.y]);
+  for (const p of getHologramPlanets(5)) {
+    assert.ok(closeup.some(c => c[0] === 'arc' && c[1] === p.x &&
+      c[2] === p.y && c[3] === p.radius), p.id + ' renders a sphere');
+  }
   assert.equal(closeup.filter(c => c[0] === 'save').length,
     closeup.filter(c => c[0] === 'restore').length);
 });
