@@ -290,43 +290,43 @@ test('defines 3 fixed workstations (Alec, Kevin, Benjamin) with correct labels a
   assert.ok(WORKSTATIONS.Benjamin);
 
   // New device-anchored coordinates matching actual painted devices in starship-bg.png
-  assert.deepEqual(WORKSTATIONS.Alec.approachPoint, { x: 569, y: 656 });
-  assert.deepEqual(WORKSTATIONS.Alec.interactionPoint, { x: 569, y: 638 });
+  assert.deepEqual(WORKSTATIONS.Alec.approachPoint, { x: 570, y: 490 });
+  assert.deepEqual(WORKSTATIONS.Alec.interactionPoint, { x: 570, y: 455 });
   assert.equal(WORKSTATIONS.Alec.facing, 'back');
   assert.deepEqual(WORKSTATIONS.Alec.displayBounds, {
-    x: 505,
-    y: 442,
-    w: 140,
-    h: 98,
+    x: 415,
+    y: 296,
+    w: 327,
+    h: 147,
   });
-  assert.deepEqual(WORKSTATIONS.Alec.displayAreas, [{ x: 505, y: 442, w: 140, h: 98 }]);
+  assert.deepEqual(WORKSTATIONS.Alec.displayAreas, [
+    { x: 438, y: 317, w: 60, h: 80 },
+    { x: 492, y: 297, w: 166, h: 92 },
+    { x: 650, y: 317, w: 73, h: 80 },
+  ]);
   assert.deepEqual(WORKSTATIONS.Alec.occlusionBounds, {
-    x: 500,
-    y: 525,
-    w: 145,
-    h: 65,
+    x: 439,
+    y: 388,
+    w: 265,
+    h: 56,
   });
   assert.equal(WORKSTATIONS.Alec.label, 'Alec — Strategy');
 
-  assert.deepEqual(WORKSTATIONS.Kevin.approachPoint, { x: 450, y: 490 });
-  assert.deepEqual(WORKSTATIONS.Kevin.interactionPoint, { x: 450, y: 455 });
+  assert.deepEqual(WORKSTATIONS.Kevin.approachPoint, { x: 1450, y: 585 });
+  assert.deepEqual(WORKSTATIONS.Kevin.interactionPoint, { x: 1450, y: 535 });
   assert.equal(WORKSTATIONS.Kevin.facing, 'back');
   assert.deepEqual(WORKSTATIONS.Kevin.displayBounds, {
-    x: 460,
-    y: 318,
-    w: 250,
-    h: 32,
+    x: 1427,
+    y: 443,
+    w: 65,
+    h: 38,
   });
-  assert.deepEqual(WORKSTATIONS.Kevin.displayAreas, [
-    { x: 460, y: 318, w: 60, h: 30 },
-    { x: 536, y: 318, w: 70, h: 30 },
-    { x: 648, y: 318, w: 60, h: 30 },
-  ]);
+  assert.deepEqual(WORKSTATIONS.Kevin.displayAreas, [{ x: 1427, y: 443, w: 65, h: 38 }]);
   assert.deepEqual(WORKSTATIONS.Kevin.occlusionBounds, {
-    x: 405,
-    y: 420,
-    w: 340,
-    h: 40,
+    x: 1340,
+    y: 486,
+    w: 175,
+    h: 48,
   });
   assert.equal(WORKSTATIONS.Kevin.label, 'Kevin — Build');
 
@@ -380,7 +380,7 @@ test('agent working state positions agent at their own assigned workstation inte
   const kevin = crew.find((a) => a.name === 'Kevin')!;
   const benjamin = crew.find((a) => a.name === 'Benjamin')!;
 
-  // Alec stands in front of the projector and faces the map
+  // Alec commands from the rebuilt alien bridge and faces its displays.
   assert.equal(alec.x, WORKSTATIONS.Alec.interactionPoint.x);
   assert.equal(alec.y, WORKSTATIONS.Alec.interactionPoint.y);
   assert.equal(alec.facing, 'back');
@@ -1560,7 +1560,7 @@ test('Alec uses intact original rear poses with gesture fields and the same cyan
   for (let time = 0; time < 8; time += 0.05) {
     const calls = frame(time);
     const map = calls.find((c) => c[0] === 'drawImage' && c[1] === bgImg)!;
-    if (time >= 0.6) assert.ok(Math.abs(map[8] - 106 * 1.65) < 0.0001);
+    if (time >= 0.6) assert.ok(Math.abs(map[8] - 106 * 1.05) < 0.0001);
     const poses = calls.filter((c) => c[0] === 'drawImage' && c[1] === hologramSprite);
     assert.equal(poses.length, 2, 'whole sprite plus its existing brightness pass');
     for (const pose of poses) {
@@ -1612,7 +1612,7 @@ test('Alec uses intact original rear poses with gesture fields and the same cyan
   });
   for (let i = 0; i < 10; i++) updateAgent(alec, 0.1, 1, crew);
   const expanded = frame(1).find((c) => c[0] === 'drawImage' && c[1] === bgImg);
-  assert.ok(Math.abs(expanded![8] - 106 * 1.65) < 0.001);
+  assert.ok(Math.abs(expanded![8] - 106 * 1.05) < 0.001);
   const sceneTime = alec.hologramSceneTime;
   Object.assign(alec, { state: STATE.IDLE, reportedState: 'idle', stateTimer: 10 });
   updateAgent(alec, 0.2, 1, crew);

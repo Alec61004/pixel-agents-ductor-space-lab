@@ -10,6 +10,7 @@ import {
   STARSHIP_VOID_TINT,
 } from '../constants.js';
 import type { DuctorRoleName, DuctorStatusSnapshot } from './ductorLabModel.js';
+import { drawAlienCommandBridge } from './starshipCommandBridge.js';
 import { drawStarshipExterior } from './starshipExterior.js';
 
 export const SHEET_COLS = 16;
@@ -80,28 +81,28 @@ export const WORKSTATIONS: Record<DuctorRoleName, WorkstationConfig> = {
     agentName: 'Alec',
     label: 'Alec — Strategy',
     roleDescription: 'Strategy',
-    approachPoint: { x: 569, y: 656 },
-    interactionPoint: { x: 569, y: 638 },
+    approachPoint: { x: 570, y: 490 },
+    interactionPoint: { x: 570, y: 455 },
     facing: 'back',
-    displayBounds: { x: 505, y: 442, w: 140, h: 98 },
-    displayAreas: [{ x: 505, y: 442, w: 140, h: 98 }],
-    occlusionBounds: { x: 500, y: 525, w: 145, h: 65 },
+    displayBounds: { x: 415, y: 296, w: 327, h: 147 },
+    displayAreas: [
+      { x: 438, y: 317, w: 60, h: 80 },
+      { x: 492, y: 297, w: 166, h: 92 },
+      { x: 650, y: 317, w: 73, h: 80 },
+    ],
+    occlusionBounds: { x: 439, y: 388, w: 265, h: 56 },
     stationIndex: 1,
   },
   Kevin: {
     agentName: 'Kevin',
     label: 'Kevin — Build',
     roleDescription: 'Build',
-    approachPoint: { x: 450, y: 490 },
-    interactionPoint: { x: 450, y: 455 },
+    approachPoint: { x: 1450, y: 585 },
+    interactionPoint: { x: 1450, y: 535 },
     facing: 'back',
-    displayBounds: { x: 460, y: 318, w: 250, h: 32 },
-    displayAreas: [
-      { x: 460, y: 318, w: 60, h: 30 },
-      { x: 536, y: 318, w: 70, h: 30 },
-      { x: 648, y: 318, w: 60, h: 30 },
-    ],
-    occlusionBounds: { x: 405, y: 420, w: 340, h: 40 },
+    displayBounds: { x: 1427, y: 443, w: 65, h: 38 },
+    displayAreas: [{ x: 1427, y: 443, w: 65, h: 38 }],
+    occlusionBounds: { x: 1340, y: 486, w: 175, h: 48 },
     stationIndex: 4,
   },
   Benjamin: {
@@ -1334,7 +1335,7 @@ export function drawAgent(
   // Keep Alec's label beside his body, clear of the enlarged map.
   drawAgentStatusBubble(
     ctx,
-    hologramControlActive ? { ...a, x: a.x - 105, y: a.y + 40 } : a,
+    hologramControlActive ? { ...a, x: a.x - 185, y: a.y + 35 } : a,
     drawH,
     bobY,
   );
@@ -1388,7 +1389,9 @@ export function drawHologramTopGlow(
   const source = { x: 516, y: 443, w: 106, h: 71 };
   const expansion = alec?.hologramExpansion ?? (working ? Math.min(1, controlTime / 0.6) : 0);
   const open = 1; // Content visibility is independent of the work-driven expansion.
-  const zoom = 1 + 0.65 * expansion * expansion * (3 - 2 * expansion);
+  // The table remains a compact repeater. Alec's larger command view now lives
+  // in the alien membrane above, so it never covers his body or touch deck.
+  const zoom = 1 + 0.05 * expansion * expansion * (3 - 2 * expansion);
   const w = source.w * zoom;
   const h = source.h * zoom;
   const cx = source.x + source.w / 2;
@@ -2037,10 +2040,12 @@ export function drawStage(
   ctx.scale(scale, scale);
 
   drawStarshipExterior(ctx, bgImg, timeSec);
+  const alec = agents.find((a) => a.name === 'Alec');
+  const alecAtCommand = !!alec && isAlecUsingHologram(alec);
+  drawAlienCommandBridge(ctx, alec?.hologramSceneTime ?? timeSec, alecAtCommand);
   drawWorkstationScreens(ctx, agents, timeSec);
   drawFloorMarkers(ctx, showStations);
   drawHologramTopGlow(ctx, agents, timeSec, bgImg);
-  const alec = agents.find((a) => a.name === 'Alec');
   if (alec) drawAlecHologramControl(ctx, alec);
 
   const sorted = [...agents].sort((a, b) => a.y - b.y);
