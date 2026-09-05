@@ -10,6 +10,7 @@ import {
   STARSHIP_VOID_TINT,
 } from '../constants.js';
 import type { DuctorRoleName, DuctorStatusSnapshot } from './ductorLabModel.js';
+import { ORIGINAL_COMPUTER_BAYS } from './starshipComputerBay.js';
 import { drawStarshipExterior } from './starshipExterior.js';
 
 export const SHEET_COLS = 16;
@@ -78,41 +79,11 @@ export type AssignedWorkstation = WorkstationConfig;
 export const WORKSTATIONS: Record<DuctorRoleName, WorkstationConfig> = {
   Alec: {
     agentName: 'Alec',
-    label: 'Alec — Strategy',
-    roleDescription: 'Strategy',
-    // Alec takes the left operator chair in the original three-screen bank.
-    // This keeps his feet on the authored chair position instead of floating
-    // in front of the centre equipment rack.
-    approachPoint: { x: 475, y: 500 },
-    interactionPoint: { x: 475, y: 465 },
-    facing: 'back',
-    displayBounds: { x: 455, y: 302, w: 255, h: 110 },
-    displayAreas: [
-      { x: 465, y: 312, w: 49, h: 25 },
-      { x: 560, y: 312, w: 48, h: 25 },
-      { x: 650, y: 312, w: 49, h: 25 },
-    ],
-    occlusionBounds: { x: 442, y: 389, w: 72, h: 60 },
-    stationIndex: 1,
+    ...ORIGINAL_COMPUTER_BAYS.Alec,
   },
   Kevin: {
     agentName: 'Kevin',
-    label: 'Kevin — Build',
-    roleDescription: 'Build',
-    // The build operator uses the original angled console on the port side,
-    // not the unrelated starboard terminal.  The chair is deliberately kept
-    // in front of the console so the authored rear-view sprite sits naturally
-    // in the existing perspective.
-    approachPoint: { x: 420, y: 535 },
-    interactionPoint: { x: 420, y: 500 },
-    facing: 'back',
-    displayBounds: { x: 314, y: 320, w: 111, h: 126 },
-    displayAreas: [
-      { x: 318, y: 331, w: 35, h: 62 },
-      { x: 365, y: 357, w: 49, h: 72 },
-    ],
-    occlusionBounds: { x: 391, y: 414, w: 62, h: 61 },
-    stationIndex: 4,
+    ...ORIGINAL_COMPUTER_BAYS.Kevin,
   },
   Benjamin: {
     agentName: 'Benjamin',
@@ -2132,10 +2103,13 @@ export function drawStage(
   ctx.scale(scale, scale);
 
   drawStarshipExterior(ctx, bgImg, timeSec);
-  // The computer bank is part of the original pixel-art room background. Keep
-  // that source art intact; do not paint a second console membrane over it.
-  drawWorkstationScreens(ctx, agents, timeSec);
-  drawAlienConsoleEffects(ctx, agents, timeSec);
+  // Keep Alec's and Kevin's original computer bays untouched. Only Benjamin's
+  // separate QA display receives a telemetry tint.
+  drawWorkstationScreens(
+    ctx,
+    agents.filter((agent) => agent.name === 'Benjamin'),
+    timeSec,
+  );
   drawFloorMarkers(ctx, showStations);
   // The star map remains a small ambient room prop while Alec is assigned to
   // the central command bank; it is no longer used as his workstation here.

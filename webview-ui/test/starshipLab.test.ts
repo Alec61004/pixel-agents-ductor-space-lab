@@ -6,6 +6,10 @@ import { test } from 'vitest';
 
 import type { DuctorStatusSnapshot } from '../src/ductor/ductorLabModel.js';
 import {
+  ORIGINAL_COMPUTER_BAY_ASSETS,
+  ORIGINAL_COMPUTER_BAYS,
+} from '../src/ductor/starshipComputerBay.js';
+import {
   applySnapshotToAgents,
   ASSIGNED_WORKSTATIONS,
   ATTENTION_POINTS,
@@ -366,6 +370,17 @@ test('defines 3 fixed workstations (Alec, Kevin, Benjamin) with correct labels a
   assert.equal(isPointInPolygon(WORKSTATIONS.Alec.interactionPoint, WALKABLE_POLYGON), true);
   assert.equal(isPointInPolygon(WORKSTATIONS.Kevin.interactionPoint, WALKABLE_POLYGON), true);
   assert.equal(isPointInPolygon(WORKSTATIONS.Benjamin.interactionPoint, WALKABLE_POLYGON), true);
+});
+
+test('keeps the original Alec and Kevin computer bays in one debug configuration', () => {
+  assert.equal(ORIGINAL_COMPUTER_BAY_ASSETS.background, 'themes/ductor-space-lab/starship-bg.png');
+  assert.equal(ORIGINAL_COMPUTER_BAY_ASSETS.consoleTile, 'themes/ductor-space-lab/console-neon.png');
+  assert.equal(ORIGINAL_COMPUTER_BAYS.Alec.bayId, 'central-command');
+  assert.equal(ORIGINAL_COMPUTER_BAYS.Kevin.bayId, 'port-build');
+  assert.deepEqual(WORKSTATIONS.Alec.interactionPoint, ORIGINAL_COMPUTER_BAYS.Alec.interactionPoint);
+  assert.deepEqual(WORKSTATIONS.Kevin.interactionPoint, ORIGINAL_COMPUTER_BAYS.Kevin.interactionPoint);
+  assert.deepEqual(WORKSTATIONS.Alec.displayAreas, ORIGINAL_COMPUTER_BAYS.Alec.displayAreas);
+  assert.deepEqual(WORKSTATIONS.Kevin.displayAreas, ORIGINAL_COMPUTER_BAYS.Kevin.displayAreas);
 });
 
 test('clamps viewport pan so focusing an agent cannot expose empty canvas space', () => {
