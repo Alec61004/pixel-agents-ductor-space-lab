@@ -25,4 +25,4 @@ References consulted for alien interior forms (not imported assets):
 - https://arifcreations.artstation.com/projects/yJANx5
 - https://robertsspaceindustries.com/comm-link/transmission/17222-Alpha-37-Flyable-Ships
 
-Validation: TypeScript check, 55 targeted tests, and scene renders at five points of the activity cycle. A legacy test that prohibited every ellipse was corrected to protect the approved star-map frame and clip; the restored planet tour intentionally contains physical planetary rings.
+Validation: TypeScript check, 55 targeted tests, and scene renders at five points of the activity cycle. Room-v1 deploy retry keeps this visual pass isolated on the feature branch. A legacy test that prohibited every ellipse was corrected to protect the approved star-map frame and clip; the restored planet tour intentionally contains physical planetary rings.
