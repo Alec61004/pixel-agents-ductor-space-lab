@@ -49,7 +49,34 @@ export const LIVING_ROOM_ZONES = {
   ],
 } as const;
 
+/** Inner glass coordinates for the preserved alien specimen tank. */
+export const SPECIMEN_TANK = {
+  x: 836, y: 279, w: 73, h: 145,
+  cx: 872.5, cy: 351.5,
+} as const;
+
 const wrap = (v: number) => ((v % 1) + 1) % 1;
+
+export interface SpecimenVitalState {
+  pulse: number;
+  respiration: number;
+  scan: number;
+  alert: number;
+}
+
+/** Stable animation state for the body inside the authored tank artwork. */
+export function getSpecimenVitalState(time: number, active: boolean): SpecimenVitalState {
+  const t = Number.isFinite(time) ? Math.max(0, time) : 0;
+  const pulseRate = active ? 1.75 : 1.05;
+  const breathRate = active ? 0.72 : 0.34;
+  return {
+    pulse: 0.5 + Math.sin(t * pulseRate) * 0.5,
+    respiration: 0.5 + Math.sin(t * breathRate + 0.9) * 0.5,
+    scan: wrap(t * (active ? 0.42 : 0.12)),
+    alert: active ? 0.68 + Math.sin(t * 0.9) * 0.16 : 0.28 + Math.sin(t * 0.35) * 0.06,
+  };
+}
+
 export function getPodParticle(time: number, index: number, pod: number) {
   const age = wrap(time * (0.08 + index % 3 * 0.014) + index * 0.618 + pod * 0.23);
   return { x: 0.12 + wrap(index * 0.37 + pod * 0.11) * 0.76 + Math.sin(time * 0.7 + index) * 0.035,
@@ -101,10 +128,106 @@ function drawScanner(ctx: CanvasRenderingContext2D, time: number, x: number, y: 
   ctx.restore();
 }
 
+function drawSpecimenTank(ctx: CanvasRenderingContext2D, time: number, active: boolean): void {
+  const state = getSpecimenVitalState(time, active);
+  const tank = SPECIMEN_TANK;
+  const chestY = tank.cy - 2;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.roundRect(tank.x, tank.y, tank.w, tank.h, 14);
+  ctx.clip();
+
+  // A slow liquid caustic makes the body feel suspended instead of pasted into
+  // the background. It remains below the tank's glass highlights.
+  const caustic = ctx.createLinearGradient(tank.x, tank.y, tank.x + tank.w, tank.y + tank.h);
+  caustic.addColorStop(0, '#83ffe60a');
+  caustic.addColorStop(0.45, `rgba(80,255,224,${0.035 + state.respiration * 0.035})`);
+  caustic.addColorStop(1, '#1ce5d000');
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = caustic;
+  ctx.fillRect(tank.x, tank.y, tank.w, tank.h);
+
+  // Containment field: three offset ellipses roll around the preserved body.
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 3; i++) {
+    const drift = Math.sin(time * 0.38 + i * 1.7) * (2 + i);
+    ctx.globalAlpha = 0.12 + state.alert * 0.12 - i * 0.018;
+    ctx.strokeStyle = i === 1 ? '#b2fff0' : PHOTONIC_THEME.cyan;
+    ctx.lineWidth = i === 1 ? 0.9 : 0.55;
+    ctx.beginPath();
+    ctx.ellipse(tank.cx + drift, tank.cy, 23 + i * 7, 53 + i * 7,
+      Math.sin(time * 0.22 + i) * 0.12, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // A heartbeat radiates from the torso; the rings are clipped to the tank.
+  for (let i = 0; i < 3; i++) {
+    const radius = 4 + wrap(time * (active ? 0.28 : 0.12) + i / 3) * 34;
+    ctx.globalAlpha = (0.16 + state.pulse * 0.14) * (1 - radius / 41);
+    ctx.strokeStyle = i === 0 ? '#e0fff5' : '#79e4d6';
+    ctx.lineWidth = 0.7;
+    ctx.beginPath(); ctx.ellipse(tank.cx, chestY, radius, radius * 0.42, 0, 0, Math.PI * 2); ctx.stroke();
+  }
+
+  // Travelling neural pulses follow the alien's own silhouette rather than
+  // drawing a generic HUD over it.
+  const branches = [
+    [[tank.cx, 314], [tank.cx - 9, 327], [tank.cx - 18, 337]],
+    [[tank.cx, 314], [tank.cx + 9, 327], [tank.cx + 18, 337]],
+    [[tank.cx, 354], [tank.cx - 10, 369], [tank.cx - 12, 390]],
+    [[tank.cx, 354], [tank.cx + 10, 369], [tank.cx + 12, 390]],
+  ] as const;
+  for (const [branchIndex, branch] of branches.entries()) {
+    ctx.globalAlpha = 0.17 + state.pulse * 0.16;
+    ctx.strokeStyle = branchIndex % 2 ? '#b6fff0' : '#70ead9';
+    ctx.lineWidth = 0.7;
+    ctx.beginPath();
+    ctx.moveTo(branch[0][0], branch[0][1]);
+    ctx.quadraticCurveTo(branch[1][0], branch[1][1], branch[2][0], branch[2][1]);
+    ctx.stroke();
+    const age = wrap(time * (active ? 0.5 : 0.18) + branchIndex * 0.19);
+    const x = branch[1][0] + (branch[2][0] - branch[1][0]) * age;
+    const y = branch[1][1] + (branch[2][1] - branch[1][1]) * age;
+    ctx.globalAlpha = 0.28 + state.alert * 0.28;
+    ctx.fillStyle = '#d4fff6'; ctx.fillRect(Math.round(x), Math.round(y), 2, 2);
+  }
+
+  // Bubbles use different lanes and sizes so the tank has a living cadence.
+  for (let i = 0; i < 12; i++) {
+    const age = wrap(time * (0.055 + (i % 3) * 0.012) + i * 0.173);
+    const x = tank.x + 7 + wrap(i * 0.618) * (tank.w - 14) + Math.sin(time * 0.35 + i) * 2.2;
+    const y = tank.y + tank.h - age * (tank.h - 11);
+    const size = 0.7 + (i % 3) * 0.35;
+    ctx.globalAlpha = Math.sin(age * Math.PI) * (0.24 + state.respiration * 0.18);
+    ctx.strokeStyle = '#b4ffe0'; ctx.lineWidth = 0.6;
+    ctx.beginPath(); ctx.arc(x, y, size, 0, Math.PI * 2); ctx.stroke();
+  }
+
+  // A thin scan sheet sweeps through the specimen when the lab is active.
+  const scanY = tank.y + state.scan * tank.h;
+  const scan = ctx.createLinearGradient(tank.x, scanY - 6, tank.x, scanY + 6);
+  scan.addColorStop(0, '#63fff000'); scan.addColorStop(0.5, '#b8fff080'); scan.addColorStop(1, '#63fff000');
+  ctx.globalAlpha = active ? 0.48 : 0.14;
+  ctx.fillStyle = scan; ctx.fillRect(tank.x, scanY - 6, tank.w, 12);
+
+  ctx.restore();
+
+  // Keep the glass rim readable after the glow pass, with a single travelling
+  // reflection instead of a static bright rectangle.
+  ctx.save();
+  ctx.beginPath(); ctx.roundRect(tank.x + 1, tank.y + 1, tank.w - 2, tank.h - 2, 13); ctx.clip();
+  const reflectionX = tank.x + 5 + state.scan * (tank.w - 10);
+  ctx.globalAlpha = 0.08 + state.alert * 0.1;
+  ctx.fillStyle = '#dcfff6'; ctx.fillRect(reflectionX, tank.y + 5, 1, tank.h - 10);
+  ctx.restore();
+}
+
 /** Environment motion is drawn before characters and never repaints over them. */
 export function drawLivingRoom(ctx: CanvasRenderingContext2D, time: number, activity: RoomActivity): void {
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
   for (const [i, [x, y, rx, ry]] of LIVING_ROOM_ZONES.crystals.entries()) drawCrystal(ctx, time, x, y, rx, ry, i);
+  drawSpecimenTank(ctx, time, activity.command || activity.qa);
   // Each life-support vessel has its own bubble cadence and glass ripple.
   for (const [n, p] of LIVING_ROOM_ZONES.pods.entries()) {
     ctx.save(); ctx.beginPath(); ctx.roundRect(p.x, p.y, p.w, p.h, p.w * 0.15); ctx.clip();
