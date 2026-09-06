@@ -148,49 +148,52 @@ function drawSpecimenTank(ctx: CanvasRenderingContext2D, time: number, active: b
   ctx.fillStyle = caustic;
   ctx.fillRect(tank.x, tank.y, tank.w, tank.h);
 
-  // Containment field: three offset ellipses roll around the preserved body.
+  // The specimen is alive inside the tank, not being targeted by a HUD. A
+  // broad chest aura and a few body-following filaments make the original
+  // silhouette breathe without covering it with geometric overlays.
   ctx.globalCompositeOperation = 'lighter';
-  for (let i = 0; i < 3; i++) {
-    const drift = Math.sin(time * 0.38 + i * 1.7) * (2 + i);
-    ctx.globalAlpha = 0.12 + state.alert * 0.12 - i * 0.018;
-    ctx.strokeStyle = i === 1 ? '#b2fff0' : PHOTONIC_THEME.cyan;
-    ctx.lineWidth = i === 1 ? 0.9 : 0.55;
-    ctx.beginPath();
-    ctx.ellipse(tank.cx + drift, tank.cy, 23 + i * 7, 53 + i * 7,
-      Math.sin(time * 0.22 + i) * 0.12, 0, Math.PI * 2);
-    ctx.stroke();
-  }
+  const bodyGlow = ctx.createRadialGradient(tank.cx, chestY, 2, tank.cx, chestY, 37);
+  bodyGlow.addColorStop(0, `rgba(219,255,242,${0.07 + state.pulse * 0.09})`);
+  bodyGlow.addColorStop(0.5, `rgba(93,244,211,${0.035 + state.respiration * 0.035})`);
+  bodyGlow.addColorStop(1, 'rgba(36,205,180,0)');
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = bodyGlow;
+  ctx.fillRect(tank.x, tank.y, tank.w, tank.h);
 
-  // A heartbeat radiates from the torso; the rings are clipped to the tank.
-  for (let i = 0; i < 3; i++) {
-    const radius = 4 + wrap(time * (active ? 0.28 : 0.12) + i / 3) * 34;
-    ctx.globalAlpha = (0.16 + state.pulse * 0.14) * (1 - radius / 41);
-    ctx.strokeStyle = i === 0 ? '#e0fff5' : '#79e4d6';
-    ctx.lineWidth = 0.7;
-    ctx.beginPath(); ctx.ellipse(tank.cx, chestY, radius, radius * 0.42, 0, 0, Math.PI * 2); ctx.stroke();
-  }
-
-  // Travelling neural pulses follow the alien's own silhouette rather than
-  // drawing a generic HUD over it.
-  const branches = [
-    [[tank.cx, 314], [tank.cx - 9, 327], [tank.cx - 18, 337]],
-    [[tank.cx, 314], [tank.cx + 9, 327], [tank.cx + 18, 337]],
-    [[tank.cx, 354], [tank.cx - 10, 369], [tank.cx - 12, 390]],
-    [[tank.cx, 354], [tank.cx + 10, 369], [tank.cx + 12, 390]],
+  const filaments = [
+    [[tank.cx - 3, 311], [tank.cx - 8, 326], [tank.cx - 5, 342], [tank.cx - 13, 364], [tank.cx - 10, 389]],
+    [[tank.cx + 3, 311], [tank.cx + 8, 326], [tank.cx + 5, 342], [tank.cx + 13, 364], [tank.cx + 10, 389]],
+    [[tank.cx - 16, 333], [tank.cx - 11, 345], [tank.cx - 17, 358]],
+    [[tank.cx + 16, 333], [tank.cx + 11, 345], [tank.cx + 17, 358]],
   ] as const;
-  for (const [branchIndex, branch] of branches.entries()) {
-    ctx.globalAlpha = 0.17 + state.pulse * 0.16;
-    ctx.strokeStyle = branchIndex % 2 ? '#b6fff0' : '#70ead9';
-    ctx.lineWidth = 0.7;
+  for (const [index, filament] of filaments.entries()) {
+    const drift = Math.sin(time * 0.55 + index * 1.4) * 1.2;
+    ctx.globalAlpha = 0.08 + state.pulse * 0.08;
+    ctx.strokeStyle = index % 2 ? '#b7fff0' : '#66e6d3';
+    ctx.lineWidth = 0.55;
     ctx.beginPath();
-    ctx.moveTo(branch[0][0], branch[0][1]);
-    ctx.quadraticCurveTo(branch[1][0], branch[1][1], branch[2][0], branch[2][1]);
+    ctx.moveTo(filament[0][0] + drift, filament[0][1]);
+    for (let i = 1; i < filament.length; i++) {
+      const previous = filament[i - 1]!;
+      const point = filament[i]!;
+      const midX = (previous[0] + point[0]) / 2 + drift;
+      const midY = (previous[1] + point[1]) / 2;
+      ctx.quadraticCurveTo(midX, midY, point[0] + drift, point[1]);
+    }
     ctx.stroke();
-    const age = wrap(time * (active ? 0.5 : 0.18) + branchIndex * 0.19);
-    const x = branch[1][0] + (branch[2][0] - branch[1][0]) * age;
-    const y = branch[1][1] + (branch[2][1] - branch[1][1]) * age;
-    ctx.globalAlpha = 0.28 + state.alert * 0.28;
-    ctx.fillStyle = '#d4fff6'; ctx.fillRect(Math.round(x), Math.round(y), 2, 2);
+  }
+
+  // Slow currents rise along the glass, giving the suspension fluid depth.
+  for (let i = 0; i < 4; i++) {
+    const x = tank.x + 10 + i * 17;
+    const wave = Math.sin(time * 0.32 + i * 1.7) * 3;
+    ctx.globalAlpha = 0.035 + state.respiration * 0.025;
+    ctx.strokeStyle = '#8df7df';
+    ctx.lineWidth = 0.55;
+    ctx.beginPath();
+    ctx.moveTo(x, tank.y + tank.h + 4);
+    ctx.quadraticCurveTo(x + wave, tank.cy, x - wave * 0.5, tank.y - 4);
+    ctx.stroke();
   }
 
   // Bubbles use different lanes and sizes so the tank has a living cadence.
@@ -198,8 +201,8 @@ function drawSpecimenTank(ctx: CanvasRenderingContext2D, time: number, active: b
     const age = wrap(time * (0.055 + (i % 3) * 0.012) + i * 0.173);
     const x = tank.x + 7 + wrap(i * 0.618) * (tank.w - 14) + Math.sin(time * 0.35 + i) * 2.2;
     const y = tank.y + tank.h - age * (tank.h - 11);
-    const size = 0.7 + (i % 3) * 0.35;
-    ctx.globalAlpha = Math.sin(age * Math.PI) * (0.24 + state.respiration * 0.18);
+    const size = 0.55 + (i % 3) * 0.25;
+    ctx.globalAlpha = Math.sin(age * Math.PI) * (0.14 + state.respiration * 0.12);
     ctx.strokeStyle = '#b4ffe0'; ctx.lineWidth = 0.6;
     ctx.beginPath(); ctx.arc(x, y, size, 0, Math.PI * 2); ctx.stroke();
   }
@@ -207,9 +210,9 @@ function drawSpecimenTank(ctx: CanvasRenderingContext2D, time: number, active: b
   // A thin scan sheet sweeps through the specimen when the lab is active.
   const scanY = tank.y + state.scan * tank.h;
   const scan = ctx.createLinearGradient(tank.x, scanY - 6, tank.x, scanY + 6);
-  scan.addColorStop(0, '#63fff000'); scan.addColorStop(0.5, '#b8fff080'); scan.addColorStop(1, '#63fff000');
-  ctx.globalAlpha = active ? 0.48 : 0.14;
-  ctx.fillStyle = scan; ctx.fillRect(tank.x, scanY - 6, tank.w, 12);
+  scan.addColorStop(0, '#63fff000'); scan.addColorStop(0.5, '#b8fff052'); scan.addColorStop(1, '#63fff000');
+  ctx.globalAlpha = active ? 0.24 : 0.06;
+  ctx.fillStyle = scan; ctx.fillRect(tank.x, scanY - 3, tank.w, 6);
 
   ctx.restore();
 
