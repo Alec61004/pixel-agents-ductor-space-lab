@@ -1,3 +1,4 @@
+import { drawQAExperiment } from './starshipQA.js';
 import { PHOTONIC_THEME } from './starshipPhotonicTheme.js';
 
 export const LIVING_ROOM_ASSET = 'themes/ductor-space-lab/photonic-room-v1.png';
@@ -128,111 +129,85 @@ function drawScanner(ctx: CanvasRenderingContext2D, time: number, x: number, y: 
   ctx.restore();
 }
 
-function drawSpecimenTank(ctx: CanvasRenderingContext2D, time: number, active: boolean): void {
+function drawSpecimenTank(ctx: CanvasRenderingContext2D, time: number, active: boolean, artwork?: RoomArtwork): void {
   const state = getSpecimenVitalState(time, active);
-  const tank = SPECIMEN_TANK;
-  const chestY = tank.cy - 2;
-
-  ctx.save();
-  ctx.beginPath();
-  ctx.roundRect(tank.x, tank.y, tank.w, tank.h, 14);
-  ctx.clip();
-
-  // A slow liquid caustic makes the body feel suspended instead of pasted into
-  // the background. It remains below the tank's glass highlights.
-  const caustic = ctx.createLinearGradient(tank.x, tank.y, tank.x + tank.w, tank.y + tank.h);
-  caustic.addColorStop(0, '#83ffe60a');
-  caustic.addColorStop(0.45, `rgba(80,255,224,${0.035 + state.respiration * 0.035})`);
-  caustic.addColorStop(1, '#1ce5d000');
+  // The curved glass boundary excludes both metal caps.
+  ctx.save(); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+  ctx.beginPath(); ctx.moveTo(825, 288);
+  ctx.quadraticCurveTo(872, 304, 920, 288); ctx.lineTo(920, 415);
+  ctx.bezierCurveTo(912, 437, 836, 437, 825, 415); ctx.closePath(); ctx.clip();
+  if (artwork) {
+    // Reuse the textured organism, with subpixel buoyancy and refraction. Only
+    // the interior moves: the pressure vessel and its metal rims stay fixed.
+    ctx.save();
+    const drift = Math.sin(time * 0.48) * 1.35;
+    const swell = 1 + state.respiration * 0.006;
+    ctx.translate(872.5, 356 + drift); ctx.scale(swell, 1);
+    ctx.drawImage(artwork, 822, 286, 102, 148, -50.5, -70, 102, 148);
+    ctx.restore();
+  }
+  // Absorption through deep liquid, with a shadowed centre and lit glass edges.
+  const fluid = ctx.createLinearGradient(825, 0, 920, 0);
+  fluid.addColorStop(0, '#031d2caf'); fluid.addColorStop(0.12, '#0b555b52');
+  fluid.addColorStop(0.38, '#06282e66'); fluid.addColorStop(0.72, '#05242f88');
+  fluid.addColorStop(0.94, '#11677638'); fluid.addColorStop(1, '#031b2bb0');
+  ctx.fillStyle = fluid; ctx.fillRect(822, 286, 102, 150);
+  const depth = ctx.createLinearGradient(0, 291, 0, 433);
+  depth.addColorStop(0, '#020f2799'); depth.addColorStop(0.32, '#061d3300');
+  depth.addColorStop(0.75, '#07152616'); depth.addColorStop(1, '#07202d88');
+  ctx.fillStyle = depth; ctx.fillRect(822, 286, 102, 150);
+  // Soft caustic pools wander over the organism, never wireframes or scan bars.
+  ctx.globalCompositeOperation = 'screen';
+  const specimenLight = ctx.createRadialGradient(867, 331, 3, 873, 352, 60);
+  specimenLight.addColorStop(0, '#74dec52c');
+  specimenLight.addColorStop(0.55, '#328c8d0f'); specimenLight.addColorStop(1, '#22507800');
+  ctx.fillStyle = specimenLight; ctx.fillRect(825, 291, 95, 144);
+  for (let i = 0; i < 3; i++) {
+    const x = 850 + i * 20 + Math.sin(time * 0.32 + i * 2) * 6;
+    const y = 324 + i * 32 + Math.cos(time * 0.4 + i) * 9;
+    const light = ctx.createRadialGradient(x, y, 1, x, y, 24);
+    light.addColorStop(0, 'rgba(125,235,213,0.10)'); light.addColorStop(1, '#4cdbd000');
+    ctx.fillStyle = light; ctx.fillRect(x - 24, y - 24, 48, 48);
+  }
+  // Suspension tubing stays beside the specimen, behind the foreground glass.
+  ctx.globalCompositeOperation = 'source-over';
+  for (const side of [-1, 1]) {
+    const x = 872 + side * 32;
+    ctx.strokeStyle = '#092f3eb0'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(x, 294);
+    ctx.bezierCurveTo(x - side * 8, 337, x + side * 5, 380, x - side * 3, 422); ctx.stroke();
+    ctx.strokeStyle = '#89ddd443'; ctx.lineWidth = 0.7; ctx.stroke();
+  }
+  // Distinct far/near bubbles: shaded bodies, bright crescent reflections.
+  for (let i = 0; i < 23; i++) {
+    const age = wrap(time * (0.043 + i % 4 * 0.013) + i * 0.173);
+    const x = 832 + wrap(i * 0.618) * 80 + Math.sin(time * 0.65 + i) * 1.8;
+    const y = 428 - age * 132, radius = 0.55 + i % 4 * 0.38;
+    ctx.globalAlpha = Math.sin(age * Math.PI) * (i % 2 ? 0.62 : 0.3);
+    ctx.fillStyle = '#073847'; ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#d2fff1'; ctx.lineWidth = 0.55;
+    ctx.beginPath(); ctx.arc(x - 0.15, y - 0.2, radius * 0.78, 3.5, 5.7); ctx.stroke();
+  }
   ctx.globalAlpha = 1;
-  ctx.fillStyle = caustic;
-  ctx.fillRect(tank.x, tank.y, tank.w, tank.h);
-
-  // The specimen is alive inside the tank, not being targeted by a HUD. A
-  // broad chest aura and a few body-following filaments make the original
-  // silhouette breathe without covering it with geometric overlays.
-  ctx.globalCompositeOperation = 'lighter';
-  const bodyGlow = ctx.createRadialGradient(tank.cx, chestY, 2, tank.cx, chestY, 37);
-  bodyGlow.addColorStop(0, `rgba(219,255,242,${0.07 + state.pulse * 0.09})`);
-  bodyGlow.addColorStop(0.5, `rgba(93,244,211,${0.035 + state.respiration * 0.035})`);
-  bodyGlow.addColorStop(1, 'rgba(36,205,180,0)');
-  ctx.globalAlpha = 1;
-  ctx.fillStyle = bodyGlow;
-  ctx.fillRect(tank.x, tank.y, tank.w, tank.h);
-
-  const filaments = [
-    [[tank.cx - 3, 311], [tank.cx - 8, 326], [tank.cx - 5, 342], [tank.cx - 13, 364], [tank.cx - 10, 389]],
-    [[tank.cx + 3, 311], [tank.cx + 8, 326], [tank.cx + 5, 342], [tank.cx + 13, 364], [tank.cx + 10, 389]],
-    [[tank.cx - 16, 333], [tank.cx - 11, 345], [tank.cx - 17, 358]],
-    [[tank.cx + 16, 333], [tank.cx + 11, 345], [tank.cx + 17, 358]],
-  ] as const;
-  for (const [index, filament] of filaments.entries()) {
-    const drift = Math.sin(time * 0.55 + index * 1.4) * 1.2;
-    ctx.globalAlpha = 0.08 + state.pulse * 0.08;
-    ctx.strokeStyle = index % 2 ? '#b7fff0' : '#66e6d3';
-    ctx.lineWidth = 0.55;
-    ctx.beginPath();
-    ctx.moveTo(filament[0][0] + drift, filament[0][1]);
-    for (let i = 1; i < filament.length; i++) {
-      const previous = filament[i - 1]!;
-      const point = filament[i]!;
-      const midX = (previous[0] + point[0]) / 2 + drift;
-      const midY = (previous[1] + point[1]) / 2;
-      ctx.quadraticCurveTo(midX, midY, point[0] + drift, point[1]);
-    }
-    ctx.stroke();
-  }
-
-  // Slow currents rise along the glass, giving the suspension fluid depth.
-  for (let i = 0; i < 4; i++) {
-    const x = tank.x + 10 + i * 17;
-    const wave = Math.sin(time * 0.32 + i * 1.7) * 3;
-    ctx.globalAlpha = 0.035 + state.respiration * 0.025;
-    ctx.strokeStyle = '#8df7df';
-    ctx.lineWidth = 0.55;
-    ctx.beginPath();
-    ctx.moveTo(x, tank.y + tank.h + 4);
-    ctx.quadraticCurveTo(x + wave, tank.cy, x - wave * 0.5, tank.y - 4);
-    ctx.stroke();
-  }
-
-  // Bubbles use different lanes and sizes so the tank has a living cadence.
-  for (let i = 0; i < 12; i++) {
-    const age = wrap(time * (0.055 + (i % 3) * 0.012) + i * 0.173);
-    const x = tank.x + 7 + wrap(i * 0.618) * (tank.w - 14) + Math.sin(time * 0.35 + i) * 2.2;
-    const y = tank.y + tank.h - age * (tank.h - 11);
-    const size = 0.55 + (i % 3) * 0.25;
-    ctx.globalAlpha = Math.sin(age * Math.PI) * (0.14 + state.respiration * 0.12);
-    ctx.strokeStyle = '#b4ffe0'; ctx.lineWidth = 0.6;
-    ctx.beginPath(); ctx.arc(x, y, size, 0, Math.PI * 2); ctx.stroke();
-  }
-
-  // A thin scan sheet sweeps through the specimen when the lab is active.
-  const scanY = tank.y + state.scan * tank.h;
-  const scan = ctx.createLinearGradient(tank.x, scanY - 6, tank.x, scanY + 6);
-  scan.addColorStop(0, '#63fff000'); scan.addColorStop(0.5, '#b8fff052'); scan.addColorStop(1, '#63fff000');
-  ctx.globalAlpha = active ? 0.24 : 0.06;
-  ctx.fillStyle = scan; ctx.fillRect(tank.x, scanY - 3, tank.w, 6);
-
-  ctx.restore();
-
-  // Keep the glass rim readable after the glow pass, with a single travelling
-  // reflection instead of a static bright rectangle.
-  ctx.save();
-  ctx.beginPath(); ctx.roundRect(tank.x + 1, tank.y + 1, tank.w - 2, tank.h - 2, 13); ctx.clip();
-  const reflectionX = tank.x + 5 + state.scan * (tank.w - 10);
-  ctx.globalAlpha = 0.08 + state.alert * 0.1;
-  ctx.fillStyle = '#dcfff6'; ctx.fillRect(reflectionX, tank.y + 5, 1, tank.h - 10);
+  const glass = ctx.createLinearGradient(825, 0, 920, 0);
+  glass.addColorStop(0, '#b9fff27a'); glass.addColorStop(0.035, '#bafff212');
+  glass.addColorStop(0.09, '#bafff23a'); glass.addColorStop(0.19, '#bafff200');
+  glass.addColorStop(0.80, '#cafff000'); glass.addColorStop(0.93, '#cafff036');
+  glass.addColorStop(1, '#cafff080');
+  ctx.fillStyle = glass; ctx.fillRect(824, 291, 98, 145);
+  ctx.fillStyle = '#d7fff00c'; ctx.beginPath(); ctx.moveTo(837, 298);
+  ctx.lineTo(846, 300); ctx.lineTo(857, 426); ctx.lineTo(852, 427); ctx.closePath(); ctx.fill();
   ctx.restore();
 }
 
 /** Environment motion is drawn before characters and never repaints over them. */
-export function drawLivingRoom(ctx: CanvasRenderingContext2D, time: number, activity: RoomActivity): void {
+export function drawLivingRoom(ctx: CanvasRenderingContext2D, time: number, activity: RoomActivity, artwork?: RoomArtwork): void {
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
   for (const [i, [x, y, rx, ry]] of LIVING_ROOM_ZONES.crystals.entries()) drawCrystal(ctx, time, x, y, rx, ry, i);
-  drawSpecimenTank(ctx, time, activity.command || activity.qa);
+  drawSpecimenTank(ctx, time, activity.command || activity.qa, artwork);
   // Each life-support vessel has its own bubble cadence and glass ripple.
   for (const [n, p] of LIVING_ROOM_ZONES.pods.entries()) {
+    if (n === 3) continue; // The large tank has its own optical and particle pass.
     ctx.save(); ctx.beginPath(); ctx.roundRect(p.x, p.y, p.w, p.h, p.w * 0.15); ctx.clip();
     for (let i = 0; i < (n === 3 ? 17 : 8); i++) {
       const b = getPodParticle(time, i, n);
@@ -253,7 +228,8 @@ export function drawLivingRoom(ctx: CanvasRenderingContext2D, time: number, acti
       ctx.fillStyle = '#a6ffed'; ctx.fillRect(Math.round(x), Math.round(y), 3, 1);
     }
   }
-  drawScanner(ctx, time, 1048, 527, 67, 21, activity.qa);
+  drawScanner(ctx, time, 1048, 527, 67, 21, false);
+  if (activity.qa) drawQAExperiment(ctx, time);
   // The wide overhead lens tracks a star lattice; it is not another crystal.
   ctx.save(); ctx.beginPath(); ctx.ellipse(994, 75, 96, 21, 0, 0, Math.PI * 2); ctx.clip();
   for (let i = 0; i < 28; i++) {

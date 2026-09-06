@@ -13,6 +13,7 @@ import type { DuctorRoleName, DuctorStatusSnapshot } from './ductorLabModel.js';
 import { ORIGINAL_COMPUTER_BAYS, STAR_MAP_WORKSTATION, drawPhotonicComputerBay, drawPhotonicActivity, drawAlecSeatBack, drawCommandContact, getCommandGesture, ALEC_SEAT, ALEC_SEATED_ATLAS } from './starshipComputerBay.js';
 import { drawPhotonicRoom, PHOTONIC_THEME } from './starshipPhotonicTheme.js';
 import { drawLivingRoom, getLivingRoomArtwork, type RoomArtwork } from './starshipLivingRoom.js';
+import { drawQAContact } from './starshipQA.js';
 import { drawStarshipExterior } from './starshipExterior.js';
 
 export const SHEET_COLS = 16;
@@ -952,6 +953,11 @@ export function isAgentAtStation(a: StarshipAgent): boolean {
 
   const distInteraction = Math.hypot(a.x - ws.interactionPoint.x, a.y - ws.interactionPoint.y);
   return distInteraction < 35;
+}
+
+export function isBenjaminUsingScanner(agent: StarshipAgent): boolean {
+  return agent.name === 'Benjamin' && agent.state === STATE.WORKING &&
+    agent.reportedState !== 'offline' && isAgentAtStation(agent);
 }
 
 export function getAgentStatusBubble(agent: StarshipAgent): AgentStatusBubble {
@@ -2270,13 +2276,12 @@ export function drawStage(
     drawPhotonicActivity(ctx, seated ? commander!.commandTime ?? 0 : timeSec, seated);
   }
   // Keep QA telemetry, then apply the shared glass accents below the crew.
-  const qaActive = agents.some((agent) => agent.name === 'Benjamin' &&
-    agent.state === STATE.WORKING && agent.reportedState !== 'offline' && isAgentAtStation(agent));
+  const qaActive = agents.some(isBenjaminUsingScanner);
   if (livingArtwork) drawLivingRoom(ctx, timeSec, {
     crew: agents.filter(a => a.reportedState !== 'offline' && a.state !== STATE.OFFLINE),
     command: seated, qa: qaActive,
     navigation: agents.some(a => a.name === 'Kevin' && isAlecUsingHologram(a)),
-  });
+  }, livingArtwork);
   else drawWorkstationScreens(
     ctx,
     agents.filter((agent) => agent.name === 'Benjamin'),
@@ -2317,6 +2322,9 @@ export function drawStage(
       continue;
     }
     drawAgent(ctx, a, sheetImg, timeSec, alecHologramImg, walkImg);
+    if (livingArtwork && qaActive && a.name === 'Benjamin') {
+      drawQAContact(ctx, timeSec, a.x, a.y, getDepthScale(a.y));
+    }
   }
 
   // Foreground arcs wrap around Kevin's hands while preserving his intact sprite.
