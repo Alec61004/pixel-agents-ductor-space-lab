@@ -2,7 +2,14 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { PNG } from 'pngjs';
 import { test } from 'vitest';
-import { drawLivingRoom, getAirlockResponse, getLivingRoomArtwork, getPodParticle } from '../src/ductor/starshipLivingRoom.js';
+import {
+  drawLivingRoom,
+  getAirlockResponse,
+  getLivingRoomArtwork,
+  getPodParticle,
+  getSpecimenVitalState,
+  SPECIMEN_TANK,
+} from '../src/ductor/starshipLivingRoom.js';
 import { drawStarshipExterior } from '../src/ductor/starshipExterior.js';
 
 test('the full room decodes and normalises once into the original coordinate space', () => {
@@ -41,6 +48,21 @@ test('life-support particles stay inside the glass; the airlock reacts to proxim
   assert.equal(getAirlockResponse([{ x: 900, y: 600 }]), 0);
   assert.equal(getAirlockResponse([{ x: 180, y: 592 }]), 1);
   assert.ok(getAirlockResponse([{ x: 280, y: 592 }]) > 0);
+});
+
+test('the preserved specimen tank has a calm idle pulse and a faster active scan', () => {
+  assert.ok(SPECIMEN_TANK.w > 0 && SPECIMEN_TANK.h > 0);
+  const idle = getSpecimenVitalState(2, false);
+  const laterIdle = getSpecimenVitalState(5, false);
+  const active = getSpecimenVitalState(2, true);
+  assert.notEqual(idle.scan, laterIdle.scan);
+  assert.notEqual(idle.pulse, active.pulse);
+  assert.ok(idle.alert < active.alert);
+  for (const value of [idle, laterIdle, active]) {
+    assert.ok(value.pulse >= 0 && value.pulse <= 1);
+    assert.ok(value.respiration >= 0 && value.respiration <= 1);
+    assert.ok(value.scan >= 0 && value.scan < 1);
+  }
 });
 
 test('environment motion persists at rest, reacts to work, and restores every local clip', () => {
