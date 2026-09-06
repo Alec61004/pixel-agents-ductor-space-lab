@@ -10,7 +10,8 @@ import {
   STARSHIP_VOID_TINT,
 } from '../constants.js';
 import type { DuctorRoleName, DuctorStatusSnapshot } from './ductorLabModel.js';
-import { ORIGINAL_COMPUTER_BAYS, STAR_MAP_WORKSTATION, drawPhotonicComputerBay, drawPhotonicActivity, drawAlecSeatBack, ALEC_SEAT } from './starshipComputerBay.js';
+import { ORIGINAL_COMPUTER_BAYS, STAR_MAP_WORKSTATION, drawPhotonicComputerBay, drawPhotonicActivity, drawAlecSeatBack, drawCommandContact, getCommandGesture, ALEC_SEAT, ALEC_SEATED_ATLAS } from './starshipComputerBay.js';
+import { drawPhotonicRoom, PHOTONIC_THEME } from './starshipPhotonicTheme.js';
 import { drawStarshipExterior } from './starshipExterior.js';
 
 export const SHEET_COLS = 16;
@@ -298,6 +299,7 @@ export interface StarshipAgent {
   currentStation: string;
   flash?: number;
   hologramTime?: number;
+  commandTime?: number;
   hologramSceneTime?: number;
   hologramExpansion?: number;
   hologramCamera?: { x: number; y: number; zoom: number };
@@ -870,6 +872,11 @@ export function updateAgent(
 
   const isOffline = a.reportedState === 'offline' || a.state === STATE.OFFLINE;
 
+  if (a.name === 'Alec') {
+    const atCommand = !isOffline && a.state === STATE.WORKING && isAgentAtStation(a);
+    a.commandTime = atCommand ? (a.commandTime ?? 0) + dt * speedMult : 0;
+  }
+
   // Ambient map motion persists while the control's gesture clock remains work-only.
   const usingHologram = isAlecUsingHologram(a);
   if (a.name === 'Kevin') {
@@ -1032,7 +1039,7 @@ export function drawAgentStatusBubble(
   } else if (typeof ctx.rect === 'function') {
     ctx.rect(boxX, boxY, boxW, boxH);
   }
-  ctx.fillStyle = 'rgba(15, 12, 28, 0.88)';
+  ctx.fillStyle = PHOTONIC_THEME.hull;
   ctx.fill();
   ctx.lineWidth = 1;
 
@@ -2254,14 +2261,17 @@ export function drawStage(
   const commander = agents.find((agent) => agent.name === 'Alec');
   const seated = !!commander && commander.state === STATE.WORKING &&
     commander.reportedState !== 'offline' && isAgentAtStation(commander);
-  if (computerBayImg) drawPhotonicActivity(ctx, timeSec, seated);
-  // Keep Alec's and Kevin's original computer bays untouched. Only Benjamin's
-  // separate QA display receives a telemetry tint.
+  if (computerBayImg) {
+    drawPhotonicActivity(ctx, seated ? commander!.commandTime ?? 0 : timeSec, seated);
+  }
+  // Keep QA telemetry, then apply the shared glass accents below the crew.
   drawWorkstationScreens(
     ctx,
     agents.filter((agent) => agent.name === 'Benjamin'),
     timeSec,
   );
+  if (computerBayImg) drawPhotonicRoom(ctx, timeSec, agents.some((agent) => agent.name === 'Benjamin' &&
+    agent.state === STATE.WORKING && agent.reportedState !== 'offline' && isAgentAtStation(agent)));
   drawFloorMarkers(ctx, showStations);
   drawHologramTopGlow(ctx, agents, timeSec, bgImg);
   const mapOperator = agents.find((agent) => agent.name === 'Kevin');
@@ -2270,24 +2280,25 @@ export function drawStage(
   const sorted = [...agents].sort((a, b) => a.y - b.y);
   for (const a of sorted) {
     if (a.name === 'Alec' && seated && computerBayImg && (alecSeatedImg || alecHologramImg)) {
-      // Use the authored seated sheet when available. Its four poses keep
-      // Alec's bent knees and alternating hand contacts visible below the
-      // photonic seat back. The original two-frame rear sprite remains a
-      // safe fallback while the optional asset is loading.
+      // The occupant sits inside the chair shell. Routing coordinates remain
+      // on the floor, and the foreground shell is painted only for the occupant.
       const { x, feetY, height } = ALEC_SEAT;
       const seatedImg = alecSeatedImg || alecHologramImg!;
-      const frames = alecSeatedImg ? 4 : 2;
-      const frame = Math.floor(timeSec * 3) % frames;
+      const commandTime = a.commandTime ?? 0;
+      const frames = alecSeatedImg ? ALEC_SEATED_ATLAS.columns : 2;
+      const frame = alecSeatedImg ? getCommandGesture(commandTime).frame : 0;
       const sw = seatedImg.width / frames;
       const sh = seatedImg.height;
-      const cellHeight = alecSeatedImg ? height * (724 / 517) : height;
+      const { height: atlasHeight, bodyTop, bodyBottom } = ALEC_SEATED_ATLAS;
+      const cellHeight = alecSeatedImg ? height * atlasHeight / (bodyBottom - bodyTop) : height;
       const width = cellHeight * sw / sh;
-      const cellY = feetY - cellHeight * (alecSeatedImg ? 633 / 724 : 1);
+      const cellY = feetY - cellHeight * (alecSeatedImg ? bodyBottom / atlasHeight : 1);
       ctx.save();
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(seatedImg, frame * sw, 0, sw, sh,
-        x - width / 2, cellY + Math.sin(timeSec * 1.6) * 0.25, width, cellHeight);
+        x - width / 2, cellY + Math.sin(commandTime * 1.6) * 0.2, width, cellHeight);
       drawAlecSeatBack(ctx, computerBayImg);
+      drawCommandContact(ctx, commandTime);
       ctx.restore();
       // The seated head is higher than the old standing anchor; lift the
       // bubble slightly so it never sits on top of the helmet.

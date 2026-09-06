@@ -88,7 +88,23 @@ export const ORIGINAL_COMPUTER_BAYS: Record<ComputerBayOperator, OriginalCompute
 export const PHOTONIC_BAY_ASSET = 'themes/ductor-space-lab/photonic-bay-v1.png';
 export const ALEC_SEATED_ASSET = 'themes/ductor-space-lab/alec-seated.png';
 
-export const ALEC_SEAT = { x: 560, feetY: 435, height: 74 };
+// The seated pelvis is inside the shell at (560, 369). The routing anchor
+// stays on the walkable floor; it is not a drawing anchor for a seated body.
+export const ALEC_SEAT = { x: 560, feetY: 393, height: 80 };
+
+export const ALEC_SEATED_ATLAS = {
+  width: 2172, height: 724, columns: 4, bodyTop: 117, bodyBottom: 634,
+};
+
+/** Read, touch left, read, touch right, then rest. Hold times avoid flicker. */
+export function getCommandGesture(time: number): { frame: number; contact: number } {
+  const phase = ((time % 6.4) + 6.4) % 6.4;
+  if (phase < 1.4) return { frame: 0, contact: 0 };
+  if (phase < 2.1) return { frame: 1, contact: -1 };
+  if (phase < 2.8) return { frame: 0, contact: 0 };
+  if (phase < 3.7) return { frame: 2, contact: 1 };
+  return { frame: 3, contact: 0 };
+}
 
 /** Light travels along the authored console, reacting to each hand contact. */
 export function drawPhotonicActivity(ctx: CanvasRenderingContext2D, time: number, active: boolean): void {
@@ -121,23 +137,74 @@ export function drawPhotonicActivity(ctx: CanvasRenderingContext2D, time: number
     ctx.globalAlpha = energy * (0.4 + 0.3 * Math.sin(travel * Math.PI));
     ctx.fillStyle = '#9effee'; ctx.fillRect(Math.round(x), Math.round(y), 3, 1);
   }
-  if (active) {
-    const beat = Math.floor(time * 3) % 2;
-    ctx.fillStyle = '#c5fff2'; ctx.globalAlpha = 0.55 + 0.25 * Math.sin(time * 6);
-    ctx.fillRect(beat ? 578 : 538, 356, 3, 2);
+  // Three faceted volumes emerge from the existing projectors. Perspective
+  // comes from orbiting vertices, not scaling a flat picture up and down.
+  for (let n = 0; n < nodes.length; n++) {
+    const [x, y] = nodes[n]!;
+    const r = n === 1 ? 15 : 10;
+    const cy = y - 21;
+    const vertices = Array.from({ length: 4 }, (_, i) => {
+      const angle = phase * 0.45 + i * Math.PI / 2 + n;
+      return { x: x + Math.cos(angle) * r, y: cy + Math.sin(angle) * r * 0.32 };
+    });
+    ctx.lineWidth = 0.7;
+    ctx.strokeStyle = '#85fff0';
+    for (let i = 0; i < 4; i++) {
+      const v = vertices[i]!;
+      const next = vertices[(i + 1) % 4]!;
+      ctx.globalAlpha = energy * (v.y > cy ? 0.6 : 0.25);
+      ctx.beginPath(); ctx.moveTo(x, cy - r); ctx.lineTo(v.x, v.y);
+      ctx.lineTo(x, cy + r); ctx.moveTo(v.x, v.y); ctx.lineTo(next.x, next.y); ctx.stroke();
+      ctx.fillStyle = '#baffee'; ctx.fillRect(Math.round(v.x), Math.round(v.y), 1, 1);
+    }
+    // Short alien glyphs grow from each emitter, confined to its footprint.
+    for (let i = 0; i < 3; i++) {
+      const gy = y - 4 - i * 5;
+      ctx.globalAlpha = energy * (0.3 + 0.15 * Math.sin(phase * 2 - i - n));
+      ctx.beginPath(); ctx.moveTo(x + r + 4, gy); ctx.lineTo(x + r + 7, gy - 2);
+      ctx.lineTo(x + r + 10, gy); ctx.lineTo(x + r + 8, gy + 2); ctx.stroke();
+    }
+  }
+  // Data packets follow the curved console surface between the projectors.
+  for (let lane = 0; lane < 2; lane++) {
+    const [x0, y0] = nodes[lane]!; const [x1, y1] = nodes[lane + 1]!;
+    ctx.globalAlpha = energy * 0.2; ctx.strokeStyle = '#5ce8df';
+    ctx.beginPath(); ctx.moveTo(x0, y0 + 8);
+    ctx.quadraticCurveTo((x0 + x1) / 2, y0 + 24, x1, y1 + 8); ctx.stroke();
+    for (let p = 0; p < 3; p++) {
+      const t = (phase * 0.17 + p / 3) % 1;
+      const px = x0 + (x1 - x0) * t;
+      const py = (1-t)*(1-t)*(y0+8) + 2*t*(1-t)*(y0+24) + t*t*(y1+8);
+      ctx.globalAlpha = energy * 0.75; ctx.fillStyle = '#baffee';
+      ctx.fillRect(Math.round(px), Math.round(py), 2, 1);
+    }
   }
   ctx.restore();
+}
+
+/** Draw after the occupant, so a hand contact visibly lights the armrest. */
+export function drawCommandContact(ctx: CanvasRenderingContext2D, time: number): void {
+  const { contact } = getCommandGesture(time);
+  if (!contact) return;
+  const x = contact < 0 ? 536 : 585;
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  const glow = ctx.createRadialGradient(x, 362, 0, x, 362, 9);
+  glow.addColorStop(0, '#bbfff5a0'); glow.addColorStop(1, '#54efdf00');
+  ctx.fillStyle = glow; ctx.fillRect(x - 9, 353, 18, 18);
+  ctx.strokeStyle = '#98ffed'; ctx.globalAlpha = 0.7; ctx.lineWidth = 0.7;
+  ctx.beginPath(); ctx.ellipse(x, 362, 5, 2, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
 }
 
 /** The seat back is foreground furniture, and only occludes its seated occupant. */
 export function drawAlecSeatBack(ctx: CanvasRenderingContext2D, artwork: HTMLImageElement): void {
   ctx.save(); ctx.beginPath();
-  // Keep the helmet and shoulders visible. The front lip of the chair hides
-  // only the pelvis and the lower thighs, which makes the bent-knee pose read
-  // as seated instead of a standing sprite behind furniture.
-  ctx.moveTo(536, 421); ctx.lineTo(547, 414); ctx.lineTo(573, 414);
-  ctx.lineTo(584, 421); ctx.lineTo(584, 443); ctx.lineTo(572, 454);
-  ctx.lineTo(548, 454); ctx.lineTo(536, 443); ctx.closePath(); ctx.clip();
+  // Trace the actual rear shell, never the floor or pedestal. Hands remain
+  // outside this silhouette, with the head and shoulders above its top edge.
+  ctx.moveTo(537, 378); ctx.lineTo(538, 363); ctx.lineTo(547, 353);
+  ctx.lineTo(555, 348); ctx.lineTo(565, 348); ctx.lineTo(575, 353);
+  ctx.lineTo(583, 365); ctx.lineTo(583, 382); ctx.lineTo(575, 402);
+  ctx.lineTo(564, 411); ctx.lineTo(550, 408); ctx.lineTo(541, 393);
+  ctx.closePath(); ctx.clip();
   ctx.drawImage(artwork, 0, 0, artwork.width, artwork.height, 0, 0, 1600, 678);
   ctx.restore();
 }
