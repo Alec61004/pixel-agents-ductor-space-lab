@@ -1,4 +1,5 @@
 import type { DuctorRoleName } from './ductorLabModel.js';
+import type { RoomArtwork } from './starshipLivingRoom.js';
 
 /** Pixel bounds in the authored 1600×678 starship background. */
 export interface ComputerBayBounds {
@@ -196,7 +197,7 @@ export function drawCommandContact(ctx: CanvasRenderingContext2D, time: number):
 }
 
 /** The seat back is foreground furniture, and only occludes its seated occupant. */
-export function drawAlecSeatBack(ctx: CanvasRenderingContext2D, artwork: HTMLImageElement): void {
+export function drawAlecSeatBack(ctx: CanvasRenderingContext2D, artwork: RoomArtwork): void {
   ctx.save(); ctx.beginPath();
   // Trace the actual rear shell, never the floor or pedestal. Hands remain
   // outside this silhouette, with the head and shoulders above its top edge.

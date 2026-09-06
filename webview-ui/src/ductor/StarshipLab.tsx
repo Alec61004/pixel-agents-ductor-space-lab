@@ -5,6 +5,7 @@ import { ductorAssetUrl } from './ductorLabModel.js';
 import { loadStarshipImage } from './starshipImageLoader.js';
 import { ALEC_SEATED_ASSET, ALEC_SEATED_ATLAS, PHOTONIC_BAY_ASSET } from './starshipComputerBay.js';
 import { PHOTONIC_CSS_VARS } from './starshipPhotonicTheme.js';
+import { LIVING_ROOM_ASSET } from './starshipLivingRoom.js';
 import {
   type AgentStatusBubble,
   applyCloudStatus,
@@ -258,12 +259,17 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
     const walkImg = new Image();
     const computerBayImg = new Image();
     const alecSeatedImg = new Image();
+    const livingRoomImg = new Image();
     let computerBayReady = false;
     let sceneReady = false;
     let hologramReady = false;
     let walkReady = false;
     let alecSeatedReady = false;
+    let livingRoomReady = false;
     setLoaded(false);
+    void loadStarshipImage(livingRoomImg, ductorAssetUrl(import.meta.env?.BASE_URL ?? './', LIVING_ROOM_ASSET)).then((ready) => {
+      if (!disposed) livingRoomReady = ready;
+    });
     void loadStarshipImage(computerBayImg, ductorAssetUrl(import.meta.env?.BASE_URL ?? './', PHOTONIC_BAY_ASSET)).then((ready) => {
       if (!disposed) computerBayReady = ready;
     });
@@ -428,6 +434,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
             walkReady ? walkImg : undefined,
             computerBayReady ? computerBayImg : undefined,
             alecSeatedReady ? alecSeatedImg : undefined,
+            livingRoomReady ? livingRoomImg : undefined,
           );
         }
       }

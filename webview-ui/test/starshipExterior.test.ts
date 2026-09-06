@@ -21,7 +21,7 @@ test('ships travel in a shared direction with different depth speeds; accretion 
   }
 });
 
-test('window effects clip before drawing and restore canvas state; the star map has no ellipse rings', () => {
+test('window effects clip before drawing; the approved planet tour retains its blue frame and glass clip', () => {
   const calls: any[][] = [];
   const ctx = new Proxy({}, {
     get: (_, name) => {
@@ -37,8 +37,15 @@ test('window effects clip before drawing and restore canvas state; the star map 
   assert.equal(calls.filter(c => c[0] === 'save').length, calls.filter(c => c[0] === 'restore').length);
   calls.length = 0;
   const crew = createInitialCrew();
-  const alec = crew.find(a => a.name === 'Alec')!;
-  Object.assign(alec, WORKSTATIONS.Alec.interactionPoint, { state:STATE.WORKING, reportedState:'working', hologramTime:2, hologramSceneTime:8 });
+  const kevin = crew.find(a => a.name === 'Kevin')!;
+  Object.assign(kevin, WORKSTATIONS.Kevin.interactionPoint, { state:STATE.WORKING, reportedState:'working', hologramTime:2, hologramSceneTime:8 });
   drawHologramTopGlow(ctx, crew, 2, bg);
-  assert.equal(calls.some(c => c[0] === 'ellipse'), false, 'no orbit tracks or planetary ring outlines');
+  // The restored #24 deployment includes physical planetary rings. Forbidding
+  // every ellipse incorrectly rejects that approved renderer. Protect the
+  // original frame and clipped glass independently of the planet's geometry.
+  const frame = calls.find(c => c[0] === 'drawImage');
+  assert.deepEqual(frame?.slice(2, 6), [516, 443, 106, 71]);
+  const glassPaint = calls.findIndex(c => c[0] === 'fillRect');
+  assert.ok(calls.slice(0, glassPaint).some(c => c[0] === 'clip'));
+  assert.equal(calls.filter(c => c[0] === 'save').length, calls.filter(c => c[0] === 'restore').length);
 });

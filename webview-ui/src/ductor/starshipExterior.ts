@@ -1,3 +1,5 @@
+import type { RoomArtwork } from './starshipLivingRoom.js';
+
 // Exterior-only animation in world coordinates. The original room remains the
 // foreground; window masks also exclude instruments, tanks and their frames.
 type Point = { x: number; y: number };
@@ -14,7 +16,14 @@ const FOREGROUND = [
   [1229, 446, 51, 44], // plant at the window sill
 ] as const;
 
-function clipExterior(ctx: CanvasRenderingContext2D) {
+const LIVING_FOREGROUND = [
+  [815, 232, 123, 280], // living specimen chamber and its crystal fin
+  [1240, 265, 54, 177], // broad structural rib between windows
+  [1260, 411, 62, 87], // bioluminescent growth on the sill
+  [1390, 402, 142, 90], // research ribbon glass
+] as const;
+
+function clipExterior(ctx: CanvasRenderingContext2D, livingRoom: boolean) {
   ctx.beginPath();
   for (const polygon of WINDOWS) {
     ctx.moveTo(polygon[0][0], polygon[0][1]);
@@ -24,7 +33,7 @@ function clipExterior(ctx: CanvasRenderingContext2D) {
   ctx.clip();
   ctx.beginPath();
   ctx.rect(0, 0, 1600, 678);
-  for (const [x, y, w, h] of FOREGROUND) ctx.rect(x, y, w, h);
+  for (const [x, y, w, h] of livingRoom ? LIVING_FOREGROUND : FOREGROUND) ctx.rect(x, y, w, h);
   ctx.clip('evenodd');
 }
 
@@ -60,9 +69,9 @@ export function getAccretionParticle(time: number, index: number): Point & { rad
 
 type ShipAsset = { x: number; y: number; clean: OffscreenCanvas; sprite: OffscreenCanvas };
 const SHIP_REGIONS = [[563, 192, 53, 28], [612, 205, 57, 28], [538, 221, 27, 17]] as const;
-const shipCache = new WeakMap<HTMLImageElement, ShipAsset[] | null>();
+const shipCache = new WeakMap<RoomArtwork, ShipAsset[] | null>();
 
-function getShipAssets(bg: HTMLImageElement): ShipAsset[] | null {
+function getShipAssets(bg: RoomArtwork): ShipAsset[] | null {
   if (shipCache.has(bg)) return shipCache.get(bg)!;
   if (typeof OffscreenCanvas === 'undefined') return null;
   try {
@@ -126,9 +135,9 @@ function getShipAssets(bg: HTMLImageElement): ShipAsset[] | null {
   }
 }
 
-const diskCache = new WeakMap<HTMLImageElement, OffscreenCanvas | null>();
+const diskCache = new WeakMap<RoomArtwork, OffscreenCanvas | null>();
 
-function getDiskTexture(bg: HTMLImageElement) {
+function getDiskTexture(bg: RoomArtwork) {
   if (diskCache.has(bg)) return diskCache.get(bg)!;
   if (typeof OffscreenCanvas === 'undefined') return null;
   try {
@@ -168,7 +177,7 @@ function getDiskTexture(bg: HTMLImageElement) {
   }
 }
 
-function drawAccretionFlow(ctx: CanvasRenderingContext2D, bg: HTMLImageElement, time: number) {
+function drawAccretionFlow(ctx: CanvasRenderingContext2D, bg: RoomArtwork, time: number) {
   ctx.save();
   ctx.globalAlpha = 1;
   ctx.globalCompositeOperation = 'source-over';
@@ -230,13 +239,15 @@ function drawAccretionFlow(ctx: CanvasRenderingContext2D, bg: HTMLImageElement, 
   ctx.restore();
 }
 
-export function drawStarshipExterior(ctx: CanvasRenderingContext2D, bg: HTMLImageElement, time: number) {
+export function drawStarshipExterior(ctx: CanvasRenderingContext2D, bg: RoomArtwork, time: number, livingRoom = false, shipSource: RoomArtwork = bg) {
   if (!Number.isFinite(time)) return;
   ctx.save();
-  clipExterior(ctx);
+  clipExterior(ctx, livingRoom);
   ctx.imageSmoothingEnabled = false;
-  const ships = getShipAssets(bg);
-  if (ships) {
+  // The new room has clean sky. Reuse original spacecraft sprites without
+  // painting their old background reconstruction patches onto the new scene.
+  const ships = getShipAssets(shipSource);
+  if (ships && !livingRoom) {
     for (const asset of ships) ctx.drawImage(asset.clean, asset.x, asset.y);
   }
   // Parallax: nearby stars pass faster and leave brief, faint streaks. They all

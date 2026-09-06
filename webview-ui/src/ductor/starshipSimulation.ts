@@ -12,6 +12,7 @@ import {
 import type { DuctorRoleName, DuctorStatusSnapshot } from './ductorLabModel.js';
 import { ORIGINAL_COMPUTER_BAYS, STAR_MAP_WORKSTATION, drawPhotonicComputerBay, drawPhotonicActivity, drawAlecSeatBack, drawCommandContact, getCommandGesture, ALEC_SEAT, ALEC_SEATED_ATLAS } from './starshipComputerBay.js';
 import { drawPhotonicRoom, PHOTONIC_THEME } from './starshipPhotonicTheme.js';
+import { drawLivingRoom, getLivingRoomArtwork, type RoomArtwork } from './starshipLivingRoom.js';
 import { drawStarshipExterior } from './starshipExterior.js';
 
 export const SHEET_COLS = 16;
@@ -91,8 +92,8 @@ export const WORKSTATIONS: Record<DuctorRoleName, WorkstationConfig> = {
     agentName: 'Benjamin',
     label: 'Benjamin — QA',
     roleDescription: 'QA',
-    approachPoint: { x: 1060, y: 585 },
-    interactionPoint: { x: 1060, y: 580 },
+    approachPoint: { x: 1060, y: 650 },
+    interactionPoint: { x: 1060, y: 630 },
     facing: 'back',
     displayBounds: { x: 1010, y: 520, w: 110, h: 55 },
     displayAreas: [{ x: 1010, y: 520, w: 110, h: 55 }],
@@ -1378,7 +1379,7 @@ export function drawHologramTopGlow(
   ctx: CanvasRenderingContext2D,
   agents: StarshipAgent[],
   _timeSec: number = Date.now() / 1000,
-  bgImg?: HTMLImageElement,
+  bgImg?: RoomArtwork,
 ): void {
   void _timeSec;
   if (!bgImg) return;
@@ -2239,6 +2240,7 @@ export function drawStage(
   walkImg?: HTMLImageElement,
   computerBayImg?: HTMLImageElement,
   alecSeatedImg?: HTMLImageElement,
+  livingRoomImg?: HTMLImageElement,
 ): { scale: number; offX: number; offY: number } {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, rect.width, rect.height);
@@ -2250,36 +2252,45 @@ export function drawStage(
   const offX = (rect.width - drawW) / 2 + panX;
   const offY = (rect.height - drawH) / 2 + panY;
 
-  ctx.drawImage(bgImg, offX, offY, drawW, drawH);
+  const livingArtwork = getLivingRoomArtwork(livingRoomImg);
+  const background = livingArtwork ?? bgImg;
+  const chairArtwork = livingArtwork ?? computerBayImg;
+  ctx.drawImage(background, offX, offY, drawW, drawH);
 
   ctx.save();
   ctx.translate(offX, offY);
   ctx.scale(scale, scale);
 
-  drawStarshipExterior(ctx, bgImg, timeSec);
-  drawPhotonicComputerBay(ctx, computerBayImg);
+  drawStarshipExterior(ctx, background, timeSec, !!livingArtwork, bgImg);
+  if (!livingArtwork) drawPhotonicComputerBay(ctx, computerBayImg);
   const commander = agents.find((agent) => agent.name === 'Alec');
   const seated = !!commander && commander.state === STATE.WORKING &&
     commander.reportedState !== 'offline' && isAgentAtStation(commander);
-  if (computerBayImg) {
+  if (chairArtwork) {
     drawPhotonicActivity(ctx, seated ? commander!.commandTime ?? 0 : timeSec, seated);
   }
   // Keep QA telemetry, then apply the shared glass accents below the crew.
-  drawWorkstationScreens(
+  const qaActive = agents.some((agent) => agent.name === 'Benjamin' &&
+    agent.state === STATE.WORKING && agent.reportedState !== 'offline' && isAgentAtStation(agent));
+  if (livingArtwork) drawLivingRoom(ctx, timeSec, {
+    crew: agents.filter(a => a.reportedState !== 'offline' && a.state !== STATE.OFFLINE),
+    command: seated, qa: qaActive,
+    navigation: agents.some(a => a.name === 'Kevin' && isAlecUsingHologram(a)),
+  });
+  else drawWorkstationScreens(
     ctx,
     agents.filter((agent) => agent.name === 'Benjamin'),
     timeSec,
   );
-  if (computerBayImg) drawPhotonicRoom(ctx, timeSec, agents.some((agent) => agent.name === 'Benjamin' &&
-    agent.state === STATE.WORKING && agent.reportedState !== 'offline' && isAgentAtStation(agent)));
+  if (!livingArtwork && computerBayImg) drawPhotonicRoom(ctx, timeSec, qaActive);
   drawFloorMarkers(ctx, showStations);
-  drawHologramTopGlow(ctx, agents, timeSec, bgImg);
+  drawHologramTopGlow(ctx, agents, timeSec, background);
   const mapOperator = agents.find((agent) => agent.name === 'Kevin');
   if (mapOperator) drawAlecHologramControl(ctx, mapOperator);
 
   const sorted = [...agents].sort((a, b) => a.y - b.y);
   for (const a of sorted) {
-    if (a.name === 'Alec' && seated && computerBayImg && (alecSeatedImg || alecHologramImg)) {
+    if (a.name === 'Alec' && seated && chairArtwork && (alecSeatedImg || alecHologramImg)) {
       // The occupant sits inside the chair shell. Routing coordinates remain
       // on the floor, and the foreground shell is painted only for the occupant.
       const { x, feetY, height } = ALEC_SEAT;
@@ -2297,7 +2308,7 @@ export function drawStage(
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(seatedImg, frame * sw, 0, sw, sh,
         x - width / 2, cellY + Math.sin(commandTime * 1.6) * 0.2, width, cellHeight);
-      drawAlecSeatBack(ctx, computerBayImg);
+      drawAlecSeatBack(ctx, chairArtwork);
       drawCommandContact(ctx, commandTime);
       ctx.restore();
       // The seated head is higher than the old standing anchor; lift the

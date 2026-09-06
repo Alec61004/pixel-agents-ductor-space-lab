@@ -326,8 +326,8 @@ test('defines 3 fixed workstations (Alec, Kevin, Benjamin) with correct labels a
   assert.deepEqual(WORKSTATIONS.Kevin.occlusionBounds, STAR_MAP_WORKSTATION.occlusionBounds);
   assert.equal(WORKSTATIONS.Kevin.label, 'Kevin — Build');
 
-  assert.deepEqual(WORKSTATIONS.Benjamin.approachPoint, { x: 1060, y: 585 });
-  assert.deepEqual(WORKSTATIONS.Benjamin.interactionPoint, { x: 1060, y: 580 });
+  assert.deepEqual(WORKSTATIONS.Benjamin.approachPoint, { x: 1060, y: 650 });
+  assert.deepEqual(WORKSTATIONS.Benjamin.interactionPoint, { x: 1060, y: 630 });
   assert.equal(WORKSTATIONS.Benjamin.facing, 'back');
   assert.deepEqual(WORKSTATIONS.Benjamin.displayBounds, {
     x: 1010,
