@@ -11,7 +11,14 @@ test('the full room decodes and normalises once into the original coordinate spa
   const previous = globalThis.OffscreenCanvas;
   let copies = 0;
   class TestCanvas {
-    constructor(public width: number, public height: number) {}
+    readonly width: number;
+    readonly height: number;
+
+    constructor(width: number, height: number) {
+      this.width = width;
+      this.height = height;
+    }
+
     getContext() { return { drawImage() { copies++; } }; }
   }
   globalThis.OffscreenCanvas = TestCanvas as unknown as typeof OffscreenCanvas;
