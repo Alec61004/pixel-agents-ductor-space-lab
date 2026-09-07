@@ -154,6 +154,10 @@ function drawSpecimenTank(ctx: CanvasRenderingContext2D, time: number, active: b
   fluid.addColorStop(0.38, '#45332248'); fluid.addColorStop(0.72, '#35291f62');
   fluid.addColorStop(0.94, '#9c743c36'); fluid.addColorStop(1, '#2b241eaa');
   ctx.fillStyle = fluid; ctx.fillRect(822, 286, 102, 150);
+  // Warm optical veil: the live organism can remain green, but the vessel
+  // reads as amber glass instead of a green neon cylinder.
+  ctx.fillStyle = 'rgba(214,153,67,0.18)';
+  ctx.fillRect(822, 286, 102, 150);
   const depth = ctx.createLinearGradient(0, 291, 0, 433);
   depth.addColorStop(0, '#211b176b'); depth.addColorStop(0.32, '#4c382400');
   depth.addColorStop(0.75, '#36291e18'); depth.addColorStop(1, '#2b211a58');
@@ -259,9 +263,25 @@ export function drawLivingRoom(ctx: CanvasRenderingContext2D, time: number, acti
       ctx.beginPath(); ctx.arc(p.x + b.x * p.w, p.y + b.y * p.h, 0.6 + i % 3 * 0.4, 0, Math.PI * 2); ctx.stroke();
     }
     ctx.globalAlpha = 0.025 + Math.sin(time * 0.65 + n) * 0.012;
-    ctx.fillStyle = '#d4a65f'; ctx.fillRect(p.x, p.y, p.w, p.h);
+    ctx.fillStyle = '#e2b05f'; ctx.fillRect(p.x, p.y, p.w, p.h);
     ctx.restore();
   }
+  // The reference uses visible cyan energy rails even while idle.
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  ctx.lineWidth = 1.15;
+  ctx.strokeStyle = '#42cbe6';
+  ctx.globalAlpha = 0.16 + (activity.command ? 0.10 : 0);
+  for (const path of LIVING_ROOM_ZONES.conduits) {
+    ctx.beginPath();
+    path.forEach((point, index) => {
+      if (index === 0) ctx.moveTo(point[0], point[1]);
+      else ctx.lineTo(point[0], point[1]);
+    });
+    ctx.stroke();
+  }
+  ctx.restore();
+
   for (const [lane, path] of LIVING_ROOM_ZONES.conduits.entries()) {
     for (let packet = 0; packet < 4; packet++) {
       const travel = wrap(time * (activity.command ? 0.19 : 0.06) + packet / 4 + lane * 0.14) * (path.length - 1);

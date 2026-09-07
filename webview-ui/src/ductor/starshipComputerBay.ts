@@ -111,7 +111,7 @@ export function getCommandGesture(time: number): { frame: number; contact: numbe
 export function drawPhotonicActivity(ctx: CanvasRenderingContext2D, time: number, active: boolean): void {
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  const energy = active ? 0.92 : 0.13;
+  const energy = active ? 1.0 : 0.18;
   const phase = time * (active ? 1.5 : 0.35);
   const nodes = [[470, 346], [552, 344], [674, 344]] as const;
   for (let n = 0; n < nodes.length; n++) {
@@ -169,7 +169,7 @@ export function drawPhotonicActivity(ctx: CanvasRenderingContext2D, time: number
   // Data packets follow the curved console surface between the projectors.
   for (let lane = 0; lane < 2; lane++) {
     const [x0, y0] = nodes[lane]!; const [x1, y1] = nodes[lane + 1]!;
-    ctx.globalAlpha = energy * 0.24; ctx.strokeStyle = '#3abbd8';
+    ctx.globalAlpha = energy * 0.30; ctx.strokeStyle = '#3ed2ed';
     ctx.beginPath(); ctx.moveTo(x0, y0 + 8);
     ctx.quadraticCurveTo((x0 + x1) / 2, y0 + 24, x1, y1 + 8); ctx.stroke();
     for (let p = 0; p < 3; p++) {

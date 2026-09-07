@@ -21,10 +21,11 @@ export function gradeResearchRoom(pixels: Uint8ClampedArray, width: number, heig
     const l = r * 0.2126 + g * 0.7152 + b * 0.0722;
     const wx = x * 1600 / width, wy = y * 678 / height;
 
-    const violet = clamp((Math.min(r, b) - g - 2) / 48);
-    const cyan = clamp((Math.min(g, b) - r - 10) / 58) * clamp((l - 42) / 76);
-    const green = clamp((g - Math.max(r, b) - 4) / 52);
-    const warm = clamp((r - b - 12) / 62) * clamp((l - 42) / 90);
+    const violet = clamp((Math.min(r, b) - g + 2) / 46);
+    const cyan = clamp((Math.min(g, b) - r - 7) / 52) * clamp((l - 34) / 76);
+    const green = clamp((g - Math.max(r, b) - 3) / 48);
+    const warm = clamp((r - b - 7) / 54) * clamp((l - 30) / 88);
+    const bright = clamp((l - 92) / 100);
 
     const window =
       wy > 105 && wy < 448 &&
@@ -37,67 +38,72 @@ export function gradeResearchRoom(pixels: Uint8ClampedArray, width: number, heig
     const qa = wx > 955 && wx < 1178 && wy > 491 && wy < 601;
     const station = command || navigation || qa;
 
-    const base = l + 3 * (1 - clamp(l / 100));
     let rr: number, gg: number, bb: number;
 
     if (window) {
-      // Keep the sky rich, but steer authored magenta/violet toward the
-      // reference image's deep cobalt-blue space. Warm stars remain gold.
-      const saturation = 0.78;
-      rr = base + (r - l) * saturation;
-      gg = base + (g - l) * saturation;
-      bb = base + (b - l) * saturation;
+      // Force the authored purple room sky toward the deep cobalt reference,
+      // while preserving the bright sun and warm nebula highlights.
+      rr = r * 0.58 + l * 0.10;
+      gg = g * 0.86 + l * 0.12;
+      bb = Math.min(255, b * 1.15 + l * 0.08);
 
-      if (violet > 0.02) {
-        const strength = violet * 0.76;
-        rr += (l * 0.68 - rr) * strength;
-        gg += (l * 0.94 - gg) * strength;
-        bb += (l * 1.30 - bb) * strength;
+      const purpleCut = Math.max(violet, clamp((r - g + 2) / 42));
+      if (purpleCut > 0.01) {
+        const strength = purpleCut * 0.86;
+        rr += (l * 0.34 - rr) * strength;
+        gg += (l * 0.90 - gg) * strength;
+        bb += (l * 1.42 - bb) * strength;
       }
-      if (warm > 0.02) {
-        const strength = warm * 0.72;
-        rr += (l * 1.34 - rr) * strength;
-        gg += (l * 1.02 - gg) * strength;
-        bb += (l * 0.58 - bb) * strength;
+
+      if (warm > 0.01 || (bright > 0.25 && r > g)) {
+        const strength = Math.max(warm, bright * 0.5) * 0.88;
+        rr += (l * 1.48 - rr) * strength;
+        gg += (l * 1.07 - gg) * strength;
+        bb += (l * 0.52 - bb) * strength;
+      }
+    } else if (bio) {
+      // Amber/olive specimen glass: warm the fluid hard enough that the
+      // original green bake does not dominate the room.
+      const strength = Math.max(0.45, green, cyan, warm);
+      rr = l * (0.92 + 0.46 * strength);
+      gg = l * (0.84 + 0.20 * strength);
+      bb = l * (0.57 + 0.08 * strength);
+      if (bright > 0) {
+        rr += 28 * bright;
+        gg += 16 * bright;
       }
     } else {
-      // Hull and deck stay graphite/navy instead of washed grey.
-      const saturation = bio ? 0.48 : 0.30;
-      rr = base + (r - l) * saturation;
-      gg = base + (g - l) * saturation;
-      bb = base + (b - l) * saturation;
+      // Blue-black graphite. Preserve luminance, but deliberately avoid the
+      // previous neutral-grey result.
+      rr = l * 0.66 + (r - l) * 0.16;
+      gg = l * 0.91 + (g - l) * 0.22;
+      bb = l * 1.12 + (b - l) * 0.30;
 
-      if (!bio) {
-        const graphite = 0.22;
-        rr += (l * 0.82 - rr) * graphite;
-        gg += (l * 0.96 - gg) * graphite;
-        bb += (l * 1.10 - bb) * graphite;
-      }
-
-      if (bio) {
-        // Specimen vessels are amber/olive glass, matching the reference image.
-        const strength = Math.max(green, cyan, warm) * 0.82;
-        rr += (l * 1.22 - rr) * strength;
-        gg += (l * 0.99 - gg) * strength;
-        bb += (l * 0.58 - bb) * strength;
-      } else if (cyan > 0.01) {
-        const exposure = station ? (powered ? 1.16 : 0.93) : 0.82;
-        const color = qa ? [0.74, 1.13, 1.28] :
-          navigation ? [0.68, 1.08, 1.35] :
-          command ? [0.72, 1.12, 1.31] :
-          [0.76, 1.07, 1.18];
-        const strength = cyan * 0.84;
+      if (cyan > 0.01) {
+        const exposure = station ? (powered ? 1.28 : 1.02) : 0.90;
+        const color = qa ? [0.54, 1.12, 1.35] :
+          navigation ? [0.50, 1.08, 1.40] :
+          command ? [0.52, 1.13, 1.37] :
+          [0.58, 1.03, 1.25];
+        const strength = cyan * (station ? 0.92 : 0.72);
         rr += (l * color[0]! * exposure - rr) * strength;
         gg += (l * color[1]! * exposure - gg) * strength;
         bb += (l * color[2]! * exposure - bb) * strength;
       }
 
-      // Preserve authored orange pin-lights instead of neutralising them.
-      if (warm > 0.03) {
-        const strength = warm * (command ? 0.90 : 0.66);
-        rr += (l * 1.34 - rr) * strength;
-        gg += (l * 0.89 - gg) * strength;
-        bb += (l * 0.44 - bb) * strength;
+      if (warm > 0.01) {
+        const strength = warm * (command ? 1.0 : 0.84);
+        rr += (l * 1.52 - rr) * strength;
+        gg += (l * 0.94 - gg) * strength;
+        bb += (l * 0.38 - bb) * strength;
+      }
+
+      // Keep bright metal edges readable instead of crushing them into navy.
+      if (bright > 0) {
+        const lift = bright * 0.34;
+        rr += (l * 0.92 - rr) * lift;
+        gg += (l * 1.05 - gg) * lift;
+        bb += (l * 1.12 - bb) * lift;
       }
     }
 
