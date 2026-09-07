@@ -17,7 +17,6 @@ const CYAN = '#5fe0f4';
 const CYAN_SOFT = '#9debf7';
 const AMBER = '#f1a34d';
 const AMBER_SOFT = '#ffd08a';
-const NAVY = '#07151e';
 
 function glowDot(
   ctx: CanvasRenderingContext2D,
