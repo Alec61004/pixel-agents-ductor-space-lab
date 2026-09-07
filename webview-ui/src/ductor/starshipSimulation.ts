@@ -15,6 +15,7 @@ import { drawPhotonicRoom, PHOTONIC_THEME } from './starshipPhotonicTheme.js';
 import { drawLivingRoom, getLivingRoomArtwork, type RoomArtwork } from './starshipLivingRoom.js';
 import { drawQAContact } from './starshipQA.js';
 import { drawStarshipExterior } from './starshipExterior.js';
+import { drawBridgeMaterialPass, drawBridgeLightPass } from './starshipSceneV2.js';
 
 export const SHEET_COLS = 16;
 export const SHEET_ROWS = 8;
@@ -2261,12 +2262,21 @@ export function drawStage(
   const livingArtwork = getLivingRoomArtwork(livingRoomImg);
   const background = livingArtwork ?? bgImg;
   const chairArtwork = livingArtwork ?? computerBayImg;
+  // V2 scene uses the existing authored room as geometry, but the final
+  // presentation is rebuilt with a cleaner contrast curve and dedicated
+  // material/light passes. This keeps character routing and device anchors
+  // stable while we progressively replace the old baked look.
+  ctx.save();
+  ctx.imageSmoothingEnabled = true;
+  ctx.filter = livingArtwork ? 'contrast(1.08) saturate(1.08)' : 'none';
   ctx.drawImage(background, offX, offY, drawW, drawH);
+  ctx.restore();
 
   ctx.save();
   ctx.translate(offX, offY);
   ctx.scale(scale, scale);
 
+  if (livingArtwork) drawBridgeMaterialPass(ctx, timeSec);
   drawStarshipExterior(ctx, background, timeSec, !!livingArtwork, bgImg);
   if (!livingArtwork) drawPhotonicComputerBay(ctx, computerBayImg);
   const commander = agents.find((agent) => agent.name === 'Alec');
@@ -2288,6 +2298,11 @@ export function drawStage(
     timeSec,
   );
   if (!livingArtwork && computerBayImg) drawPhotonicRoom(ctx, timeSec, qaActive);
+  if (livingArtwork) drawBridgeLightPass(ctx, timeSec, {
+    command: seated,
+    navigation: agents.some(a => a.name === 'Kevin' && isAlecUsingHologram(a)),
+    qa: qaActive,
+  });
   drawFloorMarkers(ctx, showStations);
   drawHologramTopGlow(ctx, agents, timeSec, background);
   const mapOperator = agents.find((agent) => agent.name === 'Kevin');

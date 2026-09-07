@@ -539,7 +539,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
         .starship-stage-wrap { flex: 1 1 auto; position: relative; width: 100%; height: 100%; min-width: 0; background: #000; touch-action: none; }
         .starship-stage {
           display: block; width: 100%; height: 100%;
-          image-rendering: pixelated; cursor: crosshair;
+          image-rendering: auto; cursor: crosshair;
         }
         .starship-scanline {
           position: absolute; inset: 0; pointer-events: none;
