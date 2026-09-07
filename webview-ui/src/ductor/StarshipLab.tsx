@@ -504,8 +504,8 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
           width: 100vw;
           box-sizing: border-box;
           background:
-            radial-gradient(ellipse at 20% -10%, rgba(157,191,197,0.04), transparent 55%),
-            radial-gradient(ellipse at 90% 0%, rgba(157,191,197,0.025), transparent 50%),
+            radial-gradient(ellipse at 20% -10%, rgba(99,217,242,0.08), transparent 55%),
+            radial-gradient(ellipse at 90% 0%, rgba(99,217,242,0.035), transparent 50%),
             var(--void);
           color: var(--text);
           font-family: 'JetBrains Mono', monospace;
@@ -530,7 +530,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
         @keyframes starship-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
         .starship-header h1 {
           font-family: 'Press Start 2P', monospace; font-size: 13px; letter-spacing: 1px;
-          margin: 0; color: #fff; text-shadow: none;
+          margin: 0; color: #fff; text-shadow: 0 0 10px rgba(99,217,242,0.22);
         }
         .starship-subtitle { font-size: 11px; color: var(--dim); margin-top: 4px; letter-spacing: .5px; }
         .starship-stat { font-size: 10px; color: var(--dim); text-align: right; line-height: 1.6; }
@@ -543,12 +543,12 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
         }
         .starship-scanline {
           position: absolute; inset: 0; pointer-events: none;
-          background: repeating-linear-gradient(0deg, rgba(0,0,0,0.025) 0px, rgba(0,0,0,0.025) 1px, transparent 1px, transparent 3px);
+          background: repeating-linear-gradient(0deg, rgba(0,0,0,0.045) 0px, rgba(0,0,0,0.045) 1px, transparent 1px, transparent 3px);
           mix-blend-mode: overlay; opacity: .12;
         }
         .starship-vignette {
           position: absolute; inset: 0; pointer-events: none;
-          box-shadow: inset 0 0 110px 24px rgba(8,12,16,0.18);
+          box-shadow: inset 0 0 110px 24px rgba(2,11,17,0.28);
         }
         .starship-starfield { position: absolute; inset: 0; pointer-events: none; }
         .starship-loading {
@@ -565,7 +565,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
         .starship-ltext { font-size: 10px; color: var(--dim); letter-spacing: 1px; }
         .starship-log-banner {
           position: absolute; left: 14px; bottom: 14px; font-size: 10.5px; color: var(--cyan);
-          background: rgba(16,21,25,0.94); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+          background: rgba(5,18,25,0.93); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
           border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,0.4);
           padding: 6px 12px; max-width: 60%; letter-spacing: .3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
           z-index: 8; pointer-events: auto;
@@ -573,7 +573,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
         .starship-log-tag { color: var(--amber); margin-right: 6px; }
         .starship-aside {
           position: absolute; top: 14px; right: 14px; width: 300px; max-height: calc(100% - 28px);
-          background: linear-gradient(155deg, rgba(36,46,53,.96), rgba(16,21,25,.96)); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+          background: linear-gradient(155deg, rgba(15,38,48,.96), rgba(5,18,25,.96)); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
           border: 1px solid var(--line); border-radius: 22px 6px 22px 6px; box-shadow: 0 8px 32px rgba(0,0,0,0.55), inset 0 1px rgba(119,245,229,0.18);
           display: flex; flex-direction: column; overflow: hidden; z-index: 10;
           transition: max-height .25s ease, width .25s ease, opacity .2s ease;
@@ -605,7 +605,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
           transition: border-color .3s, background .3s, opacity .3s; cursor: pointer;
           width: 100%; text-align: left; font-family: inherit; color: inherit;
         }
-        .starship-card:hover { background: rgba(157,191,197,0.025); border-color: var(--cyan); }
+        .starship-card:hover { background: rgba(99,217,242,0.05); border-color: var(--cyan); }
         .starship-card.active { border-color: var(--cyan); background: rgba(119,245,229,.06); box-shadow: inset 3px 0 var(--cyan); }
         .starship-card.blocked { border-color: #ff5c5c; }
         .starship-card.offline { opacity: 0.55; }
@@ -626,7 +626,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
           font-size: 8.5px; padding: 2px 6px; border-radius: 10px; letter-spacing: .5px; white-space: nowrap; flex: 0 0 auto; text-transform: uppercase;
         }
         .starship-badge.working,
-        .starship-badge.review { background: rgba(157,191,197,0.04); color: var(--cyan); border: 1px solid rgba(119,245,229,0.4); }
+        .starship-badge.review { background: rgba(99,217,242,0.10); color: var(--cyan); border: 1px solid rgba(119,245,229,0.4); }
         .starship-badge.moving { background: rgba(185,139,255,0.12); color: var(--violet); border: 1px solid rgba(185,139,255,0.4); }
         .starship-badge.idle { background: rgba(255,207,110,0.1); color: var(--amber); border: 1px solid rgba(255,207,110,0.35); }
         .starship-badge.waiting { background: rgba(255,207,110,0.1); color: var(--amber); border: 1px solid rgba(255,207,110,0.35); }

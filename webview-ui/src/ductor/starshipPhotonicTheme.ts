@@ -1,8 +1,8 @@
 /** Shared material and light palette for the bridge and Home controls. */
 export const PHOTONIC_THEME = {
-  void: '#101519', hull: '#1c242a', panel: '#242e35', line: '#46565e',
-  cyan: '#9dbfc5', violet: '#aaa4c2', magenta: '#d0a99c', amber: '#d9b47b',
-  text: '#e4e5de', dim: '#a0aaac',
+  void: '#07131a', hull: '#10232d', panel: '#162b35', line: '#315463',
+  cyan: '#63d9f2', violet: '#8e90c8', magenta: '#d68b82', amber: '#f0a34a',
+  text: '#e9f4f6', dim: '#8ea8b2',
 } as const;
 
 export const PHOTONIC_CSS_VARS = Object.entries(PHOTONIC_THEME)
@@ -27,7 +27,7 @@ export function drawPhotonicRoom(
     const active = n === 2 && qaActive;
     ctx.save(); ctx.beginPath(); ctx.rect(p.x, p.y, p.w, p.h); ctx.clip();
     ctx.globalCompositeOperation = 'source-atop';
-    ctx.fillStyle = '#13504e'; ctx.globalAlpha = 0.22; ctx.fillRect(p.x, p.y, p.w, p.h);
+    ctx.fillStyle = '#0b4f60'; ctx.globalAlpha = 0.18; ctx.fillRect(p.x, p.y, p.w, p.h);
     ctx.globalCompositeOperation = 'lighter';
     const phase = time * (active ? 0.45 : 0.12) + n;
     ctx.globalAlpha = active ? 0.5 : 0.22; ctx.strokeStyle = PHOTONIC_THEME.cyan; ctx.lineWidth = 0.65;

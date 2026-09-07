@@ -26,8 +26,8 @@ test('power only raises workstation emission; it does not expose windows or hull
     else assert.deepEqual(active.slice(p,p+4),idle.slice(p,p+4));
   }
   const command = offset(550,350), navigation = offset(570,530);
-  assert.ok(idle[command]! > idle[command+2]!, 'command reads warm');
-  assert.ok(idle[navigation+2]! > idle[navigation]!, 'navigation reads cool');
+  assert.ok(idle[command+2]! > idle[command]!, 'command reads cool cyan');
+  assert.ok(idle[navigation+2]! > idle[navigation]!, 'navigation reads cool blue');
 });
 
 test('non-readable custom artwork keeps its original pixels', () => {

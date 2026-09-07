@@ -201,7 +201,7 @@ function drawAccretionFlow(ctx: CanvasRenderingContext2D, bg: RoomArtwork, time:
     const head = getAccretionParticle(time, i);
     const edgeFade = Math.min(1, (194 - head.radius) / 20, (head.radius - 29) / 12);
     ctx.globalAlpha = Math.max(0, edgeFade) * (0.08 + (i % 4) * 0.03);
-    ctx.strokeStyle = i % 5 === 0 ? '#c9d4e0' : i % 2 ? '#7d7e9f' : '#7c98b0';
+    ctx.strokeStyle = i % 5 === 0 ? '#f0bd70' : i % 2 ? '#7fc8ea' : '#547fb4';
     ctx.lineWidth = i % 4 === 0 ? 2 : 1;
     ctx.beginPath();
     for (let segment = 0; segment < 7; segment++) {
@@ -217,9 +217,9 @@ function drawAccretionFlow(ctx: CanvasRenderingContext2D, bg: RoomArtwork, time:
   const shadow = ctx.createRadialGradient(1045, 323, 13, 1045, 323, 40);
   shadow.addColorStop(0, '#070616');
   shadow.addColorStop(0.55, '#08081cff');
-  shadow.addColorStop(0.72, '#172443d0');
-  shadow.addColorStop(0.9, '#42769828');
-  shadow.addColorStop(1, '#42769800');
+  shadow.addColorStop(0.72, '#102a4ad8');
+  shadow.addColorStop(0.9, '#6abde434');
+  shadow.addColorStop(1, '#6abde400');
   ctx.globalAlpha = 1;
   ctx.fillStyle = shadow;
   ctx.beginPath();
@@ -230,7 +230,7 @@ function drawAccretionFlow(ctx: CanvasRenderingContext2D, bg: RoomArtwork, time:
   for (let i = 0; i < 5; i++) {
     const angle = i * 1.71 + time * 0.85;
     ctx.globalAlpha = 0.16 + (Math.sin(angle) + 1) * 0.13;
-    ctx.strokeStyle = i % 3 ? '#a8bdce' : '#c2bfce';
+    ctx.strokeStyle = i % 3 ? '#8bcfee' : '#e8b768';
     ctx.lineWidth = 1.2 + (i % 3) * 0.45;
     ctx.beginPath();
     ctx.ellipse(1045, 323, 43 + i % 3, 27 + i % 2, 0.25, angle, angle + 0.35 + (i % 3) * 0.19);
@@ -257,7 +257,7 @@ export function drawStarshipExterior(ctx: CanvasRenderingContext2D, bg: RoomArtw
     const x = 380 + wrap(star.x - time * (2 + star.depth * 8), 1140);
     const y = 140 + star.y;
     ctx.globalAlpha = (0.12 + star.depth * 0.27) * (0.85 + Math.sin(time + i) * 0.15);
-    ctx.fillStyle = i % 7 === 0 ? '#d4c4f5' : '#b8deef';
+    ctx.fillStyle = i % 7 === 0 ? '#f0c37a' : '#b8e8f4';
     ctx.fillRect(Math.round(x), Math.round(y), star.depth > 0.8 ? 2 : 1, 1);
     if (star.depth > 0.7) {
       ctx.globalAlpha *= 0.25;
@@ -275,8 +275,8 @@ export function drawStarshipExterior(ctx: CanvasRenderingContext2D, bg: RoomArtw
     for (const [x, y, rx, ry] of [[571, 223, 176, 86], [1096, 330, 144, 143], [1420, 280, 85, 128]]) {
       ctx.save(); ctx.translate(x!, y!); ctx.scale(rx!, ry!);
       const glass = ctx.createRadialGradient(0, 0, 0.08, 0, 0, 1);
-      glass.addColorStop(0, '#151c2924'); glass.addColorStop(0.65, '#151c2912');
-      glass.addColorStop(1, '#151c2900');
+      glass.addColorStop(0, '#071b2e20'); glass.addColorStop(0.65, '#071b2e10');
+      glass.addColorStop(1, '#071b2e00');
       ctx.fillStyle = glass; ctx.fillRect(-1, -1, 2, 2); ctx.restore();
     }
   }
@@ -289,8 +289,8 @@ export function drawStarshipExterior(ctx: CanvasRenderingContext2D, bg: RoomArtw
       const height = asset.sprite.height * ship.scale;
       // Small exhaust fades behind each silhouette, at its own depth/speed.
       const exhaust = ctx.createLinearGradient(ship.x + width - 2, 0, ship.x + width + 15 * ship.scale, 0);
-      exhaust.addColorStop(0, '#abbfceb0');
-      exhaust.addColorStop(1, '#abbfce00');
+      exhaust.addColorStop(0, '#77dcf0b8');
+      exhaust.addColorStop(1, '#77dcf000');
       ctx.fillStyle = exhaust;
       ctx.fillRect(ship.x + width - 2, ship.y + height * 0.5, 17 * ship.scale, 2 * ship.scale);
       ctx.drawImage(asset.sprite, Math.round(ship.x), Math.round(ship.y), width, height);
