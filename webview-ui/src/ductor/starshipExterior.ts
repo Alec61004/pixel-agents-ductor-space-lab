@@ -265,6 +265,21 @@ export function drawStarshipExterior(ctx: CanvasRenderingContext2D, bg: RoomArtw
     }
   }
   drawAccretionFlow(ctx, bg, time);
+  if (livingRoom) {
+    // Blue window glass separates the bright violet sky from the cyan bridge.
+    // Applied inside the existing foreground exclusion masks, after the disk,
+    // so its animated texture and the painted sky share the same exposure.
+    ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+    // Feather fully inside each pane: a flat rectangle exposes the coarse
+    // animation mask around the tank and the sloping window frames.
+    for (const [x, y, rx, ry] of [[571, 223, 176, 86], [1096, 330, 144, 143], [1420, 280, 85, 128]]) {
+      ctx.save(); ctx.translate(x!, y!); ctx.scale(rx!, ry!);
+      const glass = ctx.createRadialGradient(0, 0, 0.08, 0, 0, 1);
+      glass.addColorStop(0, '#071c344d'); glass.addColorStop(0.65, '#071c342e');
+      glass.addColorStop(1, '#071c3400');
+      ctx.fillStyle = glass; ctx.fillRect(-1, -1, 2, 2); ctx.restore();
+    }
+  }
   if (ships) {
     for (let index = 0; index < 4; index++) {
       const asset = ships[index % ships.length]!;

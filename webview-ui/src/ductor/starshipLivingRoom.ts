@@ -200,8 +200,42 @@ function drawSpecimenTank(ctx: CanvasRenderingContext2D, time: number, active: b
   ctx.restore();
 }
 
+/** Soft light on the floor connects each instrument to the room's materials. */
+function drawDeckLighting(ctx: CanvasRenderingContext2D, time: number, activity: RoomActivity): void {
+  ctx.save();
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 1;
+  // Follow the open deck; light must not wash over the consoles or windows.
+  ctx.beginPath(); ctx.moveTo(405, 408); ctx.lineTo(675, 408);
+  ctx.lineTo(675, 518); ctx.lineTo(803, 549); ctx.lineTo(935, 572);
+  ctx.lineTo(1246, 592); ctx.lineTo(1510, 612); ctx.lineTo(1560, 678);
+  ctx.lineTo(45, 678); ctx.lineTo(185, 560); ctx.lineTo(320, 505);
+  ctx.closePath(); ctx.clip();
+  const depth = ctx.createLinearGradient(0, 408, 0, 678);
+  depth.addColorStop(0, '#040f1e00'); depth.addColorStop(0.7, '#050f2224');
+  depth.addColorStop(1, '#030b193d');
+  ctx.fillStyle = depth; ctx.fillRect(0, 408, 1600, 270);
+  ctx.globalCompositeOperation = 'screen';
+  const sources = [
+    { x: 558, y: 422, rx: 142, ry: 52, active: activity.command, rgb: '72,189,195' },
+    { x: 568, y: 579, rx: 117, ry: 70, active: activity.navigation, rgb: '64,156,216' },
+    { x: 1060, y: 591, rx: 125, ry: 49, active: activity.qa, rgb: '78,188,164' },
+  ];
+  for (const [index, source] of sources.entries()) {
+    ctx.save(); ctx.translate(source.x, source.y); ctx.scale(source.rx, source.ry);
+    const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+    const intensity = (source.active ? 0.14 : 0.05) + Math.sin(time * 0.6 + index) * 0.012;
+    glow.addColorStop(0, `rgba(${source.rgb},${intensity})`);
+    glow.addColorStop(0.4, `rgba(${source.rgb},${intensity * 0.45})`);
+    glow.addColorStop(1, `rgba(${source.rgb},0)`);
+    ctx.fillStyle = glow; ctx.fillRect(-1, -1, 2, 2); ctx.restore();
+  }
+  ctx.restore();
+}
+
 /** Environment motion is drawn before characters and never repaints over them. */
 export function drawLivingRoom(ctx: CanvasRenderingContext2D, time: number, activity: RoomActivity, artwork?: RoomArtwork): void {
+  drawDeckLighting(ctx, time, activity);
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
   for (const [i, [x, y, rx, ry]] of LIVING_ROOM_ZONES.crystals.entries()) drawCrystal(ctx, time, x, y, rx, ry, i);
   drawSpecimenTank(ctx, time, activity.command || activity.qa, artwork);
@@ -209,13 +243,20 @@ export function drawLivingRoom(ctx: CanvasRenderingContext2D, time: number, acti
   for (const [n, p] of LIVING_ROOM_ZONES.pods.entries()) {
     if (n === 3) continue; // The large tank has its own optical and particle pass.
     ctx.save(); ctx.beginPath(); ctx.roundRect(p.x, p.y, p.w, p.h, p.w * 0.15); ctx.clip();
-    for (let i = 0; i < (n === 3 ? 17 : 8); i++) {
+    // Match the large vessel's deep liquid instead of adding lime bloom.
+    ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+    const liquid = ctx.createLinearGradient(p.x, 0, p.x + p.w, 0);
+    liquid.addColorStop(0, '#092f4140'); liquid.addColorStop(0.5, '#082b392b');
+    liquid.addColorStop(1, '#051e354d');
+    ctx.fillStyle = liquid; ctx.fillRect(p.x, p.y, p.w, p.h);
+    ctx.globalCompositeOperation = 'screen';
+    for (let i = 0; i < (p.w < 20 ? 3 : 6); i++) {
       const b = getPodParticle(time, i, n);
-      ctx.globalAlpha = b.opacity; ctx.strokeStyle = '#b4ffe0'; ctx.lineWidth = 0.7;
+      ctx.globalAlpha = b.opacity * 0.6; ctx.strokeStyle = '#b4ffe0'; ctx.lineWidth = 0.7;
       ctx.beginPath(); ctx.arc(p.x + b.x * p.w, p.y + b.y * p.h, 0.6 + i % 3 * 0.4, 0, Math.PI * 2); ctx.stroke();
     }
-    ctx.globalAlpha = 0.06 + Math.sin(time * 1.1 + n) * 0.025;
-    ctx.fillStyle = '#77ffd0'; ctx.fillRect(p.x, p.y, p.w, p.h);
+    ctx.globalAlpha = 0.025 + Math.sin(time * 0.65 + n) * 0.012;
+    ctx.fillStyle = '#74cfcb'; ctx.fillRect(p.x, p.y, p.w, p.h);
     ctx.restore();
   }
   for (const [lane, path] of LIVING_ROOM_ZONES.conduits.entries()) {
@@ -224,7 +265,7 @@ export function drawLivingRoom(ctx: CanvasRenderingContext2D, time: number, acti
       const index = Math.floor(travel); const t = travel - index;
       const a = path[index]!, b = path[index + 1]!;
       const x = a[0] + (b[0] - a[0]) * t, y = a[1] + (b[1] - a[1]) * t;
-      ctx.globalAlpha = 0.45 * Math.sin(wrap(travel / (path.length - 1)) * Math.PI);
+      ctx.globalAlpha = (activity.command ? 0.32 : 0.17) * Math.sin(wrap(travel / (path.length - 1)) * Math.PI);
       ctx.fillStyle = '#a6ffed'; ctx.fillRect(Math.round(x), Math.round(y), 3, 1);
     }
   }
