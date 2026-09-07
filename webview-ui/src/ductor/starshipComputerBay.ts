@@ -111,7 +111,7 @@ export function getCommandGesture(time: number): { frame: number; contact: numbe
 export function drawPhotonicActivity(ctx: CanvasRenderingContext2D, time: number, active: boolean): void {
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  const energy = active ? 1.0 : 0.18;
+  const energy = active ? 0.88 : 0.12;
   const phase = time * (active ? 1.5 : 0.35);
   const nodes = [[470, 346], [552, 344], [674, 344]] as const;
   for (let n = 0; n < nodes.length; n++) {
@@ -121,7 +121,7 @@ export function drawPhotonicActivity(ctx: CanvasRenderingContext2D, time: number
       const px = x + Math.sin(phase + i * 1.9) * (7 + i * 2);
       const py = y - rise * 29;
       ctx.globalAlpha = energy * Math.sin(rise * Math.PI) * 0.8;
-      ctx.strokeStyle = i % 3 ? '#69ddf3' : '#f3a64c';
+      ctx.strokeStyle = i % 2 ? '#69ddf3' : '#f3a64c';
       ctx.lineWidth = 0.7;
       ctx.beginPath();
       ctx.moveTo(px, py - 2); ctx.lineTo(px + 2, py);
@@ -136,7 +136,7 @@ export function drawPhotonicActivity(ctx: CanvasRenderingContext2D, time: number
     const x = 427 + travel * 339;
     const y = 363 + Math.sin(travel * Math.PI * 5) * 5;
     ctx.globalAlpha = energy * (0.4 + 0.3 * Math.sin(travel * Math.PI));
-    ctx.fillStyle = i % 4 === 0 ? '#f3a64c' : '#8be9f8'; ctx.fillRect(Math.round(x), Math.round(y), 3, 1);
+    ctx.fillStyle = i % 3 === 0 ? '#f3a64c' : '#8be9f8'; ctx.fillRect(Math.round(x), Math.round(y), 3, 1);
   }
   // Three faceted volumes emerge from the existing projectors. Perspective
   // comes from orbiting vertices, not scaling a flat picture up and down.

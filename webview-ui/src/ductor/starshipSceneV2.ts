@@ -110,8 +110,8 @@ export function drawBridgeMaterialPass(ctx: CanvasRenderingContext2D, time: numb
   clipFloor(ctx);
   const deck = ctx.createLinearGradient(0, 395, 0, 678);
   deck.addColorStop(0, 'rgba(4,15,22,0.03)');
-  deck.addColorStop(0.55, 'rgba(4,15,22,0.10)');
-  deck.addColorStop(1, 'rgba(2,9,14,0.24)');
+  deck.addColorStop(0.55, 'rgba(3,12,19,0.15)');
+  deck.addColorStop(1, 'rgba(1,7,12,0.31)');
   ctx.fillStyle = deck;
   ctx.fillRect(0, 390, 1600, 288);
 
@@ -119,8 +119,8 @@ export function drawBridgeMaterialPass(ctx: CanvasRenderingContext2D, time: numb
   ctx.globalCompositeOperation = 'screen';
   const floorSheen = ctx.createLinearGradient(0, 470, 0, 678);
   floorSheen.addColorStop(0, 'rgba(65,146,179,0)');
-  floorSheen.addColorStop(0.68, 'rgba(65,146,179,0.045)');
-  floorSheen.addColorStop(1, 'rgba(65,146,179,0.015)');
+  floorSheen.addColorStop(0.68, 'rgba(65,146,179,0.030)');
+  floorSheen.addColorStop(1, 'rgba(65,146,179,0.010)');
   ctx.fillStyle = floorSheen;
   ctx.fillRect(0, 440, 1600, 238);
   ctx.restore();
@@ -128,14 +128,14 @@ export function drawBridgeMaterialPass(ctx: CanvasRenderingContext2D, time: numb
   // Side structures receive a subtle navy glaze, which moves the authored grey
   // toward the visual reference without painting over devices.
   ctx.globalCompositeOperation = 'multiply';
-  ctx.fillStyle = 'rgba(3,18,27,0.10)';
+  ctx.fillStyle = 'rgba(2,14,22,0.14)';
   ctx.fillRect(0, 100, 335, 470);
   ctx.fillRect(1290, 100, 310, 500);
 
   // Window frames get a cold inner edge rather than a broad neon outline.
   ctx.globalCompositeOperation = 'screen';
   ctx.lineWidth = 1.1;
-  ctx.strokeStyle = 'rgba(95,224,244,0.18)';
+  ctx.strokeStyle = 'rgba(95,224,244,0.11)';
   for (const [x,y,w,h,r] of [
     [347,111,438,326,29],
     [850,106,458,353,30],
@@ -148,8 +148,8 @@ export function drawBridgeMaterialPass(ctx: CanvasRenderingContext2D, time: numb
 
   // Upper hull practical conduits: thin cyan cores with dim broad halos.
   for (const path of upperConduits) {
-    strokePath(ctx, path, CYAN, 4.0, 0.035);
-    strokePath(ctx, path, CYAN_SOFT, 1.0, 0.30);
+    strokePath(ctx, path, CYAN, 3.5, 0.022);
+    strokePath(ctx, path, CYAN_SOFT, 0.85, 0.20);
   }
 
   ctx.restore();
@@ -166,28 +166,28 @@ export function drawBridgeLightPass(
 
   // Persistent cyan power rails make the room read as an active spacecraft.
   for (const path of deckConduits) {
-    strokePath(ctx, path, CYAN, 3.2, 0.035);
-    strokePath(ctx, path, CYAN_SOFT, 0.75, 0.24);
+    strokePath(ctx, path, CYAN, 2.8, 0.022);
+    strokePath(ctx, path, CYAN_SOFT, 0.65, 0.17);
   }
 
   for (const [x,y] of amberPracticalLights) {
-    glowDot(ctx, x, y, AMBER, 8, 0.12 * pulse);
+    glowDot(ctx, x, y, AMBER, 10, 0.17 * pulse);
     ctx.save();
     ctx.globalCompositeOperation = 'screen';
-    ctx.globalAlpha = 0.62 * pulse;
+    ctx.globalAlpha = 0.78 * pulse;
     ctx.fillStyle = AMBER_SOFT;
     ctx.fillRect(x - 1.5, y - 0.75, 3, 1.5);
     ctx.restore();
   }
 
   for (const [x,y] of cyanPracticalLights) {
-    glowDot(ctx, x, y, CYAN, 9, 0.09 * pulse);
+    glowDot(ctx, x, y, CYAN, 8, 0.055 * pulse);
   }
 
   // Local station pools. These are deliberately elliptical reflections rather
   // than full-room bloom, matching the reference's hierarchy.
   const stations = [
-    { x: 560, y: 426, rx: 185, ry: 58, color: '73,208,236', active: activity.command },
+    { x: 560, y: 426, rx: 170, ry: 50, color: '73,208,236', active: activity.command },
     { x: 568, y: 582, rx: 105, ry: 54, color: '77,195,238', active: activity.navigation },
     { x: 1060, y: 587, rx: 120, ry: 45, color: '78,202,232', active: activity.qa },
   ];

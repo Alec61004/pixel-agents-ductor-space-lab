@@ -156,7 +156,7 @@ function drawSpecimenTank(ctx: CanvasRenderingContext2D, time: number, active: b
   ctx.fillStyle = fluid; ctx.fillRect(822, 286, 102, 150);
   // Warm optical veil: the live organism can remain green, but the vessel
   // reads as amber glass instead of a green neon cylinder.
-  ctx.fillStyle = 'rgba(214,153,67,0.18)';
+  ctx.fillStyle = 'rgba(226,161,70,0.28)';
   ctx.fillRect(822, 286, 102, 150);
   const depth = ctx.createLinearGradient(0, 291, 0, 433);
   depth.addColorStop(0, '#211b176b'); depth.addColorStop(0.32, '#4c382400');
@@ -263,7 +263,7 @@ export function drawLivingRoom(ctx: CanvasRenderingContext2D, time: number, acti
       ctx.beginPath(); ctx.arc(p.x + b.x * p.w, p.y + b.y * p.h, 0.6 + i % 3 * 0.4, 0, Math.PI * 2); ctx.stroke();
     }
     ctx.globalAlpha = 0.025 + Math.sin(time * 0.65 + n) * 0.012;
-    ctx.fillStyle = '#e2b05f'; ctx.fillRect(p.x, p.y, p.w, p.h);
+    ctx.fillStyle = '#e9b768'; ctx.fillRect(p.x, p.y, p.w, p.h);
     ctx.restore();
   }
   // The reference uses visible cyan energy rails even while idle.

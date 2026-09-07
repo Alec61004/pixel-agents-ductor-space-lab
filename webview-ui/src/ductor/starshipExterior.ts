@@ -201,7 +201,7 @@ function drawAccretionFlow(ctx: CanvasRenderingContext2D, bg: RoomArtwork, time:
     const head = getAccretionParticle(time, i);
     const edgeFade = Math.min(1, (194 - head.radius) / 20, (head.radius - 29) / 12);
     ctx.globalAlpha = Math.max(0, edgeFade) * (0.11 + (i % 4) * 0.038);
-    ctx.strokeStyle = i % 6 === 0 ? '#f6bf68' : i % 3 === 0 ? '#9edcf5' : '#4f88c5';
+    ctx.strokeStyle = i % 4 === 0 ? '#f6bf68' : i % 3 === 0 ? '#8fcbe9' : '#4f79b8';
     ctx.lineWidth = i % 4 === 0 ? 2 : 1;
     ctx.beginPath();
     for (let segment = 0; segment < 7; segment++) {
@@ -230,7 +230,7 @@ function drawAccretionFlow(ctx: CanvasRenderingContext2D, bg: RoomArtwork, time:
   for (let i = 0; i < 5; i++) {
     const angle = i * 1.71 + time * 0.85;
     ctx.globalAlpha = 0.20 + (Math.sin(angle) + 1) * 0.16;
-    ctx.strokeStyle = i % 2 ? '#8fd7f4' : '#f2b65f';
+    ctx.strokeStyle = i % 3 ? '#7fc4e8' : '#f4b85f';
     ctx.lineWidth = 1.2 + (i % 3) * 0.45;
     ctx.beginPath();
     ctx.ellipse(1045, 323, 43 + i % 3, 27 + i % 2, 0.25, angle, angle + 0.35 + (i % 3) * 0.19);
