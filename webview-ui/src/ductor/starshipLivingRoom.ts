@@ -1,5 +1,6 @@
 import { drawQAExperiment } from './starshipQA.js';
 import { PHOTONIC_THEME } from './starshipPhotonicTheme.js';
+import { prepareResearchPalette, drawResearchWorklights } from './starshipPalette.js';
 
 export const LIVING_ROOM_ASSET = 'themes/ductor-space-lab/photonic-room-v1.png';
 export type RoomArtwork = HTMLImageElement | HTMLCanvasElement | OffscreenCanvas;
@@ -26,6 +27,7 @@ export function getLivingRoomArtwork(image?: HTMLImageElement): RoomArtwork | un
   if (!ctx) return undefined;
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(image, 0, 0, 1600, 678);
+  prepareResearchPalette(canvas, ctx);
   roomCache.set(image, canvas);
   return canvas;
 }
@@ -97,11 +99,11 @@ function drawCrystal(ctx: CanvasRenderingContext2D, time: number, x: number, y: 
   ctx.moveTo(x, y - ry); ctx.quadraticCurveTo(x + rx * 1.5, y, x, y + ry);
   ctx.quadraticCurveTo(x - rx * 1.5, y, x, y - ry); ctx.clip();
   const light = ctx.createRadialGradient(x, y, 1, x, y, ry);
-  light.addColorStop(0, '#99ffebb0'); light.addColorStop(1, '#49e8da00');
+  light.addColorStop(0, '#ceddc47a'); light.addColorStop(1, '#a7ba9b00');
   ctx.globalAlpha = pulse; ctx.fillStyle = light; ctx.fillRect(x - rx * 2, y - ry, rx * 4, ry * 2);
   // A traveling internal filament, confined to the crystal's actual surface.
   const front = y + ry - wrap(time * 0.11 + index * 0.13) * ry * 2;
-  ctx.strokeStyle = '#b7fff0'; ctx.lineWidth = 0.75; ctx.globalAlpha = 0.35;
+  ctx.strokeStyle = '#d6dfc9'; ctx.lineWidth = 0.75; ctx.globalAlpha = 0.35;
   ctx.beginPath(); ctx.moveTo(x - rx, front + 3);
   ctx.quadraticCurveTo(x, front - 4, x + rx, front + 3); ctx.stroke();
   ctx.restore();
@@ -148,35 +150,35 @@ function drawSpecimenTank(ctx: CanvasRenderingContext2D, time: number, active: b
   }
   // Absorption through deep liquid, with a shadowed centre and lit glass edges.
   const fluid = ctx.createLinearGradient(825, 0, 920, 0);
-  fluid.addColorStop(0, '#031d2caf'); fluid.addColorStop(0.12, '#0b555b52');
-  fluid.addColorStop(0.38, '#06282e66'); fluid.addColorStop(0.72, '#05242f88');
-  fluid.addColorStop(0.94, '#11677638'); fluid.addColorStop(1, '#031b2bb0');
+  fluid.addColorStop(0, '#222a22a0'); fluid.addColorStop(0.12, '#535b3c3a');
+  fluid.addColorStop(0.38, '#30392840'); fluid.addColorStop(0.72, '#27322258');
+  fluid.addColorStop(0.94, '#6b765231'); fluid.addColorStop(1, '#252e23a0');
   ctx.fillStyle = fluid; ctx.fillRect(822, 286, 102, 150);
   const depth = ctx.createLinearGradient(0, 291, 0, 433);
-  depth.addColorStop(0, '#020f2799'); depth.addColorStop(0.32, '#061d3300');
-  depth.addColorStop(0.75, '#07152616'); depth.addColorStop(1, '#07202d88');
+  depth.addColorStop(0, '#1c241d66'); depth.addColorStop(0.32, '#30362600');
+  depth.addColorStop(0.75, '#22281b12'); depth.addColorStop(1, '#272f2055');
   ctx.fillStyle = depth; ctx.fillRect(822, 286, 102, 150);
   // Soft caustic pools wander over the organism, never wireframes or scan bars.
   ctx.globalCompositeOperation = 'screen';
   const specimenLight = ctx.createRadialGradient(867, 331, 3, 873, 352, 60);
-  specimenLight.addColorStop(0, '#74dec52c');
-  specimenLight.addColorStop(0.55, '#328c8d0f'); specimenLight.addColorStop(1, '#22507800');
+  specimenLight.addColorStop(0, '#bec99c25');
+  specimenLight.addColorStop(0.55, '#909c710c'); specimenLight.addColorStop(1, '#76826300');
   ctx.fillStyle = specimenLight; ctx.fillRect(825, 291, 95, 144);
   for (let i = 0; i < 3; i++) {
     const x = 850 + i * 20 + Math.sin(time * 0.32 + i * 2) * 6;
     const y = 324 + i * 32 + Math.cos(time * 0.4 + i) * 9;
     const light = ctx.createRadialGradient(x, y, 1, x, y, 24);
-    light.addColorStop(0, 'rgba(125,235,213,0.10)'); light.addColorStop(1, '#4cdbd000');
+    light.addColorStop(0, 'rgba(199,211,164,0.07)'); light.addColorStop(1, '#adb98d00');
     ctx.fillStyle = light; ctx.fillRect(x - 24, y - 24, 48, 48);
   }
   // Suspension tubing stays beside the specimen, behind the foreground glass.
   ctx.globalCompositeOperation = 'source-over';
   for (const side of [-1, 1]) {
     const x = 872 + side * 32;
-    ctx.strokeStyle = '#092f3eb0'; ctx.lineWidth = 3;
+    ctx.strokeStyle = '#30382bb0'; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.moveTo(x, 294);
     ctx.bezierCurveTo(x - side * 8, 337, x + side * 5, 380, x - side * 3, 422); ctx.stroke();
-    ctx.strokeStyle = '#89ddd443'; ctx.lineWidth = 0.7; ctx.stroke();
+    ctx.strokeStyle = '#c5cbae43'; ctx.lineWidth = 0.7; ctx.stroke();
   }
   // Distinct far/near bubbles: shaded bodies, bright crescent reflections.
   for (let i = 0; i < 23; i++) {
@@ -184,16 +186,16 @@ function drawSpecimenTank(ctx: CanvasRenderingContext2D, time: number, active: b
     const x = 832 + wrap(i * 0.618) * 80 + Math.sin(time * 0.65 + i) * 1.8;
     const y = 428 - age * 132, radius = 0.55 + i % 4 * 0.38;
     ctx.globalAlpha = Math.sin(age * Math.PI) * (i % 2 ? 0.62 : 0.3);
-    ctx.fillStyle = '#073847'; ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = '#d2fff1'; ctx.lineWidth = 0.55;
+    ctx.fillStyle = '#3b432f'; ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#e6e9d5'; ctx.lineWidth = 0.55;
     ctx.beginPath(); ctx.arc(x - 0.15, y - 0.2, radius * 0.78, 3.5, 5.7); ctx.stroke();
   }
   ctx.globalAlpha = 1;
   const glass = ctx.createLinearGradient(825, 0, 920, 0);
-  glass.addColorStop(0, '#b9fff27a'); glass.addColorStop(0.035, '#bafff212');
-  glass.addColorStop(0.09, '#bafff23a'); glass.addColorStop(0.19, '#bafff200');
-  glass.addColorStop(0.80, '#cafff000'); glass.addColorStop(0.93, '#cafff036');
-  glass.addColorStop(1, '#cafff080');
+  glass.addColorStop(0, '#e3e5d75c'); glass.addColorStop(0.035, '#e3e5d712');
+  glass.addColorStop(0.09, '#e3e5d72a'); glass.addColorStop(0.19, '#e3e5d700');
+  glass.addColorStop(0.80, '#e3e5d700'); glass.addColorStop(0.93, '#e3e5d726');
+  glass.addColorStop(1, '#e3e5d75c');
   ctx.fillStyle = glass; ctx.fillRect(824, 291, 98, 145);
   ctx.fillStyle = '#d7fff00c'; ctx.beginPath(); ctx.moveTo(837, 298);
   ctx.lineTo(846, 300); ctx.lineTo(857, 426); ctx.lineTo(852, 427); ctx.closePath(); ctx.fill();
@@ -212,14 +214,14 @@ function drawDeckLighting(ctx: CanvasRenderingContext2D, time: number, activity:
   ctx.lineTo(45, 678); ctx.lineTo(185, 560); ctx.lineTo(320, 505);
   ctx.closePath(); ctx.clip();
   const depth = ctx.createLinearGradient(0, 408, 0, 678);
-  depth.addColorStop(0, '#040f1e00'); depth.addColorStop(0.7, '#050f2224');
-  depth.addColorStop(1, '#030b193d');
+  depth.addColorStop(0, '#171d2100'); depth.addColorStop(0.7, '#171d210b');
+  depth.addColorStop(1, '#171d2117');
   ctx.fillStyle = depth; ctx.fillRect(0, 408, 1600, 270);
   ctx.globalCompositeOperation = 'screen';
   const sources = [
-    { x: 558, y: 422, rx: 142, ry: 52, active: activity.command, rgb: '72,189,195' },
-    { x: 568, y: 579, rx: 117, ry: 70, active: activity.navigation, rgb: '64,156,216' },
-    { x: 1060, y: 591, rx: 125, ry: 49, active: activity.qa, rgb: '78,188,164' },
+    { x: 558, y: 422, rx: 142, ry: 52, active: activity.command, rgb: '204,162,106' },
+    { x: 568, y: 579, rx: 117, ry: 70, active: activity.navigation, rgb: '119,164,194' },
+    { x: 1060, y: 591, rx: 125, ry: 49, active: activity.qa, rgb: '183,193,164' },
   ];
   for (const [index, source] of sources.entries()) {
     ctx.save(); ctx.translate(source.x, source.y); ctx.scale(source.rx, source.ry);
@@ -235,6 +237,7 @@ function drawDeckLighting(ctx: CanvasRenderingContext2D, time: number, activity:
 
 /** Environment motion is drawn before characters and never repaints over them. */
 export function drawLivingRoom(ctx: CanvasRenderingContext2D, time: number, activity: RoomActivity, artwork?: RoomArtwork): void {
+  if (artwork) drawResearchWorklights(ctx, artwork, activity);
   drawDeckLighting(ctx, time, activity);
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
   for (const [i, [x, y, rx, ry]] of LIVING_ROOM_ZONES.crystals.entries()) drawCrystal(ctx, time, x, y, rx, ry, i);
@@ -246,17 +249,17 @@ export function drawLivingRoom(ctx: CanvasRenderingContext2D, time: number, acti
     // Match the large vessel's deep liquid instead of adding lime bloom.
     ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
     const liquid = ctx.createLinearGradient(p.x, 0, p.x + p.w, 0);
-    liquid.addColorStop(0, '#092f4140'); liquid.addColorStop(0.5, '#082b392b');
-    liquid.addColorStop(1, '#051e354d');
+    liquid.addColorStop(0, '#3c452930'); liquid.addColorStop(0.5, '#3b432120');
+    liquid.addColorStop(1, '#28321f38');
     ctx.fillStyle = liquid; ctx.fillRect(p.x, p.y, p.w, p.h);
     ctx.globalCompositeOperation = 'screen';
     for (let i = 0; i < (p.w < 20 ? 3 : 6); i++) {
       const b = getPodParticle(time, i, n);
-      ctx.globalAlpha = b.opacity * 0.6; ctx.strokeStyle = '#b4ffe0'; ctx.lineWidth = 0.7;
+      ctx.globalAlpha = b.opacity * 0.6; ctx.strokeStyle = '#d8dfbb'; ctx.lineWidth = 0.7;
       ctx.beginPath(); ctx.arc(p.x + b.x * p.w, p.y + b.y * p.h, 0.6 + i % 3 * 0.4, 0, Math.PI * 2); ctx.stroke();
     }
     ctx.globalAlpha = 0.025 + Math.sin(time * 0.65 + n) * 0.012;
-    ctx.fillStyle = '#74cfcb'; ctx.fillRect(p.x, p.y, p.w, p.h);
+    ctx.fillStyle = '#b6c69d'; ctx.fillRect(p.x, p.y, p.w, p.h);
     ctx.restore();
   }
   for (const [lane, path] of LIVING_ROOM_ZONES.conduits.entries()) {
@@ -266,7 +269,7 @@ export function drawLivingRoom(ctx: CanvasRenderingContext2D, time: number, acti
       const a = path[index]!, b = path[index + 1]!;
       const x = a[0] + (b[0] - a[0]) * t, y = a[1] + (b[1] - a[1]) * t;
       ctx.globalAlpha = (activity.command ? 0.32 : 0.17) * Math.sin(wrap(travel / (path.length - 1)) * Math.PI);
-      ctx.fillStyle = '#a6ffed'; ctx.fillRect(Math.round(x), Math.round(y), 3, 1);
+      ctx.fillStyle = '#c9d6ce'; ctx.fillRect(Math.round(x), Math.round(y), 3, 1);
     }
   }
   drawScanner(ctx, time, 1048, 527, 67, 21, false);
@@ -277,13 +280,13 @@ export function drawLivingRoom(ctx: CanvasRenderingContext2D, time: number, acti
     const x = 898 + wrap(i * 0.618 - time * 0.025) * 192;
     const y = 57 + wrap(i * 0.37) * 36;
     ctx.globalAlpha = 0.2 + 0.3 * (0.5 + 0.5 * Math.sin(time + i));
-    ctx.fillStyle = '#79e4ff'; ctx.fillRect(x, y, i % 4 ? 1 : 2, 1);
+    ctx.fillStyle = '#afc1d1'; ctx.fillRect(x, y, i % 4 ? 1 : 2, 1);
   }
   ctx.restore();
   // Research uses a curved ribbon with a rolling spectral trace.
   ctx.save(); ctx.beginPath(); ctx.moveTo(1400, 407); ctx.quadraticCurveTo(1472, 396, 1528, 454);
   ctx.lineTo(1528, 479); ctx.quadraticCurveTo(1472, 437, 1400, 445); ctx.closePath(); ctx.clip();
-  ctx.strokeStyle = '#8fffee'; ctx.globalAlpha = activity.qa ? 0.65 : 0.3; ctx.lineWidth = 0.75;
+  ctx.strokeStyle = '#cbd5c4'; ctx.globalAlpha = activity.qa ? 0.45 : 0.10; ctx.lineWidth = 0.75;
   ctx.beginPath();
   for (let i = 0; i <= 115; i += 2) {
     const y = 427 + (i / 115) ** 2 * 24 + Math.sin(i * 0.17 - time * 1.6) * (4 + 3 * Math.sin(i * 0.06));
@@ -296,20 +299,20 @@ export function drawLivingRoom(ctx: CanvasRenderingContext2D, time: number, acti
     const age = wrap(time * 0.13 + n / 5);
     const y = 456 - age * 145;
     const x = 1560 + Math.sin(age * 9 + n) * (4 + n * 2);
-    ctx.globalAlpha = Math.sin(age * Math.PI) * 0.65;
-    ctx.fillStyle = '#abffed'; ctx.beginPath(); ctx.arc(x, y, 1.1 + n % 2, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = Math.sin(age * Math.PI) * 0.25;
+    ctx.fillStyle = '#c3d6b0'; ctx.beginPath(); ctx.arc(x, y, 1.1 + n % 2, 0, Math.PI * 2); ctx.fill();
   }
   ctx.restore();
   // Storage has small status lights instead of another animated display.
   for (const [i, [x, y]] of [[214, 361], [297, 359], [215, 430], [283, 311], [446, 56]].entries()) {
     ctx.globalAlpha = 0.12 + Math.max(0, Math.sin(time * 0.8 - i)) * 0.35;
-    ctx.fillStyle = i % 2 ? '#ffbd9e' : '#89fbed'; ctx.fillRect(x, y, 4, 1);
+    ctx.fillStyle = i % 2 ? '#ffbd9e' : '#c8d5c7'; ctx.fillRect(x, y, 4, 1);
   }
   // Both side holograms transmit streams from their own emitters.
   for (const [n, x] of [714, 795].entries()) {
     for (let i = 0; i < 9; i++) {
       const age = wrap(time * (activity.navigation ? 0.35 : 0.1) + i / 9);
-      ctx.globalAlpha = Math.sin(age * Math.PI) * 0.5;
+      ctx.globalAlpha = Math.sin(age * Math.PI) * (activity.navigation ? 0.3 : 0.08);
       ctx.fillStyle = PHOTONIC_THEME.cyan;
       ctx.fillRect(x + Math.sin(i * 2.4) * age * 28, 461 + n * 18 - age * 60, 1, 2);
     }
@@ -319,9 +322,9 @@ export function drawLivingRoom(ctx: CanvasRenderingContext2D, time: number, acti
   ctx.save(); ctx.beginPath();
   ctx.moveTo(116, 324); ctx.lineTo(147, 530); ctx.lineTo(121, 570); ctx.lineTo(90, 548); ctx.lineTo(100, 363); ctx.closePath(); ctx.clip();
   const glow = ctx.createLinearGradient(95, 0, 145, 0);
-  glow.addColorStop(0, '#41dedc00'); glow.addColorStop(0.5, `rgba(109,255,243,${0.06 + open * 0.28})`); glow.addColorStop(1, '#41dedc00');
+  glow.addColorStop(0, '#41dedc00'); glow.addColorStop(0.5, `rgba(151,192,208,${0.025 + open * 0.16})`); glow.addColorStop(1, '#41dedc00');
   ctx.globalAlpha = 1; ctx.fillStyle = glow; ctx.fillRect(90, 324, 60, 250);
-  ctx.strokeStyle = '#a5fff6'; ctx.globalAlpha = 0.3 + open * 0.5;
+  ctx.strokeStyle = '#b7ced4'; ctx.globalAlpha = 0.12 + open * 0.3;
   for (const side of [-1, 1]) {
     ctx.beginPath(); ctx.moveTo(116, 337);
     ctx.quadraticCurveTo(116 + side * (5 + open * 22), 435, 119 + side * open * 16, 554); ctx.stroke();

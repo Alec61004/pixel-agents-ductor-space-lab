@@ -111,7 +111,7 @@ export function getCommandGesture(time: number): { frame: number; contact: numbe
 export function drawPhotonicActivity(ctx: CanvasRenderingContext2D, time: number, active: boolean): void {
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  const energy = active ? 1 : 0.22;
+  const energy = active ? 0.8 : 0.09;
   const phase = time * (active ? 1.5 : 0.35);
   const nodes = [[470, 346], [552, 344], [674, 344]] as const;
   for (let n = 0; n < nodes.length; n++) {
@@ -121,14 +121,14 @@ export function drawPhotonicActivity(ctx: CanvasRenderingContext2D, time: number
       const px = x + Math.sin(phase + i * 1.9) * (7 + i * 2);
       const py = y - rise * 29;
       ctx.globalAlpha = energy * Math.sin(rise * Math.PI) * 0.8;
-      ctx.strokeStyle = i % 3 ? '#77fff0' : '#ffc1af';
+      ctx.strokeStyle = i % 3 ? '#dfba80' : '#e7d1af';
       ctx.lineWidth = 0.7;
       ctx.beginPath();
       ctx.moveTo(px, py - 2); ctx.lineTo(px + 2, py);
       ctx.lineTo(px, py + 2); ctx.lineTo(px - 2, py); ctx.closePath(); ctx.stroke();
     }
     ctx.globalAlpha = energy * (0.16 + 0.12 * Math.sin(phase * 2 + n));
-    ctx.strokeStyle = '#7ffff1';
+    ctx.strokeStyle = '#dbb578';
     ctx.beginPath(); ctx.ellipse(x, y, 11 + Math.sin(phase + n) * 3, 3, 0, 0, Math.PI * 2); ctx.stroke();
   }
   for (let i = 0; i < 8; i++) {
@@ -136,7 +136,7 @@ export function drawPhotonicActivity(ctx: CanvasRenderingContext2D, time: number
     const x = 427 + travel * 339;
     const y = 363 + Math.sin(travel * Math.PI * 5) * 5;
     ctx.globalAlpha = energy * (0.4 + 0.3 * Math.sin(travel * Math.PI));
-    ctx.fillStyle = '#9effee'; ctx.fillRect(Math.round(x), Math.round(y), 3, 1);
+    ctx.fillStyle = '#ead2ac'; ctx.fillRect(Math.round(x), Math.round(y), 3, 1);
   }
   // Three faceted volumes emerge from the existing projectors. Perspective
   // comes from orbiting vertices, not scaling a flat picture up and down.
@@ -149,14 +149,14 @@ export function drawPhotonicActivity(ctx: CanvasRenderingContext2D, time: number
       return { x: x + Math.cos(angle) * r, y: cy + Math.sin(angle) * r * 0.32 };
     });
     ctx.lineWidth = 0.7;
-    ctx.strokeStyle = '#85fff0';
+    ctx.strokeStyle = '#dbb67f';
     for (let i = 0; i < 4; i++) {
       const v = vertices[i]!;
       const next = vertices[(i + 1) % 4]!;
       ctx.globalAlpha = energy * (v.y > cy ? 0.6 : 0.25);
       ctx.beginPath(); ctx.moveTo(x, cy - r); ctx.lineTo(v.x, v.y);
       ctx.lineTo(x, cy + r); ctx.moveTo(v.x, v.y); ctx.lineTo(next.x, next.y); ctx.stroke();
-      ctx.fillStyle = '#baffee'; ctx.fillRect(Math.round(v.x), Math.round(v.y), 1, 1);
+      ctx.fillStyle = '#eddbc0'; ctx.fillRect(Math.round(v.x), Math.round(v.y), 1, 1);
     }
     // Short alien glyphs grow from each emitter, confined to its footprint.
     for (let i = 0; i < 3; i++) {
@@ -169,14 +169,14 @@ export function drawPhotonicActivity(ctx: CanvasRenderingContext2D, time: number
   // Data packets follow the curved console surface between the projectors.
   for (let lane = 0; lane < 2; lane++) {
     const [x0, y0] = nodes[lane]!; const [x1, y1] = nodes[lane + 1]!;
-    ctx.globalAlpha = energy * 0.2; ctx.strokeStyle = '#5ce8df';
+    ctx.globalAlpha = energy * 0.2; ctx.strokeStyle = '#a68b63';
     ctx.beginPath(); ctx.moveTo(x0, y0 + 8);
     ctx.quadraticCurveTo((x0 + x1) / 2, y0 + 24, x1, y1 + 8); ctx.stroke();
     for (let p = 0; p < 3; p++) {
       const t = (phase * 0.17 + p / 3) % 1;
       const px = x0 + (x1 - x0) * t;
       const py = (1-t)*(1-t)*(y0+8) + 2*t*(1-t)*(y0+24) + t*t*(y1+8);
-      ctx.globalAlpha = energy * 0.75; ctx.fillStyle = '#baffee';
+      ctx.globalAlpha = energy * 0.75; ctx.fillStyle = '#eddbc0';
       ctx.fillRect(Math.round(px), Math.round(py), 2, 1);
     }
   }
@@ -190,9 +190,9 @@ export function drawCommandContact(ctx: CanvasRenderingContext2D, time: number):
   const x = contact < 0 ? 536 : 585;
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
   const glow = ctx.createRadialGradient(x, 362, 0, x, 362, 9);
-  glow.addColorStop(0, '#bbfff5a0'); glow.addColorStop(1, '#54efdf00');
+  glow.addColorStop(0, '#f1d7aba0'); glow.addColorStop(1, '#be925500');
   ctx.fillStyle = glow; ctx.fillRect(x - 9, 353, 18, 18);
-  ctx.strokeStyle = '#98ffed'; ctx.globalAlpha = 0.7; ctx.lineWidth = 0.7;
+  ctx.strokeStyle = '#e6c48e'; ctx.globalAlpha = 0.7; ctx.lineWidth = 0.7;
   ctx.beginPath(); ctx.ellipse(x, 362, 5, 2, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
 }
 

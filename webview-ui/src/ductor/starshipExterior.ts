@@ -200,8 +200,8 @@ function drawAccretionFlow(ctx: CanvasRenderingContext2D, bg: RoomArtwork, time:
   for (let i = 0; i < 110; i++) {
     const head = getAccretionParticle(time, i);
     const edgeFade = Math.min(1, (194 - head.radius) / 20, (head.radius - 29) / 12);
-    ctx.globalAlpha = Math.max(0, edgeFade) * (0.13 + (i % 4) * 0.055);
-    ctx.strokeStyle = i % 5 === 0 ? '#b6f4ff' : i % 2 ? '#9876f2' : '#64bada';
+    ctx.globalAlpha = Math.max(0, edgeFade) * (0.08 + (i % 4) * 0.03);
+    ctx.strokeStyle = i % 5 === 0 ? '#c9d4e0' : i % 2 ? '#7d7e9f' : '#7c98b0';
     ctx.lineWidth = i % 4 === 0 ? 2 : 1;
     ctx.beginPath();
     for (let segment = 0; segment < 7; segment++) {
@@ -230,7 +230,7 @@ function drawAccretionFlow(ctx: CanvasRenderingContext2D, bg: RoomArtwork, time:
   for (let i = 0; i < 5; i++) {
     const angle = i * 1.71 + time * 0.85;
     ctx.globalAlpha = 0.16 + (Math.sin(angle) + 1) * 0.13;
-    ctx.strokeStyle = i % 3 ? '#85e0f6' : '#dcc5ff';
+    ctx.strokeStyle = i % 3 ? '#a8bdce' : '#c2bfce';
     ctx.lineWidth = 1.2 + (i % 3) * 0.45;
     ctx.beginPath();
     ctx.ellipse(1045, 323, 43 + i % 3, 27 + i % 2, 0.25, angle, angle + 0.35 + (i % 3) * 0.19);
@@ -275,8 +275,8 @@ export function drawStarshipExterior(ctx: CanvasRenderingContext2D, bg: RoomArtw
     for (const [x, y, rx, ry] of [[571, 223, 176, 86], [1096, 330, 144, 143], [1420, 280, 85, 128]]) {
       ctx.save(); ctx.translate(x!, y!); ctx.scale(rx!, ry!);
       const glass = ctx.createRadialGradient(0, 0, 0.08, 0, 0, 1);
-      glass.addColorStop(0, '#071c344d'); glass.addColorStop(0.65, '#071c342e');
-      glass.addColorStop(1, '#071c3400');
+      glass.addColorStop(0, '#151c2924'); glass.addColorStop(0.65, '#151c2912');
+      glass.addColorStop(1, '#151c2900');
       ctx.fillStyle = glass; ctx.fillRect(-1, -1, 2, 2); ctx.restore();
     }
   }
@@ -289,8 +289,8 @@ export function drawStarshipExterior(ctx: CanvasRenderingContext2D, bg: RoomArtw
       const height = asset.sprite.height * ship.scale;
       // Small exhaust fades behind each silhouette, at its own depth/speed.
       const exhaust = ctx.createLinearGradient(ship.x + width - 2, 0, ship.x + width + 15 * ship.scale, 0);
-      exhaust.addColorStop(0, '#81d9f0b0');
-      exhaust.addColorStop(1, '#81d9f000');
+      exhaust.addColorStop(0, '#abbfceb0');
+      exhaust.addColorStop(1, '#abbfce00');
       ctx.fillStyle = exhaust;
       ctx.fillRect(ship.x + width - 2, ship.y + height * 0.5, 17 * ship.scale, 2 * ship.scale);
       ctx.drawImage(asset.sprite, Math.round(ship.x), Math.round(ship.y), width, height);

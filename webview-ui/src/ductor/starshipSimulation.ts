@@ -1254,14 +1254,14 @@ export function drawAgent(
   // (2) Rim glow around agent matching role color
   const roleGlow = ROLE_GLOW_COLORS[a.name] ?? a.skin.tint ?? '#5ce1ff';
   ctx.shadowColor = roleGlow;
-  ctx.shadowBlur = 8;
+  ctx.shadowBlur = isOffline ? 0 : 4;
   ctx.drawImage(sprite, sx, sy, cw, ch, -drawW / 2, -drawH, drawW, drawH);
 
   // (3) Second pass with 'lighter' composite mode to boost sprite brightness
   ctx.shadowBlur = 0;
   ctx.shadowColor = 'transparent';
   ctx.globalCompositeOperation = 'lighter';
-  ctx.globalAlpha = isOffline ? 0.35 * 0.22 : 0.22;
+  ctx.globalAlpha = isOffline ? 0.025 : 0.10;
   ctx.drawImage(sprite, sx, sy, cw, ch, -drawW / 2, -drawH, drawW, drawH);
 
   // Alec uses complete authored rear-view poses; other operators keep their hand cues.

@@ -1,8 +1,8 @@
 /** Shared material and light palette for the bridge and Home controls. */
 export const PHOTONIC_THEME = {
-  void: '#071316', hull: '#0c2028', panel: '#102c35', line: '#28535c',
-  cyan: '#77f5e5', violet: '#b998ed', magenta: '#f4aa9d', amber: '#f5c99f',
-  text: '#dfefeb', dim: '#8eaaa9',
+  void: '#101519', hull: '#1c242a', panel: '#242e35', line: '#46565e',
+  cyan: '#9dbfc5', violet: '#aaa4c2', magenta: '#d0a99c', amber: '#d9b47b',
+  text: '#e4e5de', dim: '#a0aaac',
 } as const;
 
 export const PHOTONIC_CSS_VARS = Object.entries(PHOTONIC_THEME)
