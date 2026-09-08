@@ -177,18 +177,24 @@ function getDiskTexture(bg: RoomArtwork) {
   }
 }
 
-function drawAccretionFlow(ctx: CanvasRenderingContext2D, bg: RoomArtwork, time: number) {
+function drawAccretionFlow(
+  ctx: CanvasRenderingContext2D,
+  bg: RoomArtwork,
+  time: number,
+  rotatePaintedDisk = true,
+  centreY = 329,
+) {
   ctx.save();
   ctx.globalAlpha = 1;
   ctx.globalCompositeOperation = 'source-over';
   // Keep all accretion effects within the existing painted nebula.
   ctx.beginPath();
-  ctx.ellipse(1045, 329, 196, 94, 0.25, 0, Math.PI * 2);
+  ctx.ellipse(1045, centreY, 196, 94, 0.25, 0, Math.PI * 2);
   ctx.clip();
-  const texture = getDiskTexture(bg);
+  const texture = rotatePaintedDisk ? getDiskTexture(bg) : null;
   if (texture) {
     ctx.save();
-    ctx.translate(1045, 329);
+    ctx.translate(1045, centreY);
     ctx.transform(0.969, 0.247, -0.247 * 0.44, 0.969 * 0.44, 0, 0);
     ctx.rotate(time * 0.075);
     ctx.drawImage(texture, -192, -192);
@@ -198,14 +204,16 @@ function drawAccretionFlow(ctx: CanvasRenderingContext2D, bg: RoomArtwork, time:
   // Short, uneven luminous streams follow the original tilted disk. Avoid
   // solid concentric UI rings, and let the purple painted texture show through.
   for (let i = 0; i < 110; i++) {
-    const head = getAccretionParticle(time, i);
+    const baseHead = getAccretionParticle(time, i);
+    const head = { ...baseHead, y: baseHead.y + centreY - 329 };
     const edgeFade = Math.min(1, (194 - head.radius) / 20, (head.radius - 29) / 12);
     ctx.globalAlpha = Math.max(0, edgeFade) * (0.11 + (i % 4) * 0.038);
     ctx.strokeStyle = i % 4 === 0 ? '#f6bf68' : i % 3 === 0 ? '#8fcbe9' : '#4f79b8';
     ctx.lineWidth = i % 4 === 0 ? 2 : 1;
     ctx.beginPath();
     for (let segment = 0; segment < 7; segment++) {
-      const p = getAccretionParticle(time - segment * 0.12, i);
+      const basePoint = getAccretionParticle(time - segment * 0.12, i);
+      const p = { ...basePoint, y: basePoint.y + centreY - 329 };
       if (segment === 0) ctx.moveTo(Math.round(p.x), Math.round(p.y));
       else ctx.lineTo(Math.round(p.x), Math.round(p.y));
     }
@@ -214,7 +222,8 @@ function drawAccretionFlow(ctx: CanvasRenderingContext2D, bg: RoomArtwork, time:
   ctx.globalCompositeOperation = 'source-over';
   // A dark central shadow replaces the static white hub; a softly luminous
   // inner edge remains around it, inspired by accretion-disk visualizations.
-  const shadow = ctx.createRadialGradient(1045, 323, 13, 1045, 323, 40);
+  const shadowY = centreY - 6;
+  const shadow = ctx.createRadialGradient(1045, shadowY, 13, 1045, shadowY, 40);
   shadow.addColorStop(0, '#070616');
   shadow.addColorStop(0.55, '#08081cff');
   shadow.addColorStop(0.72, '#102a4ad8');
@@ -223,7 +232,7 @@ function drawAccretionFlow(ctx: CanvasRenderingContext2D, bg: RoomArtwork, time:
   ctx.globalAlpha = 1;
   ctx.fillStyle = shadow;
   ctx.beginPath();
-  ctx.ellipse(1045, 323, 43, 29, 0.25, 0, Math.PI * 2);
+  ctx.ellipse(1045, shadowY, 43, 29, 0.25, 0, Math.PI * 2);
   ctx.fill();
   // Uneven inner wisps rotate faster than the outer flow, not the room itself.
   ctx.globalCompositeOperation = 'screen';
@@ -233,7 +242,7 @@ function drawAccretionFlow(ctx: CanvasRenderingContext2D, bg: RoomArtwork, time:
     ctx.strokeStyle = i % 3 ? '#7fc4e8' : '#f4b85f';
     ctx.lineWidth = 1.2 + (i % 3) * 0.45;
     ctx.beginPath();
-    ctx.ellipse(1045, 323, 43 + i % 3, 27 + i % 2, 0.25, angle, angle + 0.35 + (i % 3) * 0.19);
+    ctx.ellipse(1045, shadowY, 43 + i % 3, 27 + i % 2, 0.25, angle, angle + 0.35 + (i % 3) * 0.19);
     ctx.stroke();
   }
   ctx.restore();
@@ -264,7 +273,9 @@ export function drawStarshipExterior(ctx: CanvasRenderingContext2D, bg: RoomArtw
       ctx.fillRect(Math.round(x) + 2, Math.round(y), 5, 1);
     }
   }
-  drawAccretionFlow(ctx, bg, time);
+  // The new room already contains a detailed amber disk. Animate light over
+  // that painting without rotating sampled pixels from the former backdrop.
+  drawAccretionFlow(ctx, bg, time, !livingRoom, livingRoom ? 294 : 329);
   if (livingRoom) {
     // Blue window glass separates the bright violet sky from the cyan bridge.
     // Applied inside the existing foreground exclusion masks, after the disk,
