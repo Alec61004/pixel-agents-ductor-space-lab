@@ -166,13 +166,14 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
   const stageWrapRef = useRef<HTMLDivElement | null>(null);
   const stageCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const starsCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const rosterRef = useRef<HTMLElement | null>(null);
 
   const agentsRef = useRef<StarshipAgent[]>(createInitialCrew(snapshot));
   const [agentsList, setAgentsList] = useState<StarshipAgent[]>(agentsRef.current);
   const [loaded, setLoaded] = useState(false);
   const [speedMult, setSpeedMult] = useState(1);
   const [showStations, setShowStations] = useState(false);
-  const [rosterCollapsed, setRosterCollapsed] = useState(false);
+  const [rosterCollapsed, setRosterCollapsed] = useState(true);
   const [logText, setLogText] = useState('Bridge systems online. Crew assigned to stations.');
 
   const speedMultRef = useRef(speedMult);
@@ -194,6 +195,21 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
     if (logQueueRef.current.length > 20) logQueueRef.current.shift();
     setLogText(msg);
   };
+
+  useEffect(() => {
+    const closeRoster = (event: PointerEvent) => {
+      if (!rosterRef.current?.contains(event.target as Node)) setRosterCollapsed(true);
+    };
+    const closeRosterWithKeyboard = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setRosterCollapsed(true);
+    };
+    document.addEventListener('pointerdown', closeRoster);
+    document.addEventListener('keydown', closeRosterWithKeyboard);
+    return () => {
+      document.removeEventListener('pointerdown', closeRoster);
+      document.removeEventListener('keydown', closeRosterWithKeyboard);
+    };
+  }, []);
 
   useEffect(() => {
     applySnapshotToAgents(agentsRef.current, snapshot, pushLog);
@@ -488,6 +504,15 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
       return new Date(r.updatedAt) > new Date(acc) ? r.updatedAt : acc;
     }, null);
 
+  const syncLabel = latestEvidence
+    ? new Intl.DateTimeFormat(undefined, {
+        month: 'short',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      }).format(new Date(latestEvidence))
+    : 'STANDBY';
+
   return (
     <div
       className="starship-lab"
@@ -517,12 +542,13 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 14px 22px;
+          min-height: 58px;
+          padding: 9px 18px;
           border-bottom: 1px solid var(--line);
           background: linear-gradient(180deg, var(--panel), var(--void));
           box-shadow: inset 0 -1px rgba(119,245,229,.1);
         }
-        .starship-brand { display: flex; align-items: center; gap: 12px; }
+        .starship-brand { display: flex; align-items: center; gap: 10px; }
         .starship-dot {
           width: 9px; height: 9px; border-radius: 2px; transform: rotate(45deg); background: var(--cyan);
           box-shadow: 0 0 10px var(--cyan); animation: starship-pulse 2.2s ease-in-out infinite;
@@ -532,8 +558,13 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
           font-family: 'Press Start 2P', monospace; font-size: 13px; letter-spacing: 1px;
           margin: 0; color: #fff; text-shadow: 0 0 10px rgba(99,217,242,0.22);
         }
-        .starship-subtitle { font-size: 11px; color: var(--dim); margin-top: 4px; letter-spacing: .5px; }
-        .starship-stat { font-size: 10px; color: var(--dim); text-align: right; line-height: 1.6; }
+        .starship-subtitle { font-size: 10px; color: var(--dim); margin-top: 3px; letter-spacing: .5px; }
+        .starship-stat { display: flex; align-items: stretch; gap: 6px; font-size: 9px; color: var(--dim); text-align: left; }
+        .starship-stat-cell {
+          min-width: 88px; padding: 5px 8px; border: 1px solid rgba(144,174,185,.2);
+          border-radius: 5px; background: rgba(4,21,29,.55); line-height: 1.35;
+        }
+        .starship-stat-label { display: block; margin-bottom: 2px; font-size: 7.5px; letter-spacing: .8px; color: var(--dim); }
         .starship-stat b { color: var(--cyan); font-weight: 600; }
         .starship-main { flex: 1 1 auto; position: relative; display: flex; min-height: 0; width: 100%; height: 100%; overflow: hidden; }
         .starship-stage-wrap { flex: 1 1 auto; position: relative; width: 100%; height: 100%; min-width: 0; background: #000; touch-action: none; }
@@ -598,6 +629,8 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
           border-radius: 4px; font-size: 10px; padding: 2px 6px; pointer-events: none;
           display: inline-flex; align-items: center; justify-content: center; line-height: 1;
         }
+        .starship-roster-body { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; }
+        .starship-roster-body[hidden] { display: none; }
         .starship-roster { flex: 1 1 auto; overflow-y: auto; padding: 8px; }
         .starship-card {
           display: flex; gap: 10px; align-items: center; padding: 9px 10px; margin-bottom: 6px;
@@ -656,26 +689,26 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
           outline-offset: 2px;
         }
         @media (max-width: 768px) {
-          .starship-header {
-            flex-wrap: wrap;
-            gap: 8px;
-            padding: 10px 14px;
-          }
+          .starship-header { gap: 8px; padding: 8px 12px; }
           .starship-header h1 { font-size: 11px; }
-          .starship-stat { font-size: 9.5px; text-align: left; }
+          .starship-stat-cell { min-width: 72px; padding: 4px 6px; }
+          .starship-stat-cell.sync { display: none; }
           .starship-aside { top: 8px; right: 8px; width: min(280px, calc(100vw - 16px)); max-width: calc(100vw - 16px); }
           .starship-footer { padding: 8px 12px; font-size: 9px; flex-wrap: wrap; gap: 8px; }
         }
         @media (max-width: 480px) {
-          .starship-header {
-            flex-direction: column;
-            align-items: flex-start;
-            padding: 8px 12px;
-          }
+          .starship-header { min-height: 52px; padding: 7px 9px; }
           .starship-brand h1 { font-size: 10px; }
-          .starship-aside { top: 6px; right: 6px; width: calc(100vw - 12px); max-width: calc(100vw - 12px); }
+          .starship-subtitle { display: none; }
+          .starship-stat { gap: 4px; }
+          .starship-stat-cell { min-width: 57px; padding: 3px 5px; font-size: 8px; }
+          .starship-stat-cell.heartbeat { display: none; }
+          .starship-stat-label { font-size: 6.5px; }
+          .starship-aside { top: 6px; right: 6px; width: min(280px, calc(100vw - 12px)); max-width: calc(100vw - 12px); }
+          .starship-aside.collapsed { width: auto; min-width: 122px; }
           .starship-log-banner { max-width: calc(100vw - 24px); left: 12px; bottom: 8px; font-size: 9px; }
-          .starship-footer { font-size: 8.5px; padding: 6px 10px; }
+          .starship-footer { font-size: 8.5px; padding: 5px 8px; }
+          .starship-footer-note { display: none; }
         }
       `}</style>
 
@@ -688,39 +721,22 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
           <div className="starship-subtitle">live crew deck · Ductor Space Lab</div>
         </div>
         <div className="starship-stat" role="status" aria-live="polite">
-          {isCloud ? (
-            <>
-              HEARTBEAT: <b>REMOTE HEARTBEAT</b>
-              <br />
-              STATUS: <b>{isStale ? 'Cloud heartbeat stale · agents inactive' : 'Live'}</b>
-              <br />
-              SYNC:{' '}
-              <time dateTime={snapshot?.publishedAt}>
-                <b>{snapshot?.publishedAt ?? 'STANDBY'}</b>
-              </time>
-            </>
-          ) : (
-            <>
-              SHIP: <b>ISV KESTREL-7</b>
-              <br />
-              SIGNAL: <b>{snapshot ? '127.0.0.1 · LIVE ENGINE' : 'LOCAL STANDBY'}</b>
-              <br />
-              {latestEvidence ? (
-                <>
-                  LAST EVIDENCE:{' '}
-                  <time dateTime={latestEvidence}>
-                    <b>{latestEvidence}</b>
-                  </time>
-                </>
-              ) : (
-                <>
-                  STATUS: <b>{snapshot ? 'Live' : 'Standby'}</b>
-                </>
-              )}
-            </>
-          )}
-          <br />
-          CREW ONLINE: <b>{onlineCount}</b>
+          <div className="starship-stat-cell heartbeat">
+            <span className="starship-stat-label">HEARTBEAT</span>
+            <b>{isCloud ? 'REMOTE' : snapshot ? 'LOCAL' : 'STANDBY'}</b>
+          </div>
+          <div className="starship-stat-cell">
+            <span className="starship-stat-label">STATUS</span>
+            <b>{isStale ? 'STALE' : snapshot ? 'LIVE' : 'STANDBY'}</b>
+          </div>
+          <div className="starship-stat-cell sync">
+            <span className="starship-stat-label">LAST SYNC</span>
+            <time dateTime={latestEvidence ?? undefined}><b>{syncLabel}</b></time>
+          </div>
+          <div className="starship-stat-cell">
+            <span className="starship-stat-label">CREW ONLINE</span>
+            <b>{onlineCount} / {CANONICAL_ROLES.length}</b>
+          </div>
         </div>
       </header>
 
@@ -763,7 +779,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
           </div>
         </div>
 
-        <aside className={`starship-aside ${rosterCollapsed ? 'collapsed' : ''}`}>
+        <aside ref={rosterRef} className={`starship-aside ${rosterCollapsed ? 'collapsed' : ''}`}>
           <button
             type="button"
             className="starship-roster-head"
@@ -776,8 +792,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
               {rosterCollapsed ? '▼' : '▲'}
             </span>
           </button>
-          {!rosterCollapsed && (
-            <>
+          <div className="starship-roster-body" hidden={rosterCollapsed}>
               <div
                 id="roster"
                 className="starship-roster"
@@ -905,8 +920,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
                 <br />
                 Signals marked derived are presence-based; no message, prompt, or token is read.
               </div>
-            </>
-          )}
+          </div>
         </aside>
       </main>
 
@@ -927,7 +941,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
         >
           Toggle station markers
         </button>
-        <span style={{ marginLeft: 'auto' }}>
+        <span className="starship-footer-note" style={{ marginLeft: 'auto' }}>
           deck plan is illustrative — click anywhere to route the nearest agent there
         </span>
       </footer>
