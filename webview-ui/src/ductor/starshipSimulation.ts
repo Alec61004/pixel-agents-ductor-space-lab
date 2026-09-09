@@ -1387,6 +1387,7 @@ export function drawHologramTopGlow(
   agents: StarshipAgent[],
   _timeSec: number = Date.now() / 1000,
   bgImg?: RoomArtwork,
+  useRoomPanel = false,
 ): void {
   void _timeSec;
   if (!bgImg) return;
@@ -1407,42 +1408,70 @@ export function drawHologramTopGlow(
   ctx.globalCompositeOperation = 'source-over';
   ctx.globalAlpha = 1;
   ctx.shadowBlur = 0;
-  ctx.drawImage(bgImg, source.x, source.y, source.w, source.h, cx - w / 2, bottom - h, w, h);
-  ctx.beginPath();
-  ctx.rect(cx - w / 2 + 5 * zoom, bottom - h + 5 * zoom, w - 10 * zoom, h - 10 * zoom);
-  ctx.clip();
-  ctx.translate(cx - w / 2, bottom - h);
-  ctx.scale(zoom, zoom);
-
-  // A translucent upper glass layer reveals the actual room behind the enlarged panel.
-  // Stop above the baked-in small map, so the old artwork cannot ghost through.
-  const space = ctx.createLinearGradient(0, 5, 0, 66);
-  space.addColorStop(0, '#112d3b');
-  space.addColorStop(0.55, '#0b2635');
-  space.addColorStop(1, '#164454');
-  ctx.fillStyle = space;
-  ctx.fillRect(5, 5, 96, 61);
-  const roomTop = bottom - h + 5 * zoom;
-  const roomHeight = Math.max(0, source.y - roomTop - 2);
-  if (roomHeight > 0) {
-    ctx.globalAlpha = 0.22;
-    ctx.drawImage(
-      bgImg,
-      cx - w / 2 + 5 * zoom,
-      roomTop,
-      96 * zoom,
-      roomHeight,
-      5,
-      5,
-      96,
-      roomHeight / zoom,
-    );
-    const glass = ctx.createLinearGradient(0, 5, 0, 5 + roomHeight / zoom);
-    glass.addColorStop(0, '#112d3b00');
-    glass.addColorStop(1, '#0b2635ff');
-    ctx.globalAlpha = 1;
+  if (useRoomPanel) {
+    // The current room already owns the physical screen and projector. Fit the
+    // original planet renderer inside that glass; never copy or enlarge an old
+    // screen rectangle over the new artwork.
+    ctx.translate(510, 409);
+    ctx.scale(110 / 106, 70 / 71);
+    ctx.beginPath();
+    ctx.moveTo(3, 14);
+    ctx.quadraticCurveTo(3, 5, 15, 5);
+    ctx.quadraticCurveTo(53, -1, 92, 6);
+    ctx.quadraticCurveTo(103, 7, 103, 17);
+    ctx.lineTo(103, 61);
+    ctx.quadraticCurveTo(103, 68, 95, 68);
+    ctx.lineTo(10, 68);
+    ctx.quadraticCurveTo(3, 68, 3, 60);
+    ctx.closePath();
+    ctx.clip();
+    // Opaque glass replaces the baked star chart completely. All motion below
+    // is the same eight-world tour, including spin, dwell and camera travel.
+    const glass = ctx.createLinearGradient(0, 0, 0, 71);
+    glass.addColorStop(0, '#0a202c');
+    glass.addColorStop(0.6, '#0b2635');
+    glass.addColorStop(1, '#123b4b');
     ctx.fillStyle = glass;
-    ctx.fillRect(5, 5, 96, roomHeight / zoom);
+    ctx.fillRect(0, 0, 106, 71);
+  } else {
+    ctx.drawImage(bgImg, source.x, source.y, source.w, source.h, cx - w / 2, bottom - h, w, h);
+    ctx.beginPath();
+    ctx.rect(cx - w / 2 + 5 * zoom, bottom - h + 5 * zoom, w - 10 * zoom, h - 10 * zoom);
+    ctx.clip();
+    ctx.translate(cx - w / 2, bottom - h);
+    ctx.scale(zoom, zoom);
+  
+    // A translucent upper glass layer reveals the actual room behind the enlarged panel.
+    // Stop above the baked-in small map, so the old artwork cannot ghost through.
+    const space = ctx.createLinearGradient(0, 5, 0, 66);
+    space.addColorStop(0, '#112d3b');
+    space.addColorStop(0.55, '#0b2635');
+    space.addColorStop(1, '#164454');
+    ctx.fillStyle = space;
+    ctx.fillRect(5, 5, 96, 61);
+    const roomTop = bottom - h + 5 * zoom;
+    const roomHeight = Math.max(0, source.y - roomTop - 2);
+    if (roomHeight > 0) {
+      ctx.globalAlpha = 0.22;
+      ctx.drawImage(
+        bgImg,
+        cx - w / 2 + 5 * zoom,
+        roomTop,
+        96 * zoom,
+        roomHeight,
+        5,
+        5,
+        96,
+        roomHeight / zoom,
+      );
+      const glass = ctx.createLinearGradient(0, 5, 0, 5 + roomHeight / zoom);
+      glass.addColorStop(0, '#112d3b00');
+      glass.addColorStop(1, '#0b2635ff');
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = glass;
+      ctx.fillRect(5, 5, 96, roomHeight / zoom);
+    }
+  
   }
 
   // Clip and glass stay in panel coordinates. Only the universe is transformed:
@@ -2186,6 +2215,7 @@ export function drawAlienConsoleEffects(
 export function drawWorkstationLabels(
   ctx: CanvasRenderingContext2D,
   agents?: StarshipAgent[],
+  useRoomPanel = false,
 ): void {
   ctx.save();
   for (const ws of Object.values(WORKSTATIONS)) {
@@ -2198,7 +2228,7 @@ export function drawWorkstationLabels(
     }
 
     const lx = ws.displayBounds ? ws.displayBounds.x + ws.displayBounds.w / 2 : ws.approachPoint.x;
-    const ly = ws.displayBounds ? ws.displayBounds.y - 12 : ws.approachPoint.y - 75;
+    const ly = useRoomPanel && ws.agentName === 'Kevin' ? 397 : ws.displayBounds ? ws.displayBounds.y - 12 : ws.approachPoint.y - 75;
 
     const text = ws.label;
     ctx.font = "bold 9.5px 'JetBrains Mono', monospace";
@@ -2305,7 +2335,7 @@ export function drawStage(
     qa: qaActive,
   });
   drawFloorMarkers(ctx, showStations);
-  drawHologramTopGlow(ctx, agents, timeSec, background);
+  drawHologramTopGlow(ctx, agents, timeSec, background, !!livingArtwork);
   const mapOperator = agents.find((agent) => agent.name === 'Kevin');
   if (mapOperator) drawAlecHologramControl(ctx, mapOperator);
 
@@ -2350,7 +2380,7 @@ export function drawStage(
   // repaint the background over their lower bodies: that made walking sprites
   // appear to lose their torso and legs during station transitions.
 
-  drawWorkstationLabels(ctx, agents);
+  drawWorkstationLabels(ctx, agents, !!livingArtwork);
 
   ctx.restore();
 

@@ -50,3 +50,31 @@ test('window effects clip before drawing; the approved planet tour retains its b
   assert.ok(calls.slice(0, glassPaint).some(c => c[0] === 'clip'));
   assert.equal(calls.filter(c => c[0] === 'save').length, calls.filter(c => c[0] === 'restore').length);
 });
+
+
+test('current room owns one star-map glass through every exploration phase', () => {
+  const calls: any[][] = [];
+  const ctx = new Proxy({}, {
+    get: (_, key) => key === 'createLinearGradient' || key === 'createRadialGradient'
+      ? () => ({ addColorStop() {} })
+      : (...args: any[]) => calls.push([key, ...args]),
+    set: () => true,
+  }) as CanvasRenderingContext2D;
+  const crew = createInitialCrew();
+  const kevin = crew.find(a => a.name === 'Kevin')!;
+  const bg = { width: 1600, height: 678 } as HTMLImageElement;
+  for (const time of [0, 2, 6, 12, 22]) {
+    Object.assign(kevin, WORKSTATIONS.Kevin.interactionPoint, {
+      state: STATE.WORKING, reportedState: 'working',
+      hologramTime: time, hologramSceneTime: time,
+    });
+    calls.length = 0;
+    drawHologramTopGlow(ctx, crew, time, bg, true);
+    assert.equal(calls.filter(c => c[0] === 'drawImage').length, 0,
+      'never copy a second screen or baked chart into the room');
+    assert.ok(calls.some(c => c[0] === 'translate' && c[1] === 510 && c[2] === 409));
+    const paint = calls.findIndex(c => c[0] === 'fillRect');
+    assert.ok(calls.slice(0, paint).some(c => c[0] === 'clip'));
+    assert.equal(calls.filter(c => c[0] === 'save').length, calls.filter(c => c[0] === 'restore').length);
+  }
+});
