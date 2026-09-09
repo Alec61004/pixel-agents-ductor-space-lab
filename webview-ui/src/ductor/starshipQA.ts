@@ -33,7 +33,7 @@ export function drawQAExperiment(ctx: CanvasRenderingContext2D, time: number): v
   })).sort((a, b) => a.depth - b.depth);
   for (const { points, depth } of faces) {
     const light = Math.max(18, Math.min(72, 40 + depth * 1.4));
-    ctx.fillStyle = `hsla(${state.validated ? 38 : 190},${state.validated ? 72 : 68}%,${light}%,0.86)`;
+    ctx.fillStyle = `hsla(${state.validated ? 38 : 190},${state.validated ? 48 : 38}%,${light}%,0.86)`;
     ctx.strokeStyle = '#a9eef879'; ctx.lineWidth = 0.65;
     ctx.beginPath(); points.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y));
     ctx.closePath(); ctx.fill(); ctx.stroke();
@@ -55,7 +55,7 @@ export function drawQAExperiment(ctx: CanvasRenderingContext2D, time: number): v
     }
   }
   // Feedback travels along the real table's rim, and turns green on completion.
-  ctx.strokeStyle = state.validated ? '#f2ae55' : '#68dff2'; ctx.lineWidth = 2;
+  ctx.strokeStyle = state.validated ? '#e7bd88' : '#9bcfdf'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.ellipse(x, 527, 68, 23, 0, Math.PI, Math.PI + state.scan * Math.PI); ctx.stroke();
   ctx.restore();
 }

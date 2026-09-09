@@ -13,9 +13,9 @@ export interface BridgeActivity {
   qa: boolean;
 }
 
-const CYAN = '#5fe0f4';
-const AMBER = '#f1a34d';
-const AMBER_SOFT = '#ffd08a';
+const CYAN = '#91cbdc';
+const AMBER = '#ddb381';
+const AMBER_SOFT = '#f5dfbd';
 
 function glowDot(
   ctx: CanvasRenderingContext2D,
@@ -74,9 +74,9 @@ export function drawBridgeMaterialPass(ctx: CanvasRenderingContext2D, time: numb
   ctx.save();
   clipFloor(ctx);
   const deck = ctx.createLinearGradient(0, 395, 0, 678);
-  deck.addColorStop(0, 'rgba(4,15,22,0.03)');
-  deck.addColorStop(0.55, 'rgba(3,12,19,0.15)');
-  deck.addColorStop(1, 'rgba(1,7,12,0.31)');
+  deck.addColorStop(0, 'rgba(15,18,24,0)');
+  deck.addColorStop(0.55, 'rgba(15,18,24,0.035)');
+  deck.addColorStop(1, 'rgba(10,13,18,0.10)');
   ctx.fillStyle = deck;
   ctx.fillRect(0, 390, 1600, 288);
 
@@ -89,13 +89,6 @@ export function drawBridgeMaterialPass(ctx: CanvasRenderingContext2D, time: numb
   ctx.fillStyle = floorSheen;
   ctx.fillRect(0, 440, 1600, 238);
   ctx.restore();
-
-  // Side structures receive a subtle navy glaze, which moves the authored grey
-  // toward the visual reference without painting over devices.
-  ctx.globalCompositeOperation = 'multiply';
-  ctx.fillStyle = 'rgba(2,14,22,0.14)';
-  ctx.fillRect(0, 100, 335, 470);
-  ctx.fillRect(1290, 100, 310, 500);
 
   // Structural seams and conduits are already authored at full resolution in
   // room V3. Re-stroking their former coordinates created obvious ghost lines.
@@ -115,7 +108,7 @@ export function drawBridgeLightPass(
     glowDot(ctx, x, y, AMBER, 10, 0.055 * pulse);
     ctx.save();
     ctx.globalCompositeOperation = 'screen';
-    ctx.globalAlpha = 0.34 * pulse;
+    ctx.globalAlpha = 0.22 * pulse;
     ctx.fillStyle = AMBER_SOFT;
     ctx.fillRect(x - 1.5, y - 0.75, 3, 1.5);
     ctx.restore();
@@ -128,9 +121,9 @@ export function drawBridgeLightPass(
   // Local station pools. These are deliberately elliptical reflections rather
   // than full-room bloom, matching the reference's hierarchy.
   const stations = [
-    { x: 560, y: 426, rx: 170, ry: 50, color: '73,208,236', active: activity.command },
-    { x: 568, y: 582, rx: 105, ry: 54, color: '77,195,238', active: activity.navigation },
-    { x: 1060, y: 587, rx: 120, ry: 45, color: '78,202,232', active: activity.qa },
+    { x: 560, y: 426, rx: 170, ry: 50, color: '128,181,201', active: activity.command },
+    { x: 568, y: 582, rx: 105, ry: 54, color: '122,170,204', active: activity.navigation },
+    { x: 1060, y: 587, rx: 120, ry: 45, color: '138,191,187', active: activity.qa },
   ];
   ctx.globalCompositeOperation = 'screen';
   for (const [index,s] of stations.entries()) {
@@ -158,9 +151,9 @@ export function drawBridgeLightPass(
     ctx.translate(x,y);
     ctx.scale(rx,ry);
     const g=ctx.createRadialGradient(0,0,0,0,0,1);
-    g.addColorStop(0,'rgba(241,163,77,0.040)');
-    g.addColorStop(0.45,'rgba(241,163,77,0.012)');
-    g.addColorStop(1,'rgba(241,163,77,0)');
+    g.addColorStop(0,'rgba(221,179,129,0.040)');
+    g.addColorStop(0.45,'rgba(221,179,129,0.012)');
+    g.addColorStop(1,'rgba(221,179,129,0)');
     ctx.fillStyle=g;
     ctx.fillRect(-1,-1,2,2);
     ctx.restore();

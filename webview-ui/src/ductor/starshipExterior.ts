@@ -224,17 +224,21 @@ function drawAccretionFlow(
   // A dark central shadow replaces the static white hub; a softly luminous
   // inner edge remains around it, inspired by accretion-disk visualizations.
   const shadowY = centreY - 6;
-  const shadow = ctx.createRadialGradient(1045, shadowY, 13, 1045, shadowY, 40);
-  shadow.addColorStop(0, '#070616');
-  shadow.addColorStop(0.55, '#08081cff');
-  shadow.addColorStop(0.72, '#102a4ad8');
-  shadow.addColorStop(0.9, '#6abde434');
-  shadow.addColorStop(1, '#6abde400');
-  ctx.globalAlpha = 1;
-  ctx.fillStyle = shadow;
-  ctx.beginPath();
-  ctx.ellipse(1045, shadowY, 43, 29, 0.25, 0, Math.PI * 2);
-  ctx.fill();
+  // Modern artwork already has a shaded event horizon. Preserve that material;
+  // the synthetic replacement is needed only for the original white hub.
+  if (rotatePaintedDisk) {
+    const shadow = ctx.createRadialGradient(1045, shadowY, 13, 1045, shadowY, 40);
+    shadow.addColorStop(0, '#070616');
+    shadow.addColorStop(0.55, '#08081cff');
+    shadow.addColorStop(0.72, '#102a4ad8');
+    shadow.addColorStop(0.9, '#6abde434');
+    shadow.addColorStop(1, '#6abde400');
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = shadow;
+    ctx.beginPath();
+    ctx.ellipse(1045, shadowY, 43, 29, 0.25, 0, Math.PI * 2);
+    ctx.fill();
+  }
   // Uneven inner wisps rotate faster than the outer flow, not the room itself.
   ctx.globalCompositeOperation = 'screen';
   for (let i = 0; i < 5; i++) {

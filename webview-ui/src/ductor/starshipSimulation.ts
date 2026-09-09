@@ -2299,7 +2299,8 @@ export function drawStage(
   ctx.save();
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
-  ctx.filter = livingArtwork ? 'contrast(1.045) saturate(1.02)' : 'none';
+  // The production artwork is already graded; preserve its highlight rolloff.
+  ctx.filter = 'none';
   ctx.drawImage(background, offX, offY, drawW, drawH);
   ctx.restore();
 
