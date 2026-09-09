@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { PNG } from 'pngjs';
 import { test } from 'vitest';
 import {
   drawLivingRoom,
@@ -8,13 +7,20 @@ import {
   getLivingRoomArtwork,
   getPodParticle,
   getSpecimenVitalState,
+  LIVING_ROOM_ASSET,
   SPECIMEN_TANK,
 } from '../src/ductor/starshipLivingRoom.js';
 import { drawStarshipExterior } from '../src/ductor/starshipExterior.js';
 
 test('the full room decodes and normalises once into the original coordinate space', () => {
-  const png = PNG.sync.read(readFileSync(new URL('../public/assets/themes/ductor-space-lab/photonic-room-v1.png', import.meta.url)), { checkCRC: true });
-  assert.ok(Math.abs(png.width / png.height - 1600 / 678) < 0.01);
+  assert.equal(LIVING_ROOM_ASSET, 'themes/ductor-space-lab/photonic-room-v3.webp');
+  const roomFile = readFileSync(new URL(`../public/assets/${LIVING_ROOM_ASSET}`, import.meta.url));
+  assert.equal(roomFile.toString('ascii', 0, 4), 'RIFF');
+  assert.equal(roomFile.toString('ascii', 8, 12), 'WEBP');
+  assert.equal(roomFile.toString('ascii', 12, 16), 'VP8 ');
+  const width = roomFile.readUInt16LE(26) & 0x3fff;
+  const height = roomFile.readUInt16LE(28) & 0x3fff;
+  assert.ok(Math.abs(width / height - 1600 / 678) < 0.01);
   const previous = globalThis.OffscreenCanvas;
   let copies = 0;
   class TestCanvas {
@@ -30,7 +36,7 @@ test('the full room decodes and normalises once into the original coordinate spa
   }
   globalThis.OffscreenCanvas = TestCanvas as unknown as typeof OffscreenCanvas;
   try {
-    const image = { width: png.width, height: png.height } as HTMLImageElement;
+    const image = { width, height } as HTMLImageElement;
     const room = getLivingRoomArtwork(image)!;
     assert.equal(room.width, 1600); assert.equal(room.height, 678);
     assert.equal(getLivingRoomArtwork(image), room); assert.equal(copies, 1);

@@ -1,7 +1,7 @@
 import { drawQAExperiment } from './starshipQA.js';
 import { PHOTONIC_THEME } from './starshipPhotonicTheme.js';
 
-export const LIVING_ROOM_ASSET = 'themes/ductor-space-lab/photonic-room-v2.jpg';
+export const LIVING_ROOM_ASSET = 'themes/ductor-space-lab/photonic-room-v3.webp';
 export type RoomArtwork = HTMLImageElement | HTMLCanvasElement | OffscreenCanvas;
 type Point = { x: number; y: number };
 export interface RoomActivity {
@@ -24,7 +24,11 @@ export function getLivingRoomArtwork(image?: HTMLImageElement): RoomArtwork | un
   } else return undefined;
   const ctx = canvas.getContext('2d') as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null;
   if (!ctx) return undefined;
-  ctx.imageSmoothingEnabled = false;
+  // The room is high-resolution painted artwork, not a sprite sheet. A single
+  // high-quality downsample keeps hull seams and instrument text crisp without
+  // introducing the jagged edges produced by nearest-neighbour scaling.
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(image, 0, 0, 1600, 678);
   roomCache.set(image, canvas);
   return canvas;
@@ -35,9 +39,6 @@ export const LIVING_ROOM_ZONES = {
     { x: 326, y: 483, w: 48, h: 101 }, { x: 392, y: 483, w: 47, h: 101 },
     { x: 719, y: 487, w: 49, h: 99 }, { x: 821, y: 235, w: 116, h: 195 },
     { x: 1325, y: 390, w: 21, h: 55 }, { x: 1354, y: 390, w: 22, h: 55 },
-  ],
-  crystals: [
-    [997, 76, 5, 12], [236, 212, 3, 8], [689, 538, 3, 10],
   ],
   conduits: [
     [[38, 640], [142, 644], [170, 607], [310, 604]],
@@ -88,45 +89,6 @@ export function getAirlockResponse(crew: readonly Point[]): number {
   const distance = Math.min(...crew.map(p => Math.hypot(p.x - 180, p.y - 592)));
   const t = Math.max(0, Math.min(1, (150 - distance) / 90));
   return t * t * (3 - 2 * t);
-}
-
-function drawCrystal(ctx: CanvasRenderingContext2D, time: number, x: number, y: number, rx: number, ry: number, index: number) {
-  const phase = time * 0.6 + index * 0.8;
-  const pulse = 0.28 + (Math.sin(phase) + 1) * 0.12;
-  ctx.save(); ctx.beginPath();
-  ctx.moveTo(x, y - ry); ctx.quadraticCurveTo(x + rx * 1.5, y, x, y + ry);
-  ctx.quadraticCurveTo(x - rx * 1.5, y, x, y - ry); ctx.clip();
-  const light = ctx.createRadialGradient(x, y, 1, x, y, ry);
-  light.addColorStop(0, '#6edcf27a'); light.addColorStop(1, '#42b6d000');
-  ctx.globalAlpha = pulse; ctx.fillStyle = light; ctx.fillRect(x - rx * 2, y - ry, rx * 4, ry * 2);
-  // A traveling internal filament, confined to the crystal's actual surface.
-  const front = y + ry - wrap(time * 0.11 + index * 0.13) * ry * 2;
-  ctx.strokeStyle = '#b8f2fb'; ctx.lineWidth = 0.75; ctx.globalAlpha = 0.35;
-  ctx.beginPath(); ctx.moveTo(x - rx, front + 3);
-  ctx.quadraticCurveTo(x, front - 4, x + rx, front + 3); ctx.stroke();
-  ctx.restore();
-}
-
-function drawScanner(ctx: CanvasRenderingContext2D, time: number, x: number, y: number, rx: number, ry: number, active: boolean) {
-  ctx.save(); ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.clip();
-  const phase = time * (active ? 0.75 : 0.16);
-  ctx.globalAlpha = active ? 0.5 : 0.16;
-  ctx.strokeStyle = PHOTONIC_THEME.cyan; ctx.lineWidth = 0.85;
-  for (let i = 0; i < 3; i++) {
-    const scanX = x - rx + wrap(phase * 0.2 + i / 3) * rx * 2;
-    ctx.beginPath(); ctx.moveTo(scanX, y - ry); ctx.quadraticCurveTo(scanX + 9, y, scanX, y + ry); ctx.stroke();
-  }
-  // An alien sample rotates in the scan volume; the scanner reads its vertices.
-  const points = Array.from({ length: 7 }, (_, i) => {
-    const a = phase * 0.45 + i * Math.PI * 2 / 7;
-    return { x: x + Math.cos(a) * rx * 0.45, y: y + Math.sin(a) * ry * 0.48 };
-  });
-  for (let i = 0; i < points.length; i++) {
-    const p = points[i]!, q = points[(i + 2) % points.length]!;
-    ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.stroke();
-    ctx.fillStyle = i % 3 ? '#8debf8' : '#f3a64c'; ctx.fillRect(Math.round(p.x), Math.round(p.y), 2, 1);
-  }
-  ctx.restore();
 }
 
 function drawSpecimenTank(ctx: CanvasRenderingContext2D, time: number, active: boolean, _artwork?: RoomArtwork): void {
@@ -180,44 +142,9 @@ function drawSpecimenTank(ctx: CanvasRenderingContext2D, time: number, active: b
   ctx.restore();
 }
 
-/** Soft light on the floor connects each instrument to the room's materials. */
-function drawDeckLighting(ctx: CanvasRenderingContext2D, time: number, activity: RoomActivity): void {
-  ctx.save();
-  ctx.globalCompositeOperation = 'source-over';
-  ctx.globalAlpha = 1;
-  // Follow the open deck; light must not wash over the consoles or windows.
-  ctx.beginPath(); ctx.moveTo(405, 408); ctx.lineTo(675, 408);
-  ctx.lineTo(675, 518); ctx.lineTo(803, 549); ctx.lineTo(935, 572);
-  ctx.lineTo(1246, 592); ctx.lineTo(1510, 612); ctx.lineTo(1560, 678);
-  ctx.lineTo(45, 678); ctx.lineTo(185, 560); ctx.lineTo(320, 505);
-  ctx.closePath(); ctx.clip();
-  const depth = ctx.createLinearGradient(0, 408, 0, 678);
-  depth.addColorStop(0, '#09141c00'); depth.addColorStop(0.7, '#09141c0d');
-  depth.addColorStop(1, '#09141c1c');
-  ctx.fillStyle = depth; ctx.fillRect(0, 408, 1600, 270);
-  ctx.globalCompositeOperation = 'screen';
-  const sources = [
-    { x: 558, y: 422, rx: 142, ry: 52, active: activity.command, rgb: '76,201,234' },
-    { x: 568, y: 579, rx: 117, ry: 70, active: activity.navigation, rgb: '70,176,229' },
-    { x: 1060, y: 591, rx: 125, ry: 49, active: activity.qa, rgb: '92,205,235' },
-  ];
-  for (const [index, source] of sources.entries()) {
-    ctx.save(); ctx.translate(source.x, source.y); ctx.scale(source.rx, source.ry);
-    const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
-    const intensity = (source.active ? 0.14 : 0.05) + Math.sin(time * 0.6 + index) * 0.012;
-    glow.addColorStop(0, `rgba(${source.rgb},${intensity})`);
-    glow.addColorStop(0.4, `rgba(${source.rgb},${intensity * 0.45})`);
-    glow.addColorStop(1, `rgba(${source.rgb},0)`);
-    ctx.fillStyle = glow; ctx.fillRect(-1, -1, 2, 2); ctx.restore();
-  }
-  ctx.restore();
-}
-
 /** Environment motion is drawn before characters and never repaints over them. */
 export function drawLivingRoom(ctx: CanvasRenderingContext2D, time: number, activity: RoomActivity, artwork?: RoomArtwork): void {
-  drawDeckLighting(ctx, time, activity);
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  for (const [i, [x, y, rx, ry]] of LIVING_ROOM_ZONES.crystals.entries()) drawCrystal(ctx, time, x, y, rx, ry, i);
   drawSpecimenTank(ctx, time, activity.command || activity.qa, artwork);
   // Each life-support vessel has its own bubble cadence and glass ripple.
   for (const [n, p] of LIVING_ROOM_ZONES.pods.entries()) {
@@ -226,8 +153,8 @@ export function drawLivingRoom(ctx: CanvasRenderingContext2D, time: number, acti
     // Match the large vessel's deep liquid instead of adding lime bloom.
     ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
     const liquid = ctx.createLinearGradient(p.x, 0, p.x + p.w, 0);
-    liquid.addColorStop(0, '#6b4c2738'); liquid.addColorStop(0.5, '#79552a28');
-    liquid.addColorStop(1, '#49352140');
+    liquid.addColorStop(0, '#6b4c271f'); liquid.addColorStop(0.5, '#79552a16');
+    liquid.addColorStop(1, '#49352124');
     ctx.fillStyle = liquid; ctx.fillRect(p.x, p.y, p.w, p.h);
     ctx.globalCompositeOperation = 'screen';
     for (let i = 0; i < (p.w < 20 ? 3 : 6); i++) {
@@ -239,22 +166,8 @@ export function drawLivingRoom(ctx: CanvasRenderingContext2D, time: number, acti
     ctx.fillStyle = '#e9b768'; ctx.fillRect(p.x, p.y, p.w, p.h);
     ctx.restore();
   }
-  // The reference uses visible cyan energy rails even while idle.
-  ctx.save();
-  ctx.globalCompositeOperation = 'screen';
-  ctx.lineWidth = 1.15;
-  ctx.strokeStyle = '#42cbe6';
-  ctx.globalAlpha = 0.16 + (activity.command ? 0.10 : 0);
-  for (const path of LIVING_ROOM_ZONES.conduits) {
-    ctx.beginPath();
-    path.forEach((point, index) => {
-      if (index === 0) ctx.moveTo(point[0], point[1]);
-      else ctx.lineTo(point[0], point[1]);
-    });
-    ctx.stroke();
-  }
-  ctx.restore();
-
+  // The bridge lighting pass owns the rail itself; this layer contributes only
+  // sparse moving packets so the baked rail is not outlined a second time.
   for (const [lane, path] of LIVING_ROOM_ZONES.conduits.entries()) {
     for (let packet = 0; packet < 4; packet++) {
       const travel = wrap(time * (activity.command ? 0.19 : 0.06) + packet / 4 + lane * 0.14) * (path.length - 1);
@@ -265,7 +178,6 @@ export function drawLivingRoom(ctx: CanvasRenderingContext2D, time: number, acti
       ctx.fillStyle = '#62d4e9'; ctx.fillRect(Math.round(x), Math.round(y), 3, 1);
     }
   }
-  drawScanner(ctx, time, 1048, 527, 67, 21, false);
   if (activity.qa) drawQAExperiment(ctx, time);
   // The wide overhead lens tracks a star lattice; it is not another crystal.
   ctx.save(); ctx.beginPath(); ctx.ellipse(994, 75, 96, 21, 0, 0, Math.PI * 2); ctx.clip();

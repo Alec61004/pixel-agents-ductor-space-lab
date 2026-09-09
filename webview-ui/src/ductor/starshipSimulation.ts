@@ -2268,7 +2268,8 @@ export function drawStage(
   // stable while we progressively replace the old baked look.
   ctx.save();
   ctx.imageSmoothingEnabled = true;
-  ctx.filter = livingArtwork ? 'contrast(1.08) saturate(1.08)' : 'none';
+  ctx.imageSmoothingQuality = 'high';
+  ctx.filter = livingArtwork ? 'contrast(1.045) saturate(1.02)' : 'none';
   ctx.drawImage(background, offX, offY, drawW, drawH);
   ctx.restore();
 

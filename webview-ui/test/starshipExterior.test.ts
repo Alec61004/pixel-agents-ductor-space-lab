@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { drawStarshipExterior, getAccretionParticle, getExteriorShip } from '../src/ductor/starshipExterior.js';
+import { drawStarshipExterior, EXTERIOR_SHIP_COUNT, getAccretionParticle, getExteriorShip } from '../src/ductor/starshipExterior.js';
 import { createInitialCrew, drawHologramTopGlow, STATE, WORKSTATIONS } from '../src/ductor/starshipSimulation.js';
 
 test('ships travel in a shared direction with different depth speeds; accretion flows inward', () => {
@@ -12,13 +12,14 @@ test('ships travel in a shared direction with different depth speeds; accretion 
   assert.ok(later.radius < start.radius);
   assert.notEqual(later.x, start.x);
   for (let time = 0; time < 120; time += 0.25) {
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < EXTERIOR_SHIP_COUNT; i++) {
       const ship = getExteriorShip(time, i);
       assert.ok(ship.x >= 382 && ship.x < 1522 && Number.isFinite(ship.y));
       const p = getAccretionParticle(time, i);
       assert.ok(p.radius >= 29 && p.radius <= 194 && Number.isFinite(p.x) && Number.isFinite(p.y));
     }
   }
+  assert.equal(EXTERIOR_SHIP_COUNT, 3);
 });
 
 test('window effects clip before drawing; the approved planet tour retains its blue frame and glass clip', () => {

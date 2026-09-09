@@ -458,10 +458,17 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
       if (wrap && starsCanvas) {
         const starsCtx = starsCanvas.getContext('2d');
         if (starsCtx) {
-          starTime += dt;
           const rect = wrap.getBoundingClientRect();
           const dpr = window.devicePixelRatio || 1;
-          drawStarsLayer(starsCtx, stars, starTime, rect, dpr);
+          if (livingRoomReady) {
+            // Room V3 and the exterior pass already contain window stars. The
+            // old full-screen layer placed duplicate stars on hull and floor.
+            starsCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            starsCtx.clearRect(0, 0, rect.width, rect.height);
+          } else {
+            starTime += dt;
+            drawStarsLayer(starsCtx, stars, starTime, rect, dpr);
+          }
         }
       }
 
@@ -575,11 +582,11 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
         .starship-scanline {
           position: absolute; inset: 0; pointer-events: none;
           background: repeating-linear-gradient(0deg, rgba(0,0,0,0.045) 0px, rgba(0,0,0,0.045) 1px, transparent 1px, transparent 3px);
-          mix-blend-mode: overlay; opacity: .12;
+          mix-blend-mode: overlay; opacity: .05;
         }
         .starship-vignette {
           position: absolute; inset: 0; pointer-events: none;
-          box-shadow: inset 0 0 110px 24px rgba(2,11,17,0.28);
+          box-shadow: inset 0 0 96px 18px rgba(2,11,17,0.20);
         }
         .starship-starfield { position: absolute; inset: 0; pointer-events: none; }
         .starship-loading {
@@ -948,3 +955,4 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
     </div>
   );
 }
+

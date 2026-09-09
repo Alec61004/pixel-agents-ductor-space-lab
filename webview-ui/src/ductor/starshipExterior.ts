@@ -69,6 +69,7 @@ export function getAccretionParticle(time: number, index: number): Point & { rad
 
 type ShipAsset = { x: number; y: number; clean: OffscreenCanvas; sprite: OffscreenCanvas };
 const SHIP_REGIONS = [[563, 192, 53, 28], [612, 205, 57, 28], [538, 221, 27, 17]] as const;
+export const EXTERIOR_SHIP_COUNT = SHIP_REGIONS.length;
 const shipCache = new WeakMap<RoomArtwork, ShipAsset[] | null>();
 
 function getShipAssets(bg: RoomArtwork): ShipAsset[] | null {
@@ -292,8 +293,10 @@ export function drawStarshipExterior(ctx: CanvasRenderingContext2D, bg: RoomArtw
     }
   }
   if (ships) {
-    for (let index = 0; index < 4; index++) {
-      const asset = ships[index % ships.length]!;
+    // One instance of each silhouette: the previous fourth craft repeated the
+    // first sprite and made the windows read like duplicated artwork.
+    for (let index = 0; index < EXTERIOR_SHIP_COUNT; index++) {
+      const asset = ships[index]!;
       const ship = getExteriorShip(time, index);
       ctx.globalAlpha = 0.9;
       const width = asset.sprite.width * ship.scale;

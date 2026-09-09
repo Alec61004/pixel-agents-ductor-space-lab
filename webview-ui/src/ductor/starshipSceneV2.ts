@@ -14,7 +14,6 @@ export interface BridgeActivity {
 }
 
 const CYAN = '#5fe0f4';
-const CYAN_SOFT = '#9debf7';
 const AMBER = '#f1a34d';
 const AMBER_SOFT = '#ffd08a';
 
@@ -37,40 +36,6 @@ function glowDot(
   ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
   ctx.restore();
 }
-
-function strokePath(
-  ctx: CanvasRenderingContext2D,
-  points: readonly (readonly [number, number])[],
-  color: string,
-  width: number,
-  alpha: number,
-): void {
-  if (points.length < 2) return;
-  ctx.save();
-  ctx.globalCompositeOperation = 'screen';
-  ctx.strokeStyle = color;
-  ctx.lineWidth = width;
-  ctx.globalAlpha = alpha;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.beginPath();
-  points.forEach(([x, y], index) => index ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
-  ctx.stroke();
-  ctx.restore();
-}
-
-const upperConduits = [
-  [[365,111],[418,92],[496,91],[540,58],[611,62],[654,94],[744,95]],
-  [[1360,104],[1402,96],[1476,97],[1511,112]],
-] as const;
-
-const deckConduits = [
-  [[38,640],[142,644],[170,607],[310,604]],
-  [[462,627],[476,653],[456,677]],
-  [[657,579],[687,625],[753,631],[785,676]],
-  [[920,532],[974,587],[1070,602],[1174,580],[1300,574]],
-  [[1390,613],[1452,654],[1568,635]],
-] as const;
 
 const amberPracticalLights = [
   [317,140],[352,218],[420,452],[445,453],[495,433],
@@ -132,26 +97,8 @@ export function drawBridgeMaterialPass(ctx: CanvasRenderingContext2D, time: numb
   ctx.fillRect(0, 100, 335, 470);
   ctx.fillRect(1290, 100, 310, 500);
 
-  // Window frames get a cold inner edge rather than a broad neon outline.
-  ctx.globalCompositeOperation = 'screen';
-  ctx.lineWidth = 1.1;
-  ctx.strokeStyle = 'rgba(95,224,244,0.11)';
-  for (const [x,y,w,h,r] of [
-    [347,111,438,326,29],
-    [850,106,458,353,30],
-    [1321,110,262,347,26],
-  ] as const) {
-    ctx.beginPath();
-    ctx.roundRect(x, y, w, h, r);
-    ctx.stroke();
-  }
-
-  // Upper hull practical conduits: thin cyan cores with dim broad halos.
-  for (const path of upperConduits) {
-    strokePath(ctx, path, CYAN, 3.5, 0.022);
-    strokePath(ctx, path, CYAN_SOFT, 0.85, 0.20);
-  }
-
+  // Structural seams and conduits are already authored at full resolution in
+  // room V3. Re-stroking their former coordinates created obvious ghost lines.
   ctx.restore();
 }
 
@@ -164,24 +111,18 @@ export function drawBridgeLightPass(
   ctx.save();
   const pulse = 0.86 + Math.sin(time * 0.9) * 0.08;
 
-  // Persistent cyan power rails make the room read as an active spacecraft.
-  for (const path of deckConduits) {
-    strokePath(ctx, path, CYAN, 2.8, 0.022);
-    strokePath(ctx, path, CYAN_SOFT, 0.65, 0.17);
-  }
-
   for (const [x,y] of amberPracticalLights) {
-    glowDot(ctx, x, y, AMBER, 10, 0.17 * pulse);
+    glowDot(ctx, x, y, AMBER, 10, 0.055 * pulse);
     ctx.save();
     ctx.globalCompositeOperation = 'screen';
-    ctx.globalAlpha = 0.78 * pulse;
+    ctx.globalAlpha = 0.34 * pulse;
     ctx.fillStyle = AMBER_SOFT;
     ctx.fillRect(x - 1.5, y - 0.75, 3, 1.5);
     ctx.restore();
   }
 
   for (const [x,y] of cyanPracticalLights) {
-    glowDot(ctx, x, y, CYAN, 8, 0.055 * pulse);
+    glowDot(ctx, x, y, CYAN, 8, 0.025 * pulse);
   }
 
   // Local station pools. These are deliberately elliptical reflections rather
@@ -197,7 +138,7 @@ export function drawBridgeLightPass(
     ctx.translate(s.x, s.y);
     ctx.scale(s.rx, s.ry);
     const g = ctx.createRadialGradient(0,0,0,0,0,1);
-    const alpha = (s.active ? 0.10 : 0.035) + Math.sin(time * 0.7 + index) * 0.006;
+    const alpha = (s.active ? 0.07 : 0.006) + Math.sin(time * 0.7 + index) * 0.004;
     g.addColorStop(0, `rgba(${s.color},${alpha})`);
     g.addColorStop(0.48, `rgba(${s.color},${alpha * 0.36})`);
     g.addColorStop(1, `rgba(${s.color},0)`);
@@ -217,8 +158,8 @@ export function drawBridgeLightPass(
     ctx.translate(x,y);
     ctx.scale(rx,ry);
     const g=ctx.createRadialGradient(0,0,0,0,0,1);
-    g.addColorStop(0,'rgba(241,163,77,0.105)');
-    g.addColorStop(0.45,'rgba(241,163,77,0.035)');
+    g.addColorStop(0,'rgba(241,163,77,0.040)');
+    g.addColorStop(0.45,'rgba(241,163,77,0.012)');
     g.addColorStop(1,'rgba(241,163,77,0)');
     ctx.fillStyle=g;
     ctx.fillRect(-1,-1,2,2);
@@ -227,7 +168,7 @@ export function drawBridgeLightPass(
 
   // A few crisp white-cyan speculars reproduce the target's polished metal.
   ctx.globalCompositeOperation = 'screen';
-  ctx.strokeStyle = 'rgba(193,244,250,0.34)';
+  ctx.strokeStyle = 'rgba(193,244,250,0.14)';
   ctx.lineWidth = 0.7;
   for (const [x0,y0,x1,y1] of [
     [111,479,111,535],[531,90,584,90],[711,94,745,94],

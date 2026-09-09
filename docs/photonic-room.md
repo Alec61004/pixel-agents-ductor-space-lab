@@ -1,28 +1,36 @@
 # Photonic room
 
-The whole room now shares the command bay's dark teal materials and cyan energy lighting. Each area has a distinct silhouette: membrane airlock, honeycomb storage, rounded specimen vessels, overhead sensor lens, recessed QA basin and curved research ribbon. Repeated eye crystals and thorns were removed outside the approved command desk.
+The active bridge uses a dark navy hull, restrained cyan systems lighting and warm amber practicals. Room V3 preserves the approved command desk, star map, specimen stations, QA basin and exterior composition while separating painted structure from runtime animation.
 
 ## Editing
 
-- Artwork: `webview-ui/public/assets/themes/ductor-space-lab/photonic-room-v1.png`.
-- Room asset normalisation, fixture coordinates and ambient motion: `webview-ui/src/ductor/starshipLivingRoom.ts`.
+- Artwork: `webview-ui/public/assets/themes/ductor-space-lab/photonic-room-v3.webp`.
+- Room normalisation, fixture coordinates and ambient motion: `webview-ui/src/ductor/starshipLivingRoom.ts`.
 - Command desk, seated pose anchors and contact timing: `starshipComputerBay.ts`.
-- Exterior masks and moving ships: `starshipExterior.ts`.
-- Shared Home colors: `starshipPhotonicTheme.ts`.
+- Exterior masks, accretion flow and moving spacecraft: `starshipExterior.ts`.
+- Material depth and local practical-light pulses: `starshipSceneV2.ts`.
+- Shared interface colors: `starshipPhotonicTheme.ts`.
 
-All room coordinates are 1600×678. The loaded artwork is normalised and cached once before texture sampling. Geometry is drawn before crew; only Alec's chair shell is redrawn over its seated occupant. Missing room artwork falls back to the existing background and command bay.
+All room coordinates are 1600×678. The 1926×816 artwork is downsampled once at high quality and cached before texture sampling. Character sprites remain nearest-neighbour rendered so their pixel edges stay intact.
 
-Life-support bubbles, crystal filaments, neural culture pulses, moving spectra, the overhead star lattice and ambient conduits continue at rest. Command work speeds up the energy transfers; QA work speeds up the scanner; nearby crew energise the airlock. Kevin retains the approved eight-planet camera tour. Benjamin's standing anchor is in front of the new QA basin.
+## Layer ownership
+
+- Room V3 contains the hull, windows, cables, fixtures and static star field, but no baked spacecraft.
+- `starshipExterior.ts` draws one instance of each of the three spacecraft silhouettes, parallax stars and the animated black-hole flow inside clipped windows.
+- `starshipSceneV2.ts` adds only material depth, practical-light pulses and active station reflections; it does not redraw structural seams or power rails.
+- `starshipLivingRoom.ts` adds bubbles, sparse moving energy packets, the overhead star lattice and role-specific activity. It does not paint a second idle scanner or duplicate floor bloom.
+- The browser-wide fallback star layer is cleared after Room V3 loads, preventing stars from appearing over the hull, floor and consoles.
 
 ## Art direction and provenance
 
-New artwork was created using built-in imagegen with the approved photonic bay as the reference. Three passes: extend its materials to the entire room while preserving station anchors; remove static spacecraft so moving sprites are not duplicated; replace repeated eye/crystal ornament with functionally distinct, quieter forms.
+Room V3 was created with built-in imagegen as a precise edit of Room V2. The edit removed only the three static spacecraft embedded in the windows and preserved the room layout, black hole, moon, lighting, instruments and specimen tanks. The production asset is a versioned WebP rather than an overwrite of an approved source.
 
-Final prompt direction: preserve the command desk, central chair, blue map, windows and room footprint; use a membrane door, honeycomb storage, smooth specimen collars, broad sensor beam, low QA basin and curved research glass; remove most pointed ornaments outside the main desk; no baked-in crew or spacecraft.
+Final edit prompt direction: remove the three baked spacecraft silhouettes from the left and right windows; reconstruct only the surrounding star field and nebula; preserve every other pixel-art structure, fixture, color relationship and composition; add no text, crew or replacement objects.
 
-References consulted for alien interior forms (not imported assets):
+References previously consulted for alien interior forms (not imported assets):
+
 - https://briyu.artstation.com/projects/w85RO9
 - https://arifcreations.artstation.com/projects/yJANx5
 - https://robertsspaceindustries.com/comm-link/transmission/17222-Alpha-37-Flyable-Ships
 
-Validation: TypeScript check, 55 targeted tests, and scene renders at five points of the activity cycle. Room-v1 deploy retry keeps this visual pass isolated on the feature branch. A legacy test that prohibited every ellipse was corrected to protect the approved star-map frame and clip; the restored planet tour intentionally contains physical planetary rings.
+Validation covers asset header and aspect ratio, room cache behavior, unique moving spacecraft, balanced canvas save/restore calls, active/offline 1600×678 scene renders, TypeScript/build checks and the Vercel preview deployment.
