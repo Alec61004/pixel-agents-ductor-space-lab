@@ -36,7 +36,10 @@ test('visual bubble anchors never change the agent working state', () => {
         : () => {},
     set: () => true,
   }) as CanvasRenderingContext2D;
-  drawAgentStatusBubble(ctx, alec, ALEC_SEAT.height, -10, 1600, ALEC_SEAT);
+  drawAgentStatusBubble(ctx, alec, ALEC_SEAT.height, -10, 1600, {
+    x: ALEC_SEAT.x,
+    y: ALEC_SEAT.feetY,
+  });
   assert.ok(labels.includes('⚙ đang làm việc'));
   assert.ok(!labels.includes('💤 idle'));
 });
