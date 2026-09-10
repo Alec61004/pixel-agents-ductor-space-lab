@@ -40,12 +40,11 @@ test('window effects clip before drawing; the approved planet tour retains its b
   const crew = createInitialCrew();
   const kevin = crew.find(a => a.name === 'Kevin')!;
   Object.assign(kevin, WORKSTATIONS.Kevin.interactionPoint, { state:STATE.WORKING, reportedState:'working', hologramTime:2, hologramSceneTime:8 });
-  drawHologramTopGlow(ctx, crew, 2, bg);
-  // The restored #24 deployment includes physical planetary rings. Forbidding
-  // every ellipse incorrectly rejects that approved renderer. Protect the
-  // original frame and clipped glass independently of the planet's geometry.
-  const frame = calls.find(c => c[0] === 'drawImage');
-  assert.deepEqual(frame?.slice(2, 6), [516, 443, 106, 71]);
+  drawHologramTopGlow(ctx, crew, 2);
+  // The v4 panel owns the frame; the map renderer must never copy the old
+  // sampled screen image over it.
+  assert.ok(calls.some(c => c[0] === 'translate' && c[1] === 510 && c[2] === 409));
+  assert.equal(calls.filter(c => c[0] === 'drawImage').length, 0);
   const glassPaint = calls.findIndex(c => c[0] === 'fillRect');
   assert.ok(calls.slice(0, glassPaint).some(c => c[0] === 'clip'));
   assert.equal(calls.filter(c => c[0] === 'save').length, calls.filter(c => c[0] === 'restore').length);
@@ -62,14 +61,13 @@ test('current room owns one star-map glass through every exploration phase', () 
   }) as CanvasRenderingContext2D;
   const crew = createInitialCrew();
   const kevin = crew.find(a => a.name === 'Kevin')!;
-  const bg = { width: 1600, height: 678 } as HTMLImageElement;
   for (const time of [0, 2, 6, 12, 22]) {
     Object.assign(kevin, WORKSTATIONS.Kevin.interactionPoint, {
       state: STATE.WORKING, reportedState: 'working',
       hologramTime: time, hologramSceneTime: time,
     });
     calls.length = 0;
-    drawHologramTopGlow(ctx, crew, time, bg, true);
+    drawHologramTopGlow(ctx, crew, time);
     assert.equal(calls.filter(c => c[0] === 'drawImage').length, 0,
       'never copy a second screen or baked chart into the room');
     assert.ok(calls.some(c => c[0] === 'translate' && c[1] === 510 && c[2] === 409));

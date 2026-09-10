@@ -1519,14 +1519,15 @@ test('V1.9 idle wander: idle agent wanders between points every 2-4s and changes
   }
 });
 
-test('Kevin uses intact original rear poses with gesture fields and the same cyan map', () => {
+test('Kevin uses intact rear poses with gesture fields and the single cyan map', () => {
   const crew = createInitialCrew(snapshot);
-  const alec = crew.find((a) => a.name === 'Kevin')!;
-  const bgImg = { width: 1600, height: 678 } as HTMLImageElement;
+  const kevin = crew.find((a) => a.name === 'Kevin')!;
   const sheet = { width: 1280, height: 960 } as HTMLImageElement;
   const hologramSprite = { width: 160, height: 112 } as HTMLImageElement;
+
   function frame(time: number) {
-    alec.hologramTime = time;
+    kevin.hologramTime = time;
+    kevin.hologramSceneTime = time;
     const calls: any[][] = [];
     const ctx = new Proxy(
       {},
@@ -1545,91 +1546,65 @@ test('Kevin uses intact original rear poses with gesture fields and the same cya
         set: () => true,
       },
     ) as CanvasRenderingContext2D;
-    drawHologramTopGlow(ctx, crew, time, bgImg);
-    drawAlecHologramControl(ctx, alec);
-    drawAgent(ctx, alec, sheet, time, hologramSprite);
+    drawHologramTopGlow(ctx, crew, time);
+    drawAlecHologramControl(ctx, kevin);
+    drawAgent(ctx, kevin, sheet, time, hologramSprite);
     return calls;
   }
+
   for (const time of [0.15, 0.65, 1.13]) assert.equal(getAlecHologramFrame(time), 0);
   for (const time of [0, 0.4, 0.9, 1.8, 2.8]) assert.equal(getAlecHologramFrame(time), 1);
   assert.equal(getHologramNavigation(1.3, true).route, 0, 'route waits for the last key release');
   assert.ok(getHologramNavigation(1.9, true).route > 0, 'route draws after the typing phrase');
   assert.equal(frame(1.9).some((c) => c[0] === 'transform'), false, 'the map camera stays still');
+
   const first = frame(0);
-  assert.deepEqual(
-    first.find((c) => c[0] === 'drawImage')?.slice(1, 6),
-    [bgImg, 516, 443, 106, 71],
-    'reuse the full original cyan map and frame',
-  );
+  assert.ok(first.some((c) => c[0] === 'translate' && c[1] === 510 && c[2] === 409));
+  assert.equal(first.filter((c) => c[0] === 'drawImage').length, 2,
+    'only the intact crew sprite passes use drawImage');
   assert.notDeepEqual(frame(3), first);
   assert.deepEqual(frame(0), first);
+
   for (let time = 0; time < 8; time += 0.05) {
     const calls = frame(time);
-    const map = calls.find((c) => c[0] === 'drawImage' && c[1] === bgImg)!;
-    if (time >= 0.6) assert.ok(Math.abs(map[8] - 106 * 1.65) < 0.0001);
+    assert.equal(calls.some((c) => c[0] === 'drawImage' && c[1] === hologramSprite), false,
+      'the legacy hologram sprite is never painted over Kevin');
     const poses = calls.filter((c) => c[0] === 'drawImage' && c[1] === sheet);
     assert.equal(poses.length, 2, 'whole sprite plus its existing brightness pass');
     for (const pose of poses) {
-      assert.deepEqual(pose.slice(2, 6), [(8 + getAlecHologramFrame(time)) * 80, alec.skin.row * (960 / SHEET_ROWS), 80, 960 / SHEET_ROWS]);
+      assert.deepEqual(pose.slice(2, 6), [
+        (8 + getAlecHologramFrame(time)) * 80,
+        kevin.skin.row * (960 / SHEET_ROWS),
+        80,
+        960 / SHEET_ROWS,
+      ]);
     }
-    assert.equal(
-      calls.some((c) => c[0] === 'rotate'),
-      false,
-      'never rotate cropped limbs',
-    );
-    assert.equal(
-      calls.some((c) => c[0] === 'clip' && c[1] === 'evenodd'),
-      false,
-      'never cut holes in the body',
-    );
-    assert.equal(
-      calls.filter((c) => c[0] === 'save').length,
-      calls.filter((c) => c[0] === 'restore').length,
-    );
-    for (const call of calls)
+    assert.equal(calls.some((c) => c[0] === 'rotate'), false, 'never rotate cropped limbs');
+    assert.equal(calls.some((c) => c[0] === 'clip' && c[1] === 'evenodd'), false,
+      'never cut holes in the body');
+    assert.equal(calls.filter((c) => c[0] === 'save').length,
+      calls.filter((c) => c[0] === 'restore').length);
+    for (const call of calls) {
       for (const n of call.slice(1)) {
         if (typeof n === 'number') assert.ok(Number.isFinite(n));
       }
+    }
   }
+
   for (const state of ['idle', 'waiting', 'blocked', 'offline']) {
-    Object.assign(alec, { state, reportedState: state });
+    Object.assign(kevin, { state, reportedState: state });
     const calls = frame(0);
-    const map = calls.find((c) => c[0] === 'drawImage' && c[1] === bgImg);
-    assert.deepEqual(map?.slice(8, 10), [106, 71], `${state}: same map at resting size`);
-    assert.ok(
-      calls.some((c) => c[0] === 'createRadialGradient'),
-      `${state}: render the new field`,
-    );
-    assert.equal(
-      calls.some((c) => c[0] === 'drawImage' && c[1] === hologramSprite),
-      false,
-      state,
-    );
+    assert.ok(calls.some((c) => c[0] === 'fillRect'), `${state}: render the map field`);
+    assert.equal(calls.some((c) => c[0] === 'drawImage' && c[1] === hologramSprite), false, state);
   }
-  Object.assign(alec, { state: STATE.MOVING, reportedState: 'working' });
-  assert.equal(
-    frame(0).some((c) => c[0] === 'drawImage' && c[1] === hologramSprite),
-    false,
-  );
-  Object.assign(alec, WORKSTATIONS.Kevin.interactionPoint, {
+  Object.assign(kevin, WORKSTATIONS.Kevin.interactionPoint, {
     state: STATE.WORKING,
     reportedState: 'working',
     hologramExpansion: 0,
   });
-  for (let i = 0; i < 10; i++) updateAgent(alec, 0.1, 1, crew);
-  const expanded = frame(1).find((c) => c[0] === 'drawImage' && c[1] === bgImg);
-  assert.ok(Math.abs(expanded![8] - 106 * 1.65) < 0.001);
-  const sceneTime = alec.hologramSceneTime;
-  Object.assign(alec, { state: STATE.IDLE, reportedState: 'idle', stateTimer: 10 });
-  updateAgent(alec, 0.2, 1, crew);
-  const shrinking = frame(0).find((c) => c[0] === 'drawImage' && c[1] === bgImg);
-  assert.ok(shrinking![8] > 106 && shrinking![8] < expanded![8], 'smoothly shrink on work end');
-  for (let i = 0; i < 8; i++) updateAgent(alec, 0.1, 1, crew);
-  const resting = frame(0).find((c) => c[0] === 'drawImage' && c[1] === bgImg);
-  assert.equal(resting![8], 106);
-  assert.ok(alec.hologramSceneTime! > sceneTime!, 'ambient field keeps moving while idle');
+  for (let i = 0; i < 10; i++) updateAgent(kevin, 0.1, 1, crew);
+  assert.ok(frame(1).some((c) => c[0] === 'fillRect'), 'working map remains procedural');
 });
-
 test('the ringed world travels around the fixed star while navigation follows Kevin gestures', () => {
   const start = getHologramOrbit(0);
   const later = getHologramOrbit(6);

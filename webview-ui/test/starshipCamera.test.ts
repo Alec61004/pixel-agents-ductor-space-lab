@@ -85,7 +85,6 @@ test('frame and projector stay fixed while every planet is rendered in clipped m
   Object.assign(kevin, WORKSTATIONS.Kevin.interactionPoint, {
     state: STATE.WORKING, reportedState: 'working', hologramExpansion: 1,
   });
-  const bg = {} as HTMLImageElement;
   const record = (time: number) => {
     kevin.hologramTime = time;
     const calls: unknown[][] = [];
@@ -95,7 +94,7 @@ test('frame and projector stay fixed while every planet is rendered in clipped m
         : (...args: unknown[]) => calls.push([key, ...args]),
       set: () => true,
     }) as CanvasRenderingContext2D;
-    drawHologramTopGlow(ctx, crew, time, bg);
+    drawHologramTopGlow(ctx, crew, time);
     return calls;
   };
   const overview = record(1);

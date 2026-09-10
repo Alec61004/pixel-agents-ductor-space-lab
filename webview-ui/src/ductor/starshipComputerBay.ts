@@ -97,6 +97,19 @@ export const ALEC_SEATED_ATLAS = {
   width: 2172, height: 724, columns: 4, bodyTop: 117, bodyBottom: 634,
 };
 
+/**
+ * Single source of truth for the star-map glass in photonic-room-v4.
+ * The room artwork is normalised to 1600×678 before this panel is drawn.
+ */
+export const STAR_MAP_PANEL = {
+  x: 510,
+  y: 409,
+  w: 110,
+  h: 70,
+  centerX: 53,
+  centerY: 35.5,
+} as const;
+
 /** Read, touch left, read, touch right, then rest. Hold times avoid flicker. */
 export function getCommandGesture(time: number): { frame: number; contact: number } {
   const phase = ((time % 6.4) + 6.4) % 6.4;
@@ -213,8 +226,8 @@ export function drawAlecSeatBack(ctx: CanvasRenderingContext2D, artwork: RoomArt
 export const STAR_MAP_WORKSTATION = {
   approachPoint: { x: 569, y: 656 },
   interactionPoint: { x: 569, y: 638 },
-  displayBounds: { x: 505, y: 442, w: 140, h: 98 },
-  displayAreas: [{ x: 505, y: 442, w: 140, h: 98 }],
+  displayBounds: { x: STAR_MAP_PANEL.x, y: STAR_MAP_PANEL.y, w: STAR_MAP_PANEL.w, h: STAR_MAP_PANEL.h },
+  displayAreas: [{ x: 513, y: 414, w: 104, h: 63 }],
   occlusionBounds: { x: 500, y: 525, w: 145, h: 65 },
 };
 

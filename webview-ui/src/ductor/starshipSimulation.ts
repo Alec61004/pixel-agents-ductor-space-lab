@@ -10,7 +10,7 @@ import {
   STARSHIP_VOID_TINT,
 } from '../constants.js';
 import type { DuctorRoleName, DuctorStatusSnapshot } from './ductorLabModel.js';
-import { ORIGINAL_COMPUTER_BAYS, STAR_MAP_WORKSTATION, drawPhotonicComputerBay, drawPhotonicActivity, drawAlecSeatBack, drawCommandContact, getCommandGesture, ALEC_SEAT, ALEC_SEATED_ATLAS } from './starshipComputerBay.js';
+import { ORIGINAL_COMPUTER_BAYS, STAR_MAP_WORKSTATION, STAR_MAP_PANEL, drawPhotonicComputerBay, drawPhotonicActivity, drawAlecSeatBack, drawCommandContact, getCommandGesture, ALEC_SEAT, ALEC_SEATED_ATLAS } from './starshipComputerBay.js';
 import { drawPhotonicRoom, PHOTONIC_THEME } from './starshipPhotonicTheme.js';
 import { drawLivingRoom, getLivingRoomArtwork, type RoomArtwork } from './starshipLivingRoom.js';
 import { drawQAContact } from './starshipQA.js';
@@ -881,19 +881,19 @@ export function updateAgent(
   }
 
   // Ambient map motion persists while the control's gesture clock remains work-only.
-  const usingHologram = isAlecUsingHologram(a);
+  const usingStarMap = isKevinUsingStarMap(a);
   if (a.name === 'Kevin') {
     a.hologramSceneTime =
-      (a.hologramSceneTime ?? 0) + dt * speedMult * (usingHologram ? 1 : 0.22);
+      (a.hologramSceneTime ?? 0) + dt * speedMult * (usingStarMap ? 1 : 0.22);
     const expansion = a.hologramExpansion ?? 0;
     const change = (dt * speedMult) / 0.6;
-    a.hologramExpansion = Math.max(0, Math.min(1, expansion + (usingHologram ? change : -change)));
+    a.hologramExpansion = Math.max(0, Math.min(1, expansion + (usingStarMap ? change : -change)));
   }
-  a.hologramTime = usingHologram ? (a.hologramTime ?? 0) + dt * speedMult : 0;
+  a.hologramTime = usingStarMap ? (a.hologramTime ?? 0) + dt * speedMult : 0;
   if (a.name === 'Kevin') {
-    const desired = getHologramCamera(a.hologramTime, usingHologram, a.hologramSceneTime);
+    const desired = getHologramCamera(a.hologramTime, usingStarMap, a.hologramSceneTime);
     const previous = a.hologramCamera ?? desired;
-    const blend = usingHologram ? 1 : 1 - Math.exp(-dt * speedMult * 5);
+    const blend = usingStarMap ? 1 : 1 - Math.exp(-dt * speedMult * 5);
     a.hologramCamera = {
       x: previous.x + (desired.x - previous.x) * blend,
       y: previous.y + (desired.y - previous.y) * blend,
@@ -1152,7 +1152,7 @@ export function getAlecHologramFrame(timeSec: number): number {
   return getAlecConsoleCycle(timeSec).contact ? 0 : 1;
 }
 
-function isAlecUsingHologram(a: StarshipAgent): boolean {
+function isKevinUsingStarMap(a: StarshipAgent): boolean {
   return (
     a.name === 'Kevin' &&
     a.state === STATE.WORKING &&
@@ -1173,7 +1173,7 @@ export function drawAgent(
   walkImg?: HTMLImageElement,
 ): void {
   void _timeSec;
-  const hologramControlActive = isAlecUsingHologram(a);
+  const hologramControlActive = isKevinUsingStarMap(a);
   const isOffline = a.reportedState === 'offline' || a.state === STATE.OFFLINE;
   const isReview = !isOffline && a.reportedState === 'review';
   const isWorking =
@@ -1380,106 +1380,53 @@ export function drawDeskCutouts(
   }
 }
 
-// The same planetary map is always present on the table. Work only expands it;
-// leaving the station shrinks it back without revealing the old baked-in chart.
+// The single planetary map is rendered inside the v4 glass. Work changes the camera;
+// leaving the station returns it to the compact survey view.
+// The single planetary map is rendered inside the v4 glass. Work changes the camera;
+// leaving the station returns it to the compact survey view.
 export function drawHologramTopGlow(
   ctx: CanvasRenderingContext2D,
   agents: StarshipAgent[],
   _timeSec: number = Date.now() / 1000,
-  bgImg?: RoomArtwork,
-  useRoomPanel = false,
 ): void {
   void _timeSec;
-  if (!bgImg) return;
-  const alec = agents.find((a) => a.name === 'Kevin');
-  const working = !!alec && isAlecUsingHologram(alec);
-  const controlTime = alec?.hologramTime ?? 0;
-  const time = alec?.hologramSceneTime ?? controlTime;
-  const source = { x: 516, y: 443, w: 106, h: 71 };
-  const expansion = alec?.hologramExpansion ?? (working ? Math.min(1, controlTime / 0.6) : 0);
-  const open = 1; // Content visibility is independent of the work-driven expansion.
-  const zoom = 1 + 0.65 * expansion * expansion * (3 - 2 * expansion);
-  const w = source.w * zoom;
-  const h = source.h * zoom;
-  const cx = source.x + source.w / 2;
-  const bottom = source.y + source.h;
+  const kevin = agents.find((a) => a.name === 'Kevin');
+  const working = !!kevin && isKevinUsingStarMap(kevin);
+  const controlTime = kevin?.hologramTime ?? 0;
+  const time = kevin?.hologramSceneTime ?? controlTime;
+  const open = 1;
+
+  // Only the authored v4 panel is used. The legacy sampled-screen path is gone,
+  // so the old room coordinates cannot be copied or drift over this glass.
   ctx.save();
   ctx.imageSmoothingEnabled = false;
   ctx.globalCompositeOperation = 'source-over';
   ctx.globalAlpha = 1;
   ctx.shadowBlur = 0;
-  if (useRoomPanel) {
-    // The current room already owns the physical screen and projector. Fit the
-    // original planet renderer inside that glass; never copy or enlarge an old
-    // screen rectangle over the new artwork.
-    ctx.translate(510, 409);
-    ctx.scale(110 / 106, 70 / 71);
-    ctx.beginPath();
-    ctx.moveTo(3, 14);
-    ctx.quadraticCurveTo(3, 5, 15, 5);
-    ctx.quadraticCurveTo(53, -1, 92, 6);
-    ctx.quadraticCurveTo(103, 7, 103, 17);
-    ctx.lineTo(103, 61);
-    ctx.quadraticCurveTo(103, 68, 95, 68);
-    ctx.lineTo(10, 68);
-    ctx.quadraticCurveTo(3, 68, 3, 60);
-    ctx.closePath();
-    ctx.clip();
-    // Opaque glass replaces the baked star chart completely. All motion below
-    // is the same eight-world tour, including spin, dwell and camera travel.
-    const glass = ctx.createLinearGradient(0, 0, 0, 71);
-    glass.addColorStop(0, '#0a202c');
-    glass.addColorStop(0.6, '#0b2635');
-    glass.addColorStop(1, '#123b4b');
-    ctx.fillStyle = glass;
-    ctx.fillRect(0, 0, 106, 71);
-  } else {
-    ctx.drawImage(bgImg, source.x, source.y, source.w, source.h, cx - w / 2, bottom - h, w, h);
-    ctx.beginPath();
-    ctx.rect(cx - w / 2 + 5 * zoom, bottom - h + 5 * zoom, w - 10 * zoom, h - 10 * zoom);
-    ctx.clip();
-    ctx.translate(cx - w / 2, bottom - h);
-    ctx.scale(zoom, zoom);
-  
-    // A translucent upper glass layer reveals the actual room behind the enlarged panel.
-    // Stop above the baked-in small map, so the old artwork cannot ghost through.
-    const space = ctx.createLinearGradient(0, 5, 0, 66);
-    space.addColorStop(0, '#112d3b');
-    space.addColorStop(0.55, '#0b2635');
-    space.addColorStop(1, '#164454');
-    ctx.fillStyle = space;
-    ctx.fillRect(5, 5, 96, 61);
-    const roomTop = bottom - h + 5 * zoom;
-    const roomHeight = Math.max(0, source.y - roomTop - 2);
-    if (roomHeight > 0) {
-      ctx.globalAlpha = 0.22;
-      ctx.drawImage(
-        bgImg,
-        cx - w / 2 + 5 * zoom,
-        roomTop,
-        96 * zoom,
-        roomHeight,
-        5,
-        5,
-        96,
-        roomHeight / zoom,
-      );
-      const glass = ctx.createLinearGradient(0, 5, 0, 5 + roomHeight / zoom);
-      glass.addColorStop(0, '#112d3b00');
-      glass.addColorStop(1, '#0b2635ff');
-      ctx.globalAlpha = 1;
-      ctx.fillStyle = glass;
-      ctx.fillRect(5, 5, 96, roomHeight / zoom);
-    }
-  
-  }
+  ctx.translate(STAR_MAP_PANEL.x, STAR_MAP_PANEL.y);
+  ctx.scale(STAR_MAP_PANEL.w / 106, STAR_MAP_PANEL.h / 71);
+  ctx.beginPath();
+  ctx.moveTo(3, 14);
+  ctx.quadraticCurveTo(3, 5, 15, 5);
+  ctx.quadraticCurveTo(53, -1, 92, 6);
+  ctx.quadraticCurveTo(103, 7, 103, 17);
+  ctx.lineTo(103, 61);
+  ctx.quadraticCurveTo(103, 68, 95, 68);
+  ctx.lineTo(10, 68);
+  ctx.quadraticCurveTo(3, 68, 3, 60);
+  ctx.closePath();
+  ctx.clip();
+  const glass = ctx.createLinearGradient(0, 0, 0, 71);
+  glass.addColorStop(0, '#0a202c');
+  glass.addColorStop(0.6, '#0b2635');
+  glass.addColorStop(1, '#123b4b');
+  ctx.fillStyle = glass;
+  ctx.fillRect(0, 0, 106, 71);
 
-  // Clip and glass stay in panel coordinates. Only the universe is transformed:
-  // neither the cyan frame, projector nor the room camera moves with this zoom.
   const navigation = getHologramNavigation(controlTime, working, time);
-  const camera = alec?.hologramCamera ?? getHologramCamera(controlTime, working, time);
+  const camera = kevin?.hologramCamera ?? getHologramCamera(controlTime, working, time);
   ctx.save();
-  ctx.translate(53, 35.5);
+  ctx.translate(STAR_MAP_PANEL.centerX, STAR_MAP_PANEL.centerY);
   ctx.scale(camera.zoom, camera.zoom);
   ctx.translate(-camera.x, -camera.y);
 
@@ -1946,7 +1893,7 @@ export function drawAlecHologramControl(
   a: StarshipAgent,
   foreground = false,
 ): void {
-  if (!isAlecUsingHologram(a)) return;
+  if (!isKevinUsingStarMap(a)) return;
   const time = a.hologramTime ?? 0;
   const { contact, phase, responseTime } = getAlecConsoleCycle(time);
   const cx = a.x;
@@ -2322,7 +2269,7 @@ export function drawStage(
   if (livingArtwork) drawLivingRoom(ctx, timeSec, {
     crew: agents.filter(a => a.reportedState !== 'offline' && a.state !== STATE.OFFLINE),
     command: seated, qa: qaActive,
-    navigation: agents.some(a => a.name === 'Kevin' && isAlecUsingHologram(a)),
+    navigation: agents.some(a => a.name === 'Kevin' && isKevinUsingStarMap(a)),
   }, livingArtwork);
   else drawWorkstationScreens(
     ctx,
@@ -2332,13 +2279,13 @@ export function drawStage(
   if (!livingArtwork && computerBayImg) drawPhotonicRoom(ctx, timeSec, qaActive);
   if (livingArtwork) drawBridgeLightPass(ctx, timeSec, {
     command: seated,
-    navigation: agents.some(a => a.name === 'Kevin' && isAlecUsingHologram(a)),
+    navigation: agents.some(a => a.name === 'Kevin' && isKevinUsingStarMap(a)),
     qa: qaActive,
   });
   drawFloorMarkers(ctx, showStations);
-  drawHologramTopGlow(ctx, agents, timeSec, background, !!livingArtwork);
+  if (livingArtwork) drawHologramTopGlow(ctx, agents, timeSec);
   const mapOperator = agents.find((agent) => agent.name === 'Kevin');
-  if (mapOperator) drawAlecHologramControl(ctx, mapOperator);
+  if (livingArtwork && mapOperator) drawAlecHologramControl(ctx, mapOperator);
 
   const sorted = [...agents].sort((a, b) => a.y - b.y);
   for (const a of sorted) {
@@ -2375,7 +2322,7 @@ export function drawStage(
   }
 
   // Foreground arcs wrap around Kevin's hands while preserving his intact sprite.
-  if (mapOperator) drawAlecHologramControl(ctx, mapOperator, true);
+  if (livingArtwork && mapOperator) drawAlecHologramControl(ctx, mapOperator, true);
 
   // Crew members stand in front of the consoles in this top-down room. Do not
   // repaint the background over their lower bodies: that made walking sprites
