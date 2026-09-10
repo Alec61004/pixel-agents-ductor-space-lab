@@ -96,7 +96,7 @@ export const BENJAMIN_QA_ASSET = 'themes/ductor-space-lab/benjamin-qa-control-v1
 
 // The seated pelvis is inside the shell at (560, 369). The routing anchor
 // stays on the walkable floor; it is not a drawing anchor for a seated body.
-export const ALEC_SEAT = { x: 552, feetY: 405, height: 74 };
+export const ALEC_SEAT = { x: 560, feetY: 410, height: 74 };
 
 export const ALEC_SEATED_ATLAS = {
   width: 2172, height: 724, columns: 4, bodyTop: 117, bodyBottom: 634,
@@ -140,6 +140,57 @@ export function drawPhotonicActivity(ctx: CanvasRenderingContext2D, time: number
   const energy = active ? 0.88 : 0.12;
   const phase = time * (active ? 1.5 : 0.35);
   const nodes = [[470, 346], [552, 344], [674, 344]] as const;
+
+  // The command cradle is a spatial interface rather than a row of human
+  // monitors. Concentric field arcs sit behind Alec while data packets converge
+  // from both wings of the living console. The body is drawn later, so the
+  // projection reads as a volume surrounding the seated operator.
+  const commandX = ALEC_SEAT.x;
+  const commandY = 363;
+  const commandPulse = 0.5 + Math.sin(phase * 1.7) * 0.5;
+  ctx.lineWidth = 0.8;
+  for (let ring = 0; ring < 3; ring++) {
+    const orbit = phase * (0.32 + ring * 0.06) + ring * 1.7;
+    const rx = 31 + ring * 9;
+    const ry = 9 + ring * 3;
+    ctx.globalAlpha = energy * (0.16 + ring * 0.045);
+    ctx.strokeStyle = ring === 1 ? '#f3b86a' : '#78e7f5';
+    ctx.beginPath();
+    ctx.ellipse(commandX, commandY, rx, ry, 0, orbit, orbit + Math.PI * 0.92);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(commandX, commandY, rx, ry, 0, orbit + Math.PI, orbit + Math.PI * 1.72);
+    ctx.stroke();
+  }
+  for (let glyph = 0; glyph < 7; glyph++) {
+    const angle = phase * 0.42 + glyph * Math.PI * 2 / 7;
+    const gx = commandX + Math.cos(angle) * 43;
+    const gy = commandY + Math.sin(angle) * 13;
+    const size = glyph % 3 === 0 ? 2.3 : 1.5;
+    ctx.globalAlpha = energy * (0.38 + commandPulse * 0.32);
+    ctx.fillStyle = glyph % 3 === 0 ? '#ffd08a' : '#a9f5fb';
+    ctx.save(); ctx.translate(gx, gy); ctx.rotate(angle + Math.PI / 4);
+    ctx.fillRect(-size / 2, -size / 2, size, size); ctx.restore();
+  }
+  const commandFeeds = [
+    { x: 446, y: 365, bendX: 498, bendY: 381, offset: 0 },
+    { x: 694, y: 362, bendX: 626, bendY: 382, offset: 0.46 },
+  ] as const;
+  for (const feed of commandFeeds) {
+    ctx.globalAlpha = energy * 0.22;
+    ctx.strokeStyle = '#58d8eb';
+    ctx.beginPath(); ctx.moveTo(feed.x, feed.y);
+    ctx.quadraticCurveTo(feed.bendX, feed.bendY, commandX, commandY + 17); ctx.stroke();
+    for (let packet = 0; packet < 4; packet++) {
+      const t = (phase * 0.13 + packet / 4 + feed.offset) % 1;
+      const inv = 1 - t;
+      const px = inv * inv * feed.x + 2 * inv * t * feed.bendX + t * t * commandX;
+      const py = inv * inv * feed.y + 2 * inv * t * feed.bendY + t * t * (commandY + 17);
+      ctx.globalAlpha = energy * (0.42 + Math.sin(t * Math.PI) * 0.4);
+      ctx.fillStyle = packet === 0 ? '#ffbf6b' : '#8debf7';
+      ctx.fillRect(Math.round(px), Math.round(py), 2, 1);
+    }
+  }
   for (let n = 0; n < nodes.length; n++) {
     const [x, y] = nodes[n]!;
     for (let i = 0; i < 5; i++) {
@@ -213,8 +264,8 @@ export function drawPhotonicActivity(ctx: CanvasRenderingContext2D, time: number
 export function drawCommandContact(ctx: CanvasRenderingContext2D, time: number): void {
   const { contact } = getCommandGesture(time);
   if (!contact) return;
-  const x = contact < 0 ? 520 : 591;
-  const y = 361;
+  const x = contact < 0 ? 528 : 599;
+  const y = 367;
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
   const glow = ctx.createRadialGradient(x, y, 0, x, y, 9);
   glow.addColorStop(0, '#ffd38ba8'); glow.addColorStop(0.45, '#5fe1f45c'); glow.addColorStop(1, '#1ba7c400');
@@ -223,20 +274,54 @@ export function drawCommandContact(ctx: CanvasRenderingContext2D, time: number):
   ctx.beginPath(); ctx.ellipse(x, y, 5, 2, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
 }
 
-/** The seat back is foreground furniture, and only occludes its seated occupant. */
+/** Foreground chair shell: it places the lower body inside the command cradle. */
 export function drawAlecSeatBack(ctx: CanvasRenderingContext2D, artwork: RoomArtwork): void {
   ctx.save();
-  // Only the lower chair lip belongs in front of Alec. Repainting the whole
-  // shell hid his torso and made the pose look pasted behind an empty chair.
-  ctx.beginPath(); ctx.rect(520, 378, 80, 44); ctx.clip();
+  // Restore only the original lower pedestal; the authored body remains in
+  // front of the backrest while the new side bolsters and front cowl below
+  // conceal the thighs and feet like a genuine seated silhouette.
+  ctx.beginPath(); ctx.rect(522, 392, 76, 31); ctx.clip();
   ctx.beginPath();
-  ctx.moveTo(528, 377); ctx.lineTo(532, 363); ctx.lineTo(544, 352);
-  ctx.lineTo(555, 347); ctx.lineTo(567, 347); ctx.lineTo(579, 353);
-  ctx.lineTo(589, 367); ctx.lineTo(590, 385); ctx.lineTo(583, 402);
-  ctx.lineTo(571, 414); ctx.lineTo(558, 418); ctx.lineTo(544, 414);
-  ctx.lineTo(533, 400); ctx.lineTo(528, 387);
+  ctx.moveTo(528, 388); ctx.lineTo(537, 381); ctx.lineTo(548, 378);
+  ctx.lineTo(573, 378); ctx.lineTo(584, 383); ctx.lineTo(592, 392);
+  ctx.lineTo(586, 407); ctx.lineTo(574, 416); ctx.lineTo(560, 420);
+  ctx.lineTo(545, 416); ctx.lineTo(534, 407); ctx.lineTo(528, 396);
   ctx.closePath(); ctx.clip();
   ctx.drawImage(artwork, 0, 0, artwork.width, artwork.height, 0, 0, 1600, 678);
+  ctx.restore();
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'source-over';
+  // Organic arm bolsters wrap around the hips without covering Alec's hands.
+  ctx.fillStyle = 'rgba(7, 20, 29, 0.96)';
+  ctx.strokeStyle = 'rgba(112, 224, 235, 0.58)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(528, 374); ctx.quadraticCurveTo(518, 386, 526, 404);
+  ctx.quadraticCurveTo(532, 413, 543, 414); ctx.lineTo(549, 400);
+  ctx.quadraticCurveTo(539, 395, 540, 383); ctx.quadraticCurveTo(539, 376, 528, 374);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(592, 374); ctx.quadraticCurveTo(602, 386, 594, 404);
+  ctx.quadraticCurveTo(588, 413, 577, 414); ctx.lineTo(571, 400);
+  ctx.quadraticCurveTo(581, 395, 580, 383); ctx.quadraticCurveTo(581, 376, 592, 374);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+
+  // The front cowl is the decisive depth cue: legs disappear behind it while
+  // the chest, shoulders and operating hands remain unobstructed.
+  ctx.fillStyle = 'rgba(8, 24, 33, 0.985)';
+  ctx.strokeStyle = 'rgba(121, 232, 240, 0.72)';
+  ctx.beginPath();
+  ctx.moveTo(538, 390); ctx.quadraticCurveTo(560, 382, 582, 390);
+  ctx.lineTo(579, 408); ctx.quadraticCurveTo(560, 421, 541, 408);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = 'rgba(126, 239, 246, 0.46)';
+  ctx.beginPath(); ctx.ellipse(560, 391, 19, 4.5, 0, Math.PI, Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = 'rgba(244, 173, 91, 0.62)';
+  ctx.globalAlpha = 0.72;
+  ctx.beginPath(); ctx.moveTo(547, 407); ctx.quadraticCurveTo(560, 414, 573, 407); ctx.stroke();
+  ctx.fillStyle = '#9e69f7'; ctx.globalAlpha = 0.78;
+  ctx.fillRect(558.5, 397, 3, 8);
   ctx.restore();
 }
 

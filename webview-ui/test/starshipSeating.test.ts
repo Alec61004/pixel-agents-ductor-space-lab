@@ -18,6 +18,8 @@ import {
   ALEC_SEATED_ATLAS,
   ALEC_SEAT,
   BENJAMIN_QA_ATLAS,
+  drawAlecSeatBack,
+  drawPhotonicActivity,
   getCommandGesture,
   KEVIN_STARMAP_ATLAS,
 } from '../src/ductor/starshipComputerBay.js';
@@ -42,6 +44,30 @@ test('visual bubble anchors never change the agent working state', () => {
   });
   assert.ok(labels.includes('⚙ đang làm việc'));
   assert.ok(!labels.includes('💤 idle'));
+});
+
+test('Alec is centred inside a foreground command cradle with a live spatial interface', () => {
+  assert.deepEqual(ALEC_SEAT, { x: 560, feetY: 410, height: 74 });
+  const calls: unknown[][] = [];
+  const ctx = new Proxy({}, {
+    get: (_, key) => (...args: unknown[]) => calls.push([key, ...args]),
+    set: () => true,
+  }) as CanvasRenderingContext2D;
+  drawAlecSeatBack(ctx, { width: 1600, height: 678 } as HTMLImageElement);
+  assert.ok(calls.some((call) => call[0] === 'drawImage'), 'restore the original pedestal');
+  assert.ok(calls.filter((call) => call[0] === 'quadraticCurveTo').length >= 8,
+    'side bolsters and front cowl must wrap around the lower body');
+  assert.equal(calls.filter((call) => call[0] === 'save').length,
+    calls.filter((call) => call[0] === 'restore').length);
+
+  calls.length = 0;
+  drawPhotonicActivity(ctx, 2, true);
+  assert.ok(calls.filter((call) => call[0] === 'ellipse').length >= 6,
+    'the active command station includes spatial field arcs and emitters');
+  assert.ok(calls.filter((call) => call[0] === 'quadraticCurveTo').length >= 4,
+    'data feeds converge on the command cradle');
+  assert.equal(calls.filter((call) => call[0] === 'save').length,
+    calls.filter((call) => call[0] === 'restore').length);
 });
 
 test('command gestures only advance while Alec occupies his station; Kevin keeps his independent tour', () => {
