@@ -47,7 +47,7 @@ test('visual bubble anchors never change the agent working state', () => {
 });
 
 test('Alec is centred inside a foreground command cradle with a live spatial interface', () => {
-  assert.deepEqual(ALEC_SEAT, { x: 560, feetY: 410, height: 74 });
+  assert.deepEqual(ALEC_SEAT, { x: 560, feetY: 399, height: 74 });
   const calls: unknown[][] = [];
   const ctx = new Proxy({}, {
     get: (_, key) => (...args: unknown[]) => calls.push([key, ...args]),
@@ -55,8 +55,8 @@ test('Alec is centred inside a foreground command cradle with a live spatial int
   }) as CanvasRenderingContext2D;
   drawAlecSeatBack(ctx, { width: 1600, height: 678 } as HTMLImageElement);
   assert.ok(calls.some((call) => call[0] === 'drawImage'), 'restore the original pedestal');
-  assert.ok(calls.filter((call) => call[0] === 'quadraticCurveTo').length >= 8,
-    'side bolsters and front cowl must wrap around the lower body');
+  assert.ok(calls.filter((call) => call[0] === 'quadraticCurveTo').length >= 5,
+    'the compact front band must follow the current chair base');
   assert.equal(calls.filter((call) => call[0] === 'save').length,
     calls.filter((call) => call[0] === 'restore').length);
 

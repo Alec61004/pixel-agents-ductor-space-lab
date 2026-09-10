@@ -96,7 +96,7 @@ export const BENJAMIN_QA_ASSET = 'themes/ductor-space-lab/benjamin-qa-control-v1
 
 // The seated pelvis is inside the shell at (560, 369). The routing anchor
 // stays on the walkable floor; it is not a drawing anchor for a seated body.
-export const ALEC_SEAT = { x: 560, feetY: 410, height: 74 };
+export const ALEC_SEAT = { x: 560, feetY: 399, height: 74 };
 
 export const ALEC_SEATED_ATLAS = {
   width: 2172, height: 724, columns: 4, bodyTop: 117, bodyBottom: 634,
@@ -146,7 +146,7 @@ export function drawPhotonicActivity(ctx: CanvasRenderingContext2D, time: number
   // from both wings of the living console. The body is drawn later, so the
   // projection reads as a volume surrounding the seated operator.
   const commandX = ALEC_SEAT.x;
-  const commandY = 363;
+  const commandY = 354;
   const commandPulse = 0.5 + Math.sin(phase * 1.7) * 0.5;
   ctx.lineWidth = 0.8;
   for (let ring = 0; ring < 3; ring++) {
@@ -265,7 +265,7 @@ export function drawCommandContact(ctx: CanvasRenderingContext2D, time: number):
   const { contact } = getCommandGesture(time);
   if (!contact) return;
   const x = contact < 0 ? 528 : 599;
-  const y = 367;
+  const y = 356;
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
   const glow = ctx.createRadialGradient(x, y, 0, x, y, 9);
   glow.addColorStop(0, '#ffd38ba8'); glow.addColorStop(0.45, '#5fe1f45c'); glow.addColorStop(1, '#1ba7c400');
@@ -277,51 +277,36 @@ export function drawCommandContact(ctx: CanvasRenderingContext2D, time: number):
 /** Foreground chair shell: it places the lower body inside the command cradle. */
 export function drawAlecSeatBack(ctx: CanvasRenderingContext2D, artwork: RoomArtwork): void {
   ctx.save();
-  // Restore only the original lower pedestal; the authored body remains in
-  // front of the backrest while the new side bolsters and front cowl below
-  // conceal the thighs and feet like a genuine seated silhouette.
-  ctx.beginPath(); ctx.rect(522, 392, 76, 31); ctx.clip();
+  // Restore the exact lower pedestal from the current room. Keeping this mask
+  // narrow prevents a second, invented chair silhouette from drifting away
+  // from the baked workstation.
+  ctx.beginPath(); ctx.rect(532, 389, 56, 32); ctx.clip();
   ctx.beginPath();
-  ctx.moveTo(528, 388); ctx.lineTo(537, 381); ctx.lineTo(548, 378);
-  ctx.lineTo(573, 378); ctx.lineTo(584, 383); ctx.lineTo(592, 392);
-  ctx.lineTo(586, 407); ctx.lineTo(574, 416); ctx.lineTo(560, 420);
-  ctx.lineTo(545, 416); ctx.lineTo(534, 407); ctx.lineTo(528, 396);
+  ctx.moveTo(537, 388); ctx.quadraticCurveTo(560, 380, 583, 388);
+  ctx.lineTo(582, 404); ctx.quadraticCurveTo(560, 420, 538, 404);
   ctx.closePath(); ctx.clip();
   ctx.drawImage(artwork, 0, 0, artwork.width, artwork.height, 0, 0, 1600, 678);
   ctx.restore();
 
   ctx.save();
   ctx.globalCompositeOperation = 'source-over';
-  // Organic arm bolsters wrap around the hips without covering Alec's hands.
-  ctx.fillStyle = 'rgba(7, 20, 29, 0.96)';
-  ctx.strokeStyle = 'rgba(112, 224, 235, 0.58)';
+  // A compact front band hides only the boots. Its curve follows the current
+  // chair base, leaving the bent knees, torso and both controls correctly
+  // aligned with the console surface.
+  ctx.fillStyle = 'rgba(8, 23, 31, 0.97)';
+  ctx.strokeStyle = 'rgba(117, 225, 234, 0.54)';
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(528, 374); ctx.quadraticCurveTo(518, 386, 526, 404);
-  ctx.quadraticCurveTo(532, 413, 543, 414); ctx.lineTo(549, 400);
-  ctx.quadraticCurveTo(539, 395, 540, 383); ctx.quadraticCurveTo(539, 376, 528, 374);
+  ctx.moveTo(540, 386); ctx.quadraticCurveTo(560, 379, 580, 386);
+  ctx.lineTo(578, 402); ctx.quadraticCurveTo(560, 413, 542, 402);
   ctx.closePath(); ctx.fill(); ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(592, 374); ctx.quadraticCurveTo(602, 386, 594, 404);
-  ctx.quadraticCurveTo(588, 413, 577, 414); ctx.lineTo(571, 400);
-  ctx.quadraticCurveTo(581, 395, 580, 383); ctx.quadraticCurveTo(581, 376, 592, 374);
-  ctx.closePath(); ctx.fill(); ctx.stroke();
-
-  // The front cowl is the decisive depth cue: legs disappear behind it while
-  // the chest, shoulders and operating hands remain unobstructed.
-  ctx.fillStyle = 'rgba(8, 24, 33, 0.985)';
-  ctx.strokeStyle = 'rgba(121, 232, 240, 0.72)';
-  ctx.beginPath();
-  ctx.moveTo(538, 390); ctx.quadraticCurveTo(560, 382, 582, 390);
-  ctx.lineTo(579, 408); ctx.quadraticCurveTo(560, 421, 541, 408);
-  ctx.closePath(); ctx.fill(); ctx.stroke();
-  ctx.strokeStyle = 'rgba(126, 239, 246, 0.46)';
-  ctx.beginPath(); ctx.ellipse(560, 391, 19, 4.5, 0, Math.PI, Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = 'rgba(126, 239, 246, 0.38)';
+  ctx.beginPath(); ctx.ellipse(560, 386, 17, 3.8, 0, Math.PI, Math.PI * 2); ctx.stroke();
   ctx.strokeStyle = 'rgba(244, 173, 91, 0.62)';
-  ctx.globalAlpha = 0.72;
-  ctx.beginPath(); ctx.moveTo(547, 407); ctx.quadraticCurveTo(560, 414, 573, 407); ctx.stroke();
+  ctx.globalAlpha = 0.62;
+  ctx.beginPath(); ctx.moveTo(548, 402); ctx.quadraticCurveTo(560, 408, 572, 402); ctx.stroke();
   ctx.fillStyle = '#9e69f7'; ctx.globalAlpha = 0.78;
-  ctx.fillRect(558.5, 397, 3, 8);
+  ctx.fillRect(558.5, 392, 3, 7);
   ctx.restore();
 }
 
