@@ -11,6 +11,21 @@ export interface ComputerBayBounds {
 
 export type ComputerBayOperator = Extract<DuctorRoleName, 'Alec' | 'Kevin'>;
 
+/**
+ * Measured from the production `photonic-room-v4.webp` after its one-time
+ * normalisation to 1600×678. The violet chair core occupies x=548..557 with a
+ * centroid at x=552.5; every Alec overlay must derive from this geometry.
+ */
+export const ALEC_COMMAND_STATION = {
+  sourceAsset: 'themes/ductor-space-lab/photonic-room-v4.webp',
+  chair: { centerX: 552, backCoreY: 349, seatBaseY: 399 },
+  field: { centerX: 552, centerY: 354 },
+  contacts: {
+    left: { x: 520, y: 356 },
+    right: { x: 591, y: 356 },
+  },
+} as const;
+
 export interface OriginalComputerBay {
   operator: ComputerBayOperator;
   label: string;
@@ -54,8 +69,8 @@ export const ORIGINAL_COMPUTER_BAYS: Record<ComputerBayOperator, OriginalCompute
     roleDescription: 'Strategy',
     bayId: 'central-command',
     backgroundBounds: { x: 407, y: 299, w: 327, h: 130 },
-    approachPoint: { x: 560, y: 500 },
-    interactionPoint: { x: 560, y: 450 },
+    approachPoint: { x: ALEC_COMMAND_STATION.chair.centerX, y: 500 },
+    interactionPoint: { x: ALEC_COMMAND_STATION.chair.centerX, y: 450 },
     facing: 'back',
     displayBounds: { x: 455, y: 302, w: 255, h: 110 },
     displayAreas: [
@@ -94,9 +109,13 @@ export const ALEC_SEATED_ASSET = 'themes/ductor-space-lab/alec-command-seated-v2
 export const KEVIN_STARMAP_ASSET = 'themes/ductor-space-lab/kevin-starmap-control-v2.png';
 export const BENJAMIN_QA_ASSET = 'themes/ductor-space-lab/benjamin-qa-control-v1.png';
 
-// The seated pelvis is inside the shell at (560, 369). The routing anchor
-// stays on the walkable floor; it is not a drawing anchor for a seated body.
-export const ALEC_SEAT = { x: 560, feetY: 399, height: 74 };
+// The routing anchor stays on the walkable floor; it is not the drawing anchor
+// for a seated body. Both now share the measured chair centre on the x-axis.
+export const ALEC_SEAT = {
+  x: ALEC_COMMAND_STATION.chair.centerX,
+  feetY: ALEC_COMMAND_STATION.chair.seatBaseY,
+  height: 74,
+};
 
 export const ALEC_SEATED_ATLAS = {
   width: 2172, height: 724, columns: 4, bodyTop: 117, bodyBottom: 634,
@@ -145,8 +164,8 @@ export function drawPhotonicActivity(ctx: CanvasRenderingContext2D, time: number
   // monitors. Concentric field arcs sit behind Alec while data packets converge
   // from both wings of the living console. The body is drawn later, so the
   // projection reads as a volume surrounding the seated operator.
-  const commandX = ALEC_SEAT.x;
-  const commandY = 354;
+  const commandX = ALEC_COMMAND_STATION.field.centerX;
+  const commandY = ALEC_COMMAND_STATION.field.centerY;
   const commandPulse = 0.5 + Math.sin(phase * 1.7) * 0.5;
   ctx.lineWidth = 0.8;
   for (let ring = 0; ring < 3; ring++) {
@@ -264,8 +283,10 @@ export function drawPhotonicActivity(ctx: CanvasRenderingContext2D, time: number
 export function drawCommandContact(ctx: CanvasRenderingContext2D, time: number): void {
   const { contact } = getCommandGesture(time);
   if (!contact) return;
-  const x = contact < 0 ? 528 : 599;
-  const y = 356;
+  const point = contact < 0
+    ? ALEC_COMMAND_STATION.contacts.left
+    : ALEC_COMMAND_STATION.contacts.right;
+  const { x, y } = point;
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
   const glow = ctx.createRadialGradient(x, y, 0, x, y, 9);
   glow.addColorStop(0, '#ffd38ba8'); glow.addColorStop(0.45, '#5fe1f45c'); glow.addColorStop(1, '#1ba7c400');
@@ -276,14 +297,15 @@ export function drawCommandContact(ctx: CanvasRenderingContext2D, time: number):
 
 /** Foreground chair shell: it places the lower body inside the command cradle. */
 export function drawAlecSeatBack(ctx: CanvasRenderingContext2D, artwork: RoomArtwork): void {
+  const cx = ALEC_COMMAND_STATION.chair.centerX;
   ctx.save();
   // Restore the exact lower pedestal from the current room. Keeping this mask
   // narrow prevents a second, invented chair silhouette from drifting away
   // from the baked workstation.
-  ctx.beginPath(); ctx.rect(532, 389, 56, 32); ctx.clip();
+  ctx.beginPath(); ctx.rect(cx - 28, 389, 56, 32); ctx.clip();
   ctx.beginPath();
-  ctx.moveTo(537, 388); ctx.quadraticCurveTo(560, 380, 583, 388);
-  ctx.lineTo(582, 404); ctx.quadraticCurveTo(560, 420, 538, 404);
+  ctx.moveTo(cx - 23, 388); ctx.quadraticCurveTo(cx, 380, cx + 23, 388);
+  ctx.lineTo(cx + 22, 404); ctx.quadraticCurveTo(cx, 420, cx - 22, 404);
   ctx.closePath(); ctx.clip();
   ctx.drawImage(artwork, 0, 0, artwork.width, artwork.height, 0, 0, 1600, 678);
   ctx.restore();
@@ -297,16 +319,16 @@ export function drawAlecSeatBack(ctx: CanvasRenderingContext2D, artwork: RoomArt
   ctx.strokeStyle = 'rgba(117, 225, 234, 0.54)';
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(540, 386); ctx.quadraticCurveTo(560, 379, 580, 386);
-  ctx.lineTo(578, 402); ctx.quadraticCurveTo(560, 413, 542, 402);
+  ctx.moveTo(cx - 20, 386); ctx.quadraticCurveTo(cx, 379, cx + 20, 386);
+  ctx.lineTo(cx + 18, 402); ctx.quadraticCurveTo(cx, 413, cx - 18, 402);
   ctx.closePath(); ctx.fill(); ctx.stroke();
   ctx.strokeStyle = 'rgba(126, 239, 246, 0.38)';
-  ctx.beginPath(); ctx.ellipse(560, 386, 17, 3.8, 0, Math.PI, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(cx, 386, 17, 3.8, 0, Math.PI, Math.PI * 2); ctx.stroke();
   ctx.strokeStyle = 'rgba(244, 173, 91, 0.62)';
   ctx.globalAlpha = 0.62;
-  ctx.beginPath(); ctx.moveTo(548, 402); ctx.quadraticCurveTo(560, 408, 572, 402); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx - 12, 402); ctx.quadraticCurveTo(cx, 408, cx + 12, 402); ctx.stroke();
   ctx.fillStyle = '#9e69f7'; ctx.globalAlpha = 0.78;
-  ctx.fillRect(558.5, 392, 3, 7);
+  ctx.fillRect(cx - 1.5, 392, 3, 7);
   ctx.restore();
 }
 

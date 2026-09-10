@@ -296,8 +296,8 @@ test('defines 3 fixed workstations (Alec, Kevin, Benjamin) with correct labels a
   assert.ok(WORKSTATIONS.Benjamin);
 
   // New device-anchored coordinates matching actual painted devices in starship-bg.png
-  assert.deepEqual(WORKSTATIONS.Alec.approachPoint, { x: 560, y: 500 });
-  assert.deepEqual(WORKSTATIONS.Alec.interactionPoint, { x: 560, y: 450 });
+  assert.deepEqual(WORKSTATIONS.Alec.approachPoint, { x: 552, y: 500 });
+  assert.deepEqual(WORKSTATIONS.Alec.interactionPoint, { x: 552, y: 450 });
   assert.equal(WORKSTATIONS.Alec.facing, 'back');
   assert.deepEqual(WORKSTATIONS.Alec.displayBounds, {
     x: 455,

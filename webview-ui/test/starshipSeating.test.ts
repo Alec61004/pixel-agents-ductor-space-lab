@@ -17,6 +17,7 @@ import {
 import {
   ALEC_SEATED_ATLAS,
   ALEC_SEAT,
+  ALEC_COMMAND_STATION,
   BENJAMIN_QA_ATLAS,
   drawAlecSeatBack,
   drawPhotonicActivity,
@@ -46,8 +47,12 @@ test('visual bubble anchors never change the agent working state', () => {
   assert.ok(!labels.includes('💤 idle'));
 });
 
-test('Alec is centred inside a foreground command cradle with a live spatial interface', () => {
-  assert.deepEqual(ALEC_SEAT, { x: 560, feetY: 399, height: 74 });
+test('Alec uses the measured production-room chair geometry for every overlay', () => {
+  assert.equal(ALEC_COMMAND_STATION.sourceAsset, 'themes/ductor-space-lab/photonic-room-v4.webp');
+  assert.deepEqual(ALEC_COMMAND_STATION.chair, { centerX: 552, backCoreY: 349, seatBaseY: 399 });
+  assert.deepEqual(ALEC_SEAT, { x: 552, feetY: 399, height: 74 });
+  assert.equal(WORKSTATIONS.Alec.approachPoint.x, ALEC_COMMAND_STATION.chair.centerX);
+  assert.equal(WORKSTATIONS.Alec.interactionPoint.x, ALEC_COMMAND_STATION.chair.centerX);
   const calls: unknown[][] = [];
   const ctx = new Proxy({}, {
     get: (_, key) => (...args: unknown[]) => calls.push([key, ...args]),
