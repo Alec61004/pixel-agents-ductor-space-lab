@@ -10,7 +10,20 @@ import {
   STARSHIP_VOID_TINT,
 } from '../constants.js';
 import type { DuctorRoleName, DuctorStatusSnapshot } from './ductorLabModel.js';
-import { ORIGINAL_COMPUTER_BAYS, STAR_MAP_WORKSTATION, STAR_MAP_PANEL, drawPhotonicComputerBay, drawPhotonicActivity, drawAlecSeatBack, drawCommandContact, getCommandGesture, ALEC_SEAT, ALEC_SEATED_ATLAS } from './starshipComputerBay.js';
+import {
+  ORIGINAL_COMPUTER_BAYS,
+  STAR_MAP_WORKSTATION,
+  STAR_MAP_PANEL,
+  drawPhotonicComputerBay,
+  drawPhotonicActivity,
+  drawAlecSeatBack,
+  drawCommandContact,
+  getCommandGesture,
+  ALEC_SEAT,
+  ALEC_SEATED_ATLAS,
+  KEVIN_STARMAP_ATLAS,
+  BENJAMIN_QA_ATLAS,
+} from './starshipComputerBay.js';
 import { drawPhotonicRoom, PHOTONIC_THEME } from './starshipPhotonicTheme.js';
 import { drawLivingRoom, getLivingRoomArtwork } from './starshipLivingRoom.js';
 import { drawQAContact } from './starshipQA.js';
@@ -873,10 +886,8 @@ export function updateAgent(
     a.animFrame = 0;
   }
 
-  const isOffline = a.reportedState === 'offline' || a.state === STATE.OFFLINE;
-
   if (a.name === 'Alec') {
-    const atCommand = !isOffline && a.state === STATE.WORKING && isAgentAtStation(a);
+    const atCommand = isAgentWorkingAtAssignedStation(a);
     a.commandTime = atCommand ? (a.commandTime ?? 0) + dt * speedMult : 0;
   }
 
@@ -901,8 +912,12 @@ export function updateAgent(
     };
   }
 
-  // Work particles: spawn every ~0.9s when working at desk
-  if (a.state === STATE.WORKING && !isOffline && a.name !== 'Kevin') {
+  // Work particles are not a proxy for a remote status. They start only after
+  // the body has reached its exact interaction anchor, and clear immediately
+  // when it leaves so a traveller never carries a ghost work effect.
+  if (!isAgentWorkingAtAssignedStation(a)) {
+    a.particles = [];
+  } else if (a.name !== 'Kevin') {
     a.particleTimer = (a.particleTimer ?? 0) + dt * speedMult;
     if (a.particleTimer >= 0.9) {
       a.particleTimer = 0;
@@ -953,17 +968,37 @@ export function isAgentAtStation(a: StarshipAgent): boolean {
   if (!ws) return false;
 
   const distInteraction = Math.hypot(a.x - ws.interactionPoint.x, a.y - ws.interactionPoint.y);
-  return distInteraction < 35;
+  // Approach anchors are deliberately 18–50 px away from the actual control
+  // point.  A generous tolerance made Kevin and Benjamin animate while still
+  // walking to their stations, so this must stay close to the snapped target.
+  return distInteraction <= 6;
+}
+
+export function isAgentWorkingAtAssignedStation(agent: StarshipAgent): boolean {
+  const wantsWork =
+    agent.reportedState === undefined ||
+    agent.reportedState === 'working' ||
+    agent.reportedState === 'review';
+  return (
+    wantsWork &&
+    agent.state === STATE.WORKING &&
+    agent.reportedState !== 'offline' &&
+    isAgentAtStation(agent)
+  );
 }
 
 export function isBenjaminUsingScanner(agent: StarshipAgent): boolean {
-  return agent.name === 'Benjamin' && agent.state === STATE.WORKING &&
-    agent.reportedState !== 'offline' && isAgentAtStation(agent);
+  return agent.name === 'Benjamin' && isAgentWorkingAtAssignedStation(agent);
 }
 
 export function getAgentStatusBubble(agent: StarshipAgent): AgentStatusBubble {
   const roleColor = ROLE_GLOW_COLORS[agent.name] ?? agent.skin?.tint ?? '#5ce1ff';
   const isOffline = agent.reportedState === 'offline' || agent.state === STATE.OFFLINE;
+  const workingAtStation = isAgentWorkingAtAssignedStation(agent);
+  const headingToWorkstation =
+    !isOffline &&
+    (agent.reportedState === 'working' || agent.reportedState === 'review') &&
+    !workingAtStation;
 
   let statusText = '💤 idle';
   let color = '#a5b4fc';
@@ -973,12 +1008,12 @@ export function getAgentStatusBubble(agent: StarshipAgent): AgentStatusBubble {
     statusText = '⚫ offline';
     color = '#8e92a4';
     borderColor = 'rgba(142, 146, 164, 0.4)';
-  } else if (
-    agent.state === STATE.WORKING ||
-    agent.reportedState === 'working' ||
-    agent.reportedState === 'review'
-  ) {
+  } else if (workingAtStation) {
     statusText = `⚙ đang làm việc`;
+    color = roleColor;
+    borderColor = roleColor;
+  } else if (headingToWorkstation) {
+    statusText = '↗ đến trạm';
     color = roleColor;
     borderColor = roleColor;
   } else if (agent.state === STATE.BLOCKED || agent.reportedState === 'blocked') {
@@ -1051,9 +1086,7 @@ export function drawAgentStatusBubble(
   ctx.fill();
   ctx.lineWidth = 1;
 
-  const isWorking =
-    !isOffline &&
-    (a.state === STATE.WORKING || a.reportedState === 'working' || a.reportedState === 'review');
+  const isWorking = isAgentWorkingAtAssignedStation(a);
 
   if (isWorking) {
     const pulse = 0.5 + 0.5 * Math.sin((a.bob ?? 0) * 1.5);
@@ -1129,39 +1162,37 @@ export const WORK_HAND_PHASE_OFFSETS = [
   { leftYOffset: 1, rightYOffset: 0, bob: -0.5 },
 ] as const;
 
-// Whole authored purple rear-view poses from crew-sprites.webp, row 1, columns 9 and 10.
-// Do not infer limb bounds or rotate pieces of the character.
-const ALEC_TOUCH_STARTS = [0.12, 0.6, 1.08] as const;
-const ALEC_TOUCH_DURATION = 0.22;
-const ALEC_CONSOLE_CYCLE = 8.4;
+// Kevin drives the star-map table with a short, readable touch/response loop.
+// This clock is separate from Alec's command-chair gesture clock.
+const KEVIN_TOUCH_STARTS = [0.12, 0.6, 1.08] as const;
+const KEVIN_TOUCH_DURATION = 0.22;
+const KEVIN_STARMAP_CYCLE = 8.4;
 
-function getAlecConsoleCycle(timeSec: number) {
+export function getKevinStarMapCycle(timeSec: number) {
   const time = Math.max(0, timeSec);
-  const cycle = Math.floor(time / ALEC_CONSOLE_CYCLE);
-  const phase = time - cycle * ALEC_CONSOLE_CYCLE;
-  const contact = ALEC_TOUCH_STARTS.some(
-    (start) => phase >= start && phase < start + ALEC_TOUCH_DURATION,
+  const cycle = Math.floor(time / KEVIN_STARMAP_CYCLE);
+  const phase = time - cycle * KEVIN_STARMAP_CYCLE;
+  const contact = KEVIN_TOUCH_STARTS.some(
+    (start) => phase >= start && phase < start + KEVIN_TOUCH_DURATION,
   );
   const response = Math.max(0, Math.min(1, (phase - 1.38) / 1.1));
   const settled = response * response * (3 - 2 * response);
-  return { phase, contact, responseTime: (cycle + settled) * ALEC_CONSOLE_CYCLE };
+  return { phase, contact, responseTime: (cycle + settled) * KEVIN_STARMAP_CYCLE };
 }
 
+export function getKevinStarMapFrame(timeSec: number): number {
+  const { phase, contact } = getKevinStarMapCycle(timeSec);
+  if (contact) return phase < 0.4 ? 1 : 2;
+  return phase > 3.8 ? 3 : 0;
+}
+
+/** @deprecated Compatibility name retained for existing host integrations. */
 export function getAlecHologramFrame(timeSec: number): number {
-  // Whole original rear-view poses: alternate open/closed control gestures.
-  return getAlecConsoleCycle(timeSec).contact ? 0 : 1;
+  return getKevinStarMapCycle(timeSec).contact ? 0 : 1;
 }
 
-function isKevinUsingStarMap(a: StarshipAgent): boolean {
-  return (
-    a.name === 'Kevin' &&
-    a.state === STATE.WORKING &&
-    a.reportedState !== 'offline' &&
-    (a.reportedState === undefined ||
-      a.reportedState === 'working' ||
-      a.reportedState === 'review') &&
-    isAgentAtStation(a)
-  );
+export function isKevinUsingStarMap(a: StarshipAgent): boolean {
+  return a.name === 'Kevin' && isAgentWorkingAtAssignedStation(a);
 }
 
 export function drawAgent(
@@ -1173,51 +1204,41 @@ export function drawAgent(
   walkImg?: HTMLImageElement,
 ): void {
   void _timeSec;
+  // Dedicated workstation poses are composed by drawStage.  Retain this
+  // parameter for the public renderer signature, but never recycle Alec's
+  // old hologram sprite for another crew member.
+  void alecHologramImg;
   const hologramControlActive = isKevinUsingStarMap(a);
   const isOffline = a.reportedState === 'offline' || a.state === STATE.OFFLINE;
-  const isReview = !isOffline && a.reportedState === 'review';
-  const isWorking =
-    !isOffline && (a.state === STATE.WORKING || a.reportedState === 'working') && !isReview;
-  const atDesk = isWorking || isReview;
+  const isWorking = isAgentWorkingAtAssignedStation(a);
+  const atDesk = isWorking;
 
   ctx.save();
   if (isOffline) {
     ctx.globalAlpha = 0.35;
   }
 
-  // The dedicated purple sprite belongs to Alec, never reuse it for Kevin.
-  const hologramSprite = hologramControlActive && a.name === 'Alec' && alecHologramImg ? alecHologramImg : undefined;
   const walkSprite = a.state === STATE.MOVING && walkImg ? walkImg : undefined;
-  const sprite = hologramSprite ?? walkSprite ?? sheetImg;
-  const cw = hologramSprite
-    ? hologramSprite.width / 2
-    : walkSprite
-      ? walkSprite.width / 12
-      : sheetImg.width / SHEET_COLS;
-  const ch = hologramSprite
-    ? hologramSprite.height
-    : walkSprite
-      ? walkSprite.height / 3
-      : sheetImg.height / SHEET_ROWS;
+  const sprite = walkSprite ?? sheetImg;
+  const cw = walkSprite ? walkSprite.width / 12 : sheetImg.width / SHEET_COLS;
+  const ch = walkSprite ? walkSprite.height / 3 : sheetImg.height / SHEET_ROWS;
   const walkRow = a.name === 'Benjamin' ? 0 : a.name === 'Kevin' ? 1 : 2;
-  const row = hologramSprite ? 0 : walkSprite ? walkRow : a.skin.row;
+  const row = walkSprite ? walkRow : a.skin.row;
   const idleFrame =
     a.state === STATE.IDLE
       ? a.idleAnimStep === 0 && a.animTimer === 0
         ? a.animFrame
         : IDLE_GESTURE_FRAMES[a.idleAnimStep % IDLE_GESTURE_FRAMES.length]!
       : a.animFrame;
-  const col = hologramSprite
-    ? getAlecHologramFrame(a.hologramTime ?? 0)
-    : walkSprite
-      ? (a.facing === 'front' ? 4 : a.facing === 'back' ? 8 : 0) + (a.animFrame % 4)
-      : hologramControlActive
-        ? 8 + getAlecHologramFrame(a.hologramTime ?? 0)
-        : a.state === STATE.MOVING
-          ? 4 + (a.animFrame % 4)
-          : a.facing === 'back' || (atDesk && a.facing !== 'front')
-            ? 8 + (idleFrame % 4)
-            : 0 + (idleFrame % 4);
+  const col = walkSprite
+    ? (a.facing === 'front' ? 4 : a.facing === 'back' ? 8 : 0) + (a.animFrame % 4)
+    : hologramControlActive
+      ? 8 + getAlecHologramFrame(a.hologramTime ?? 0)
+      : a.state === STATE.MOVING
+        ? 4 + (a.animFrame % 4)
+        : a.facing === 'back' || (atDesk && a.facing !== 'front')
+          ? 8 + (idleFrame % 4)
+          : 0 + (idleFrame % 4);
 
   const sx = col * cw;
   const sy = row * ch;
@@ -1228,9 +1249,9 @@ export function drawAgent(
   const drawH = BASE_DRAW_H * scale;
   const drawW = drawH * (cw / ch);
 
-  const phase = ((a.animFrame % 4) + 4) % 4;
-  const phaseOffsets = WORK_HAND_PHASE_OFFSETS[phase]!;
-  const bobY = isWorking && !hologramControlActive ? phaseOffsets.bob * scale : 0;
+  const bobY = isWorking && !hologramControlActive
+    ? WORK_HAND_PHASE_OFFSETS[((a.animFrame % 4) + 4) % 4]!.bob * scale
+    : 0;
   const leanY = atDesk ? -1 : 0;
 
   // Foot Anchor: Coordinates (a.x, a.y) = bottom center of character feet.
@@ -1265,21 +1286,23 @@ export function drawAgent(
   ctx.globalAlpha = isOffline ? 0.025 : 0.10;
   ctx.drawImage(sprite, sx, sy, cw, ch, -drawW / 2, -drawH, drawW, drawH);
 
-  // Alec uses complete authored rear-view poses; other operators keep their hand cues.
+  // Failure-safe fallback only. In the live stage all three crew members use
+  // their complete authored work pose, but an undecodable optional asset must
+  // not leave a working operator completely inert.
   if (isWorking && !hologramControlActive) {
+    const phase = ((a.animFrame % 4) + 4) % 4;
+    const phaseOffsets = WORK_HAND_PHASE_OFFSETS[phase]!;
     const leftX = -drawW * 0.14;
     const rightX = drawW * 0.06;
     const baseY = -drawH * 0.38;
     const handW = 3 * scale;
     const handH = 2 * scale;
-
     ctx.save();
     ctx.globalCompositeOperation = 'source-over';
     ctx.globalAlpha = isOffline ? 0.35 : 1.0;
     ctx.fillStyle = roleGlow;
     ctx.shadowColor = roleGlow;
     ctx.shadowBlur = 4;
-    // Left hand & Right hand
     if (typeof ctx.fillRect === 'function') {
       ctx.fillRect(leftX, baseY + phaseOffsets.leftYOffset * scale, handW, handH);
       ctx.fillRect(rightX, baseY + phaseOffsets.rightYOffset * scale, handW, handH);
@@ -1287,7 +1310,7 @@ export function drawAgent(
       ctx.beginPath();
       ctx.rect(leftX, baseY + phaseOffsets.leftYOffset * scale, handW, handH);
       ctx.rect(rightX, baseY + phaseOffsets.rightYOffset * scale, handW, handH);
-      if (typeof ctx.fill === 'function') ctx.fill();
+      ctx.fill();
     }
     ctx.restore();
   }
@@ -1316,7 +1339,7 @@ export function drawAgent(
   }
 
   // Status glow ring while working (scaled at feet)
-  if (a.state === STATE.WORKING && !isOffline && !hologramControlActive) {
+  if (isWorking && !hologramControlActive) {
     ctx.save();
     ctx.beginPath();
     ctx.ellipse(a.x, a.y, 20 * scale, 7 * scale, 0, 0, Math.PI * 2);
@@ -1354,6 +1377,93 @@ export function drawAgent(
   ctx.restore();
 }
 
+interface AuthoredWorkPoseAtlas {
+  width: number;
+  height: number;
+  columns: number;
+  bodyTop: number;
+  bodyBottom: number;
+}
+
+/**
+ * Draw one complete authored pose at a station-local anchor.
+ *
+ * The transparent padding in an atlas is intentionally retained: anchoring by
+ * the opaque body's bounds keeps every pose locked to its chair/table while
+ * allowing hands and antennae to animate outside the body rectangle.
+ */
+function drawAuthoredWorkPose(
+  ctx: CanvasRenderingContext2D,
+  a: StarshipAgent,
+  image: HTMLImageElement,
+  atlas: AuthoredWorkPoseAtlas,
+  frame: number,
+  anchorX: number,
+  anchorY: number,
+  bodyHeight: number,
+  floorGlow = true,
+): void {
+  if (!image.width || !image.height || atlas.columns < 1) return;
+  const sourceW = image.width / atlas.columns;
+  const sourceH = image.height;
+  const opaqueBodyH = Math.max(1, atlas.bodyBottom - atlas.bodyTop);
+  const cellH = bodyHeight * atlas.height / opaqueBodyH;
+  const cellW = cellH * sourceW / sourceH;
+  const cellY = anchorY - cellH * atlas.bodyBottom / atlas.height;
+  const safeFrame = ((Math.floor(frame) % atlas.columns) + atlas.columns) % atlas.columns;
+  const roleGlow = ROLE_GLOW_COLORS[a.name] ?? a.skin.tint ?? '#5ce1ff';
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.ellipse(anchorX, anchorY + 1, bodyHeight * 0.24, 4.5, 0, 0, Math.PI * 2);
+  ctx.fillStyle = STARSHIP_AGENT_SHADOW;
+  ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  ctx.shadowColor = roleGlow;
+  ctx.shadowBlur = 3;
+  ctx.drawImage(
+    image,
+    safeFrame * sourceW,
+    0,
+    sourceW,
+    sourceH,
+    anchorX - cellW / 2,
+    cellY,
+    cellW,
+    cellH,
+  );
+  ctx.shadowBlur = 0;
+  ctx.shadowColor = 'transparent';
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = 0.08;
+  ctx.drawImage(
+    image,
+    safeFrame * sourceW,
+    0,
+    sourceW,
+    sourceH,
+    anchorX - cellW / 2,
+    cellY,
+    cellW,
+    cellH,
+  );
+  ctx.restore();
+
+  if (floorGlow) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(anchorX, anchorY + 1, bodyHeight * 0.2, 4.2, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = roleGlow;
+    ctx.globalAlpha = 0.45 + Math.sin(a.bob * 1.3) * 0.16;
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
 export function drawDeskCutouts(
   ctx: CanvasRenderingContext2D,
   bgImg: HTMLImageElement,
@@ -1364,13 +1474,10 @@ export function drawDeskCutouts(
     // Kevin stands in front of the hologram table, not behind its front panel.
     if (!ws || !ws.occlusionBounds || agent.name === 'Kevin') continue;
 
-    const isOffline = agent.reportedState === 'offline' || agent.state === STATE.OFFLINE;
     // A live snapshot can remain "working" for a few frames while the
     // simulation is routing the crew member away. Never cover a moving or
     // idle sprite with a desk cutout during that transition.
-    const isWorking = !isOffline && agent.state === STATE.WORKING;
-
-    if (isWorking && isAgentAtStation(agent)) {
+    if (isAgentWorkingAtAssignedStation(agent)) {
       const c = ws.occlusionBounds;
       ctx.save();
       ctx.imageSmoothingEnabled = false;
@@ -1613,7 +1720,7 @@ export function getHologramNavigation(time: number, working: boolean, sceneTime 
   const planets = getHologramPlanets(sceneTime);
   const tour = hologramTour(time);
   const target = planets[tour.transfer > 0 ? tour.next : tour.index]!;
-  const { phase } = getAlecConsoleCycle(time);
+  const { phase } = getKevinStarMapCycle(time);
   const progress = working ? Math.max(0, Math.min(1, (phase - 1.38) / 1.1)) : 0;
   return {
     target: { x: target.x, y: target.y },
@@ -1886,17 +1993,31 @@ function drawHologramPlanet(
   if (planet.ring && Math.sin(moonAngle) >= 0) drawMoon();
 }
 
-export function drawAlecHologramControl(
+export function drawKevinStarMapControl(
   ctx: CanvasRenderingContext2D,
   a: StarshipAgent,
   foreground = false,
 ): void {
   if (!isKevinUsingStarMap(a)) return;
   const time = a.hologramTime ?? 0;
-  const { contact, phase, responseTime } = getAlecConsoleCycle(time);
+  const { contact, phase, responseTime } = getKevinStarMapCycle(time);
   const cx = a.x;
-  const handY = a.y - 41;
-  const coreY = a.y - 112;
+  const depth = getDepthScale(a.y);
+  const poseFrame = getKevinStarMapFrame(time);
+  // Measured against the four cyan rear-view frames at the 78px base body
+  // height.  These anchors make fields follow the actual gloves instead of
+  // floating around a generic standing sprite.
+  const poseHands = [
+    [{ x: -18, y: -60 }, { x: 18, y: -60 }],
+    [{ x: -20, y: -58 }, { x: 20, y: -80 }],
+    [{ x: -22, y: -79 }, { x: 26, y: -78 }],
+    [{ x: -19, y: -58 }, { x: 19, y: -80 }],
+  ] as const;
+  const hands = poseHands[poseFrame]!.map((hand) => ({
+    x: cx + hand.x * depth,
+    y: a.y + hand.y * depth,
+  }));
+  const coreY = a.y - 108 * depth;
   const grip = contact ? 1 : 0;
   const breath = 0.5 + Math.sin(time * 1.8) * 0.5;
   ctx.save();
@@ -1907,8 +2028,11 @@ export function drawAlecHologramControl(
   if (!foreground) {
     // Two filaments rise beside the intact rear-view character to the table's emitter.
     // The body occludes their middle sections naturally.
-    for (const side of [-1, 1]) {
-      const hx = cx + side * 23;
+    for (let index = 0; index < hands.length; index++) {
+      const side = index === 0 ? -1 : 1;
+      const hand = hands[index]!;
+      const hx = hand.x;
+      const handY = hand.y;
       ctx.strokeStyle = '#6de1e6';
       ctx.globalAlpha = 0.18 + grip * 0.18;
       ctx.beginPath();
@@ -1965,10 +2089,13 @@ export function drawAlecHologramControl(
     drawMapStar(ctx, cx, coreY, 0.7, '#9dffe9', 0.85);
   }
 
-  // The two floating control fields sit at the original back-view hand positions.
+  // The two floating control fields sit on Kevin's actual rear-view glove positions.
   // Render rear halves before the character and front halves after it.
-  for (const side of [-1, 1]) {
-    const hx = cx + side * 23;
+  for (let index = 0; index < hands.length; index++) {
+    const side = index === 0 ? -1 : 1;
+    const hand = hands[index]!;
+    const hx = hand.x;
+    const handY = hand.y;
     const radius = 8.2 - grip * 1.2;
     if (!foreground) {
       const halo = ctx.createRadialGradient(hx, handY, 0, hx, handY, radius + 4);
@@ -2010,6 +2137,9 @@ export function drawAlecHologramControl(
   ctx.restore();
 }
 
+/** @deprecated Compatibility export for consumers of the earlier renderer. */
+export const drawAlecHologramControl = drawKevinStarMapControl;
+
 export function drawWorkstationScreens(
   ctx: CanvasRenderingContext2D,
   agents: StarshipAgent[],
@@ -2020,14 +2150,7 @@ export function drawWorkstationScreens(
     const ws = WORKSTATIONS[agent.name];
     if (!ws) continue;
 
-    const isOffline = agent.reportedState === 'offline' || agent.state === STATE.OFFLINE;
-    const isWorking =
-      !isOffline &&
-      (agent.state === STATE.WORKING ||
-        agent.reportedState === 'working' ||
-        agent.reportedState === 'review');
-
-    if (!isWorking || !isAgentAtStation(agent)) continue;
+    if (!isAgentWorkingAtAssignedStation(agent)) continue;
 
     // Kevin's workstation is the hologram table rendered with drawHologramTopGlow.
     if (agent.name === 'Kevin') continue;
@@ -2091,12 +2214,7 @@ export function drawAlienConsoleEffects(
 ): void {
   const isWorkingAt = (name: DuctorRoleName) => {
     const agent = agents.find((candidate) => candidate.name === name);
-    if (!agent || !isAgentAtStation(agent)) return false;
-    return (
-      agent.state === STATE.WORKING ||
-      agent.reportedState === 'working' ||
-      agent.reportedState === 'review'
-    );
+    return Boolean(agent && isAgentWorkingAtAssignedStation(agent));
   };
 
   const drawScreen = (
@@ -2223,6 +2341,8 @@ export function drawStage(
   computerBayImg?: HTMLImageElement,
   alecSeatedImg?: HTMLImageElement,
   livingRoomImg?: HTMLImageElement,
+  kevinStarMapImg?: HTMLImageElement,
+  benjaminQAImg?: HTMLImageElement,
 ): { scale: number; offX: number; offY: number } {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, rect.width, rect.height);
@@ -2257,8 +2377,7 @@ export function drawStage(
   drawStarshipExterior(ctx, background, timeSec, !!livingArtwork, bgImg);
   if (!livingArtwork) drawPhotonicComputerBay(ctx, computerBayImg);
   const commander = agents.find((agent) => agent.name === 'Alec');
-  const seated = !!commander && commander.state === STATE.WORKING &&
-    commander.reportedState !== 'offline' && isAgentAtStation(commander);
+  const seated = !!commander && isAgentWorkingAtAssignedStation(commander);
   if (chairArtwork) {
     drawPhotonicActivity(ctx, seated ? commander!.commandTime ?? 0 : timeSec, seated);
   }
@@ -2283,44 +2402,75 @@ export function drawStage(
   drawFloorMarkers(ctx, showStations);
   if (livingArtwork) drawHologramTopGlow(ctx, agents, timeSec);
   const mapOperator = agents.find((agent) => agent.name === 'Kevin');
-  if (livingArtwork && mapOperator) drawAlecHologramControl(ctx, mapOperator);
+  if (livingArtwork && mapOperator) drawKevinStarMapControl(ctx, mapOperator);
 
   const sorted = [...agents].sort((a, b) => a.y - b.y);
   for (const a of sorted) {
-    if (a.name === 'Alec' && seated && chairArtwork && (alecSeatedImg || alecHologramImg)) {
-      // The occupant sits inside the chair shell. Routing coordinates remain
-      // on the floor, and the foreground shell is painted only for the occupant.
+    if (a.name === 'Alec' && seated && chairArtwork && alecSeatedImg) {
+      // Alec's source position is the floor interaction anchor, but the pose
+      // itself is anchored in the centre chair. The chair lip is composited
+      // afterward so his folded legs cannot float in front of the shell.
       const { x, feetY, height } = ALEC_SEAT;
-      const seatedImg = alecSeatedImg || alecHologramImg!;
       const commandTime = a.commandTime ?? 0;
-      const frames = alecSeatedImg ? ALEC_SEATED_ATLAS.columns : 2;
-      const frame = alecSeatedImg ? getCommandGesture(commandTime).frame : 0;
-      const sw = seatedImg.width / frames;
-      const sh = seatedImg.height;
-      const { height: atlasHeight, bodyTop, bodyBottom } = ALEC_SEATED_ATLAS;
-      const cellHeight = alecSeatedImg ? height * atlasHeight / (bodyBottom - bodyTop) : height;
-      const width = cellHeight * sw / sh;
-      const cellY = feetY - cellHeight * (alecSeatedImg ? bodyBottom / atlasHeight : 1);
+      drawAuthoredWorkPose(
+        ctx,
+        a,
+        alecSeatedImg,
+        ALEC_SEATED_ATLAS,
+        getCommandGesture(commandTime).frame,
+        x,
+        feetY,
+        height,
+        false,
+      );
       ctx.save();
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(seatedImg, frame * sw, 0, sw, sh,
-        x - width / 2, cellY + Math.sin(commandTime * 1.6) * 0.2, width, cellHeight);
       drawAlecSeatBack(ctx, chairArtwork);
       drawCommandContact(ctx, commandTime);
       ctx.restore();
-      // The seated head is higher than the old standing anchor; lift the
-      // bubble slightly so it never sits on top of the helmet.
       drawAgentStatusBubble(ctx, { ...a, x, y: feetY }, height, -10);
+      continue;
+    }
+    if (a.name === 'Kevin' && isKevinUsingStarMap(a) && kevinStarMapImg) {
+      const bodyHeight = 78 * getDepthScale(a.y);
+      drawAuthoredWorkPose(
+        ctx,
+        a,
+        kevinStarMapImg,
+        KEVIN_STARMAP_ATLAS,
+        getKevinStarMapFrame(a.hologramTime ?? 0),
+        a.x,
+        a.y,
+        bodyHeight,
+      );
+      // Keep the roster label beside the enlarged map rather than over its
+      // star field or Kevin's raised hands.
+      drawAgentStatusBubble(ctx, { ...a, x: a.x - 92, y: a.y + 26 }, bodyHeight, -4);
+      continue;
+    }
+    if (a.name === 'Benjamin' && qaActive && benjaminQAImg) {
+      const bodyHeight = 80 * getDepthScale(a.y);
+      drawAuthoredWorkPose(
+        ctx,
+        a,
+        benjaminQAImg,
+        BENJAMIN_QA_ATLAS,
+        a.animFrame,
+        a.x,
+        a.y,
+        bodyHeight,
+      );
+      drawQAContact(ctx, timeSec, a.x, a.y, getDepthScale(a.y), a.animFrame);
+      drawAgentStatusBubble(ctx, a, bodyHeight, -4);
       continue;
     }
     drawAgent(ctx, a, sheetImg, timeSec, alecHologramImg, walkImg);
     if (livingArtwork && qaActive && a.name === 'Benjamin') {
-      drawQAContact(ctx, timeSec, a.x, a.y, getDepthScale(a.y));
+      drawQAContact(ctx, timeSec, a.x, a.y, getDepthScale(a.y), a.animFrame);
     }
   }
 
   // Foreground arcs wrap around Kevin's hands while preserving his intact sprite.
-  if (livingArtwork && mapOperator) drawAlecHologramControl(ctx, mapOperator, true);
+  if (livingArtwork && mapOperator) drawKevinStarMapControl(ctx, mapOperator, true);
 
   // Crew members stand in front of the consoles in this top-down room. Do not
   // repaint the background over their lower bodies: that made walking sprites

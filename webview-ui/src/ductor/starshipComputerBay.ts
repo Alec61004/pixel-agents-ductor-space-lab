@@ -87,14 +87,27 @@ export const ORIGINAL_COMPUTER_BAYS: Record<ComputerBayOperator, OriginalCompute
 
 /** Approved photonic bay artwork; coordinates remain in the original room space. */
 export const PHOTONIC_BAY_ASSET = 'themes/ductor-space-lab/photonic-bay-v1.png';
-export const ALEC_SEATED_ASSET = 'themes/ductor-space-lab/alec-seated.png';
+// Dedicated working poses are kept as separate transparent atlases.  They are
+// not slices from the walk sheet: each frame is authored around the furniture
+// it operates so limbs, chair shells and holographic controls line up.
+export const ALEC_SEATED_ASSET = 'themes/ductor-space-lab/alec-command-seated-v2.png';
+export const KEVIN_STARMAP_ASSET = 'themes/ductor-space-lab/kevin-starmap-control-v1.png';
+export const BENJAMIN_QA_ASSET = 'themes/ductor-space-lab/benjamin-qa-control-v1.png';
 
 // The seated pelvis is inside the shell at (560, 369). The routing anchor
 // stays on the walkable floor; it is not a drawing anchor for a seated body.
-export const ALEC_SEAT = { x: 560, feetY: 393, height: 80 };
+export const ALEC_SEAT = { x: 560, feetY: 401, height: 82 };
 
 export const ALEC_SEATED_ATLAS = {
   width: 2172, height: 724, columns: 4, bodyTop: 117, bodyBottom: 634,
+};
+
+export const KEVIN_STARMAP_ATLAS = {
+  width: 2048, height: 768, columns: 4, bodyTop: 54, bodyBottom: 706,
+};
+
+export const BENJAMIN_QA_ATLAS = {
+  width: 2172, height: 724, columns: 4, bodyTop: 124, bodyBottom: 651,
 };
 
 /**
@@ -212,12 +225,14 @@ export function drawCommandContact(ctx: CanvasRenderingContext2D, time: number):
 /** The seat back is foreground furniture, and only occludes its seated occupant. */
 export function drawAlecSeatBack(ctx: CanvasRenderingContext2D, artwork: RoomArtwork): void {
   ctx.save(); ctx.beginPath();
-  // Trace the actual rear shell, never the floor or pedestal. Hands remain
-  // outside this silhouette, with the head and shoulders above its top edge.
-  ctx.moveTo(537, 378); ctx.lineTo(538, 363); ctx.lineTo(547, 353);
-  ctx.lineTo(555, 348); ctx.lineTo(565, 348); ctx.lineTo(575, 353);
-  ctx.lineTo(583, 365); ctx.lineTo(583, 382); ctx.lineTo(575, 402);
-  ctx.lineTo(564, 411); ctx.lineTo(550, 408); ctx.lineTo(541, 393);
+  // This is the front lip of the command chair, not an all-purpose desk
+  // cutout.  It deliberately hides Alec's folded calves and hips while
+  // preserving the raised forearms, helmet and the glowing control surface.
+  ctx.moveTo(528, 377); ctx.lineTo(532, 363); ctx.lineTo(544, 352);
+  ctx.lineTo(555, 347); ctx.lineTo(567, 347); ctx.lineTo(579, 353);
+  ctx.lineTo(589, 367); ctx.lineTo(590, 385); ctx.lineTo(583, 402);
+  ctx.lineTo(571, 414); ctx.lineTo(558, 418); ctx.lineTo(544, 414);
+  ctx.lineTo(533, 400); ctx.lineTo(528, 387);
   ctx.closePath(); ctx.clip();
   ctx.drawImage(artwork, 0, 0, artwork.width, artwork.height, 0, 0, 1600, 678);
   ctx.restore();

@@ -3,7 +3,15 @@ import { useEffect, useRef, useState } from 'react';
 import type { DuctorRoleName, DuctorStatusSnapshot } from './ductorLabModel.js';
 import { ductorAssetUrl } from './ductorLabModel.js';
 import { loadStarshipImage } from './starshipImageLoader.js';
-import { ALEC_SEATED_ASSET, ALEC_SEATED_ATLAS, PHOTONIC_BAY_ASSET } from './starshipComputerBay.js';
+import {
+  ALEC_SEATED_ASSET,
+  ALEC_SEATED_ATLAS,
+  BENJAMIN_QA_ASSET,
+  BENJAMIN_QA_ATLAS,
+  KEVIN_STARMAP_ASSET,
+  KEVIN_STARMAP_ATLAS,
+  PHOTONIC_BAY_ASSET,
+} from './starshipComputerBay.js';
 import { PHOTONIC_CSS_VARS } from './starshipPhotonicTheme.js';
 import { LIVING_ROOM_ASSET } from './starshipLivingRoom.js';
 import {
@@ -37,6 +45,7 @@ import {
   getDepthScale,
   getStageBaseScale,
   IDLE_POINTS,
+  isAgentWorkingAtAssignedStation,
   isAgentAtStation,
   isPointInPolygon,
   makeAgent,
@@ -95,6 +104,7 @@ export {
   getDepthScale,
   getStageBaseScale,
   IDLE_POINTS,
+  isAgentWorkingAtAssignedStation,
   isAgentAtStation,
   isPointInPolygon,
   makeAgent,
@@ -276,12 +286,16 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
     const computerBayImg = new Image();
     const alecSeatedImg = new Image();
     const livingRoomImg = new Image();
+    const kevinStarMapImg = new Image();
+    const benjaminQAImg = new Image();
     let computerBayReady = false;
     let sceneReady = false;
     let hologramReady = false;
     let walkReady = false;
     let alecSeatedReady = false;
     let livingRoomReady = false;
+    let kevinStarMapReady = false;
+    let benjaminQAReady = false;
     setLoaded(false);
     void loadStarshipImage(livingRoomImg, ductorAssetUrl(import.meta.env?.BASE_URL ?? './', LIVING_ROOM_ASSET)).then((ready) => {
       if (!disposed) livingRoomReady = ready;
@@ -291,6 +305,20 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
     });
     void loadStarshipImage(alecSeatedImg, ductorAssetUrl(import.meta.env?.BASE_URL ?? './', ALEC_SEATED_ASSET), ALEC_SEATED_ATLAS).then((ready) => {
       if (!disposed) alecSeatedReady = ready;
+    });
+    void loadStarshipImage(
+      kevinStarMapImg,
+      ductorAssetUrl(import.meta.env?.BASE_URL ?? './', KEVIN_STARMAP_ASSET),
+      KEVIN_STARMAP_ATLAS,
+    ).then((ready) => {
+      if (!disposed) kevinStarMapReady = ready;
+    });
+    void loadStarshipImage(
+      benjaminQAImg,
+      ductorAssetUrl(import.meta.env?.BASE_URL ?? './', BENJAMIN_QA_ASSET),
+      BENJAMIN_QA_ATLAS,
+    ).then((ready) => {
+      if (!disposed) benjaminQAReady = ready;
     });
 
     // Only the background and original sheet are required. Optional sprite
@@ -451,6 +479,8 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
             computerBayReady ? computerBayImg : undefined,
             alecSeatedReady ? alecSeatedImg : undefined,
             livingRoomReady ? livingRoomImg : undefined,
+            kevinStarMapReady ? kevinStarMapImg : undefined,
+            benjaminQAReady ? benjaminQAImg : undefined,
           );
         }
       }
@@ -955,4 +985,3 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
     </div>
   );
 }
-

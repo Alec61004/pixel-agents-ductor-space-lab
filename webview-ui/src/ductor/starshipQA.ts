@@ -60,14 +60,29 @@ export function drawQAExperiment(ctx: CanvasRenderingContext2D, time: number): v
   ctx.restore();
 }
 
-/** Foreground controls follow Benjamin's hands; no background is pasted over him. */
-export function drawQAContact(ctx: CanvasRenderingContext2D, time: number, x: number, y: number, scale: number): void {
+/** Foreground controls follow Benjamin's authored QA-pose hands; no room pixels are pasted over him. */
+export function drawQAContact(
+  ctx: CanvasRenderingContext2D,
+  time: number,
+  x: number,
+  y: number,
+  scale: number,
+  poseFrame = 0,
+): void {
   const state = getQAScanState(time);
+  const handPoses = [
+    [{ x: -20, y: -49 }, { x: 20, y: -49 }],
+    [{ x: -29, y: -60 }, { x: 22, y: -58 }],
+    [{ x: -25, y: -59 }, { x: 29, y: -60 }],
+    [{ x: -23, y: -58 }, { x: 27, y: -57 }],
+  ] as const;
+  const pose = handPoses[((Math.floor(poseFrame) % handPoses.length) + handPoses.length) % handPoses.length]!;
   ctx.save(); ctx.translate(x, y); ctx.scale(scale, scale);
   ctx.globalCompositeOperation = 'screen';
-  for (const side of [-1, 1]) {
+  for (const side of [-1, 1] as const) {
     const tap = side < 0 ? state.touch : 1 - state.touch;
-    const handX = side * 22, handY = -43 - tap * 3;
+    const hand = pose[side < 0 ? 0 : 1];
+    const handX = hand.x, handY = hand.y - tap * 2;
     ctx.fillStyle = '#153b4788'; ctx.strokeStyle = '#86e8f7'; ctx.lineWidth = 0.8;
     ctx.globalAlpha = 0.45 + tap * 0.45;
     ctx.beginPath(); ctx.ellipse(handX, handY, 11, 4, -side * 0.2, 0, TAU); ctx.fill(); ctx.stroke();

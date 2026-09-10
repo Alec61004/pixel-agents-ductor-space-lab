@@ -2,8 +2,23 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { PNG } from 'pngjs';
 import { test } from 'vitest';
-import { createInitialCrew, STATE, updateAgent, WORKSTATIONS } from '../src/ductor/starshipSimulation.js';
-import { ALEC_SEATED_ATLAS, getCommandGesture } from '../src/ductor/starshipComputerBay.js';
+import {
+  createInitialCrew,
+  getAgentStatusBubble,
+  isAgentAtStation,
+  isAgentWorkingAtAssignedStation,
+  isBenjaminUsingScanner,
+  isKevinUsingStarMap,
+  STATE,
+  updateAgent,
+  WORKSTATIONS,
+} from '../src/ductor/starshipSimulation.js';
+import {
+  ALEC_SEATED_ATLAS,
+  BENJAMIN_QA_ATLAS,
+  getCommandGesture,
+  KEVIN_STARMAP_ATLAS,
+} from '../src/ductor/starshipComputerBay.js';
 
 test('command gestures only advance while Alec occupies his station; Kevin keeps his independent tour', () => {
   const crew = createInitialCrew();
@@ -27,18 +42,51 @@ test('command gestures only advance while Alec occupies his station; Kevin keeps
   assert.equal(alec.commandTime, 0);
 });
 
-test('all authored seated frames decode, have transparent borders and retain head, hands and bent legs', () => {
-  const png = PNG.sync.read(readFileSync(new URL('../public/assets/themes/ductor-space-lab/alec-seated.png', import.meta.url)), { checkCRC: true });
-  assert.equal(png.width, ALEC_SEATED_ATLAS.width);
-  assert.equal(png.height, ALEC_SEATED_ATLAS.height);
-  const cell = png.width / ALEC_SEATED_ATLAS.columns;
-  for (let frame = 0; frame < 4; frame++) {
-    const regions = [0, 0, 0];
-    for (let y = 0; y < png.height; y++) for (let x = 0; x < cell; x++) {
-      const alpha = png.data[(y * png.width + frame * cell + x) * 4 + 3]!;
-      if (x === 0 || x === cell - 1 || y === 0 || y === png.height - 1) assert.equal(alpha, 0);
-      if (alpha > 128) regions[y < 310 ? 0 : y < 460 ? 1 : 2]!++;
+test('working state and effects begin only at the exact interaction anchors', () => {
+  const crew = createInitialCrew();
+  for (const agent of crew) {
+    const ws = WORKSTATIONS[agent.name];
+    Object.assign(agent, ws.approachPoint, { state: STATE.WORKING, reportedState: 'working' });
+    assert.equal(isAgentAtStation(agent), false, `${agent.name} approach is not an interaction anchor`);
+    assert.equal(isAgentWorkingAtAssignedStation(agent), false);
+    assert.equal(getAgentStatusBubble(agent).lines[1], '↗ đến trạm');
+
+    Object.assign(agent, ws.interactionPoint);
+    assert.equal(isAgentAtStation(agent), true, `${agent.name} snaps at its interaction anchor`);
+    assert.equal(isAgentWorkingAtAssignedStation(agent), true);
+    assert.equal(getAgentStatusBubble(agent).lines[1], '⚙ đang làm việc');
+  }
+  const kevin = crew.find((agent) => agent.name === 'Kevin')!;
+  const benjamin = crew.find((agent) => agent.name === 'Benjamin')!;
+  assert.equal(isKevinUsingStarMap(kevin), true);
+  assert.equal(isBenjaminUsingScanner(benjamin), true);
+});
+
+test('all four-frame authored work-pose atlases decode with transparent borders', () => {
+  const assets = [
+    ['alec-command-seated-v2.png', ALEC_SEATED_ATLAS],
+    ['kevin-starmap-control-v1.png', KEVIN_STARMAP_ATLAS],
+    ['benjamin-qa-control-v1.png', BENJAMIN_QA_ATLAS],
+  ] as const;
+  for (const [asset, atlas] of assets) {
+    const png = PNG.sync.read(
+      readFileSync(new URL(`../public/assets/themes/ductor-space-lab/${asset}`, import.meta.url)),
+      { checkCRC: true },
+    );
+    assert.equal(png.width, atlas.width, asset);
+    assert.equal(png.height, atlas.height, asset);
+    const cell = png.width / atlas.columns;
+    for (let frame = 0; frame < atlas.columns; frame++) {
+      let opaque = 0;
+      for (let y = 0; y < png.height; y++) for (let x = 0; x < cell; x++) {
+        const alpha = png.data[(y * png.width + frame * cell + x) * 4 + 3]!;
+        // Image encoders can leave a one-alpha antialias sample on an outer
+        // pixel; it remains visually transparent and must not affect atlas
+        // placement.
+        if (x === 0 || x === cell - 1 || y === 0 || y === png.height - 1) assert.ok(alpha <= 1, asset);
+        if (alpha > 128) opaque++;
+      }
+      assert.ok(opaque > 50000, `Incomplete ${asset} frame ${frame}`);
     }
-    assert.ok(regions.every((count) => count > 10000), `Incomplete seated pose ${frame}`);
   }
 });

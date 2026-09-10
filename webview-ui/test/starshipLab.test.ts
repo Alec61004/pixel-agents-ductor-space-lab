@@ -651,16 +651,16 @@ test('drawAgent disables imageSmoothingEnabled, sets role shadowColor rim glow, 
   // Must have executed at least 2 drawImage passes (base + lighter brightness boost)
   assert.ok(drawCalls.length >= 2);
 
-  // First sprite draw: pixel smoothing disabled, rim glow with role color, shadowBlur = 8
+  // First sprite draw: pixel smoothing disabled, with a compact rim glow.
   const basePass = drawCalls[0];
   assert.equal(basePass.imageSmoothingEnabled, false);
   assert.equal(basePass.shadowColor, '#5ce1ff');
-  assert.equal(basePass.shadowBlur, 8);
+  assert.equal(basePass.shadowBlur, 4);
 
-  // Second sprite draw: lighter composite mode with alpha 0.22 to boost sprite brightness
+  // Second sprite draw: lighter composite mode with a restrained brightness boost.
   const boostPass = drawCalls[1];
   assert.equal(boostPass.globalCompositeOperation, 'lighter');
-  assert.equal(boostPass.globalAlpha, 0.22);
+  assert.equal(boostPass.globalAlpha, 0.10);
 });
 
 test('getAgentStatusBubble generates correct text and role colors for working, idle, blocked, and offline states', () => {
@@ -669,8 +669,8 @@ test('getAgentStatusBubble generates correct text and role colors for working, i
     name: 'Alec',
     role: 'Planner',
     skin: SKINS[4],
-    x: 480,
-    y: 505,
+    x: WORKSTATIONS.Alec.interactionPoint.x,
+    y: WORKSTATIONS.Alec.interactionPoint.y,
     state: STATE.WORKING,
   });
   const kevin = makeAgent({
@@ -678,8 +678,8 @@ test('getAgentStatusBubble generates correct text and role colors for working, i
     name: 'Kevin',
     role: 'Builder',
     skin: SKINS[2],
-    x: 920,
-    y: 535,
+    x: WORKSTATIONS.Kevin.interactionPoint.x,
+    y: WORKSTATIONS.Kevin.interactionPoint.y,
     state: STATE.WORKING,
   });
   const benjamin = makeAgent({
@@ -687,8 +687,8 @@ test('getAgentStatusBubble generates correct text and role colors for working, i
     name: 'Benjamin',
     role: 'QA',
     skin: SKINS[0],
-    x: 1240,
-    y: 520,
+    x: WORKSTATIONS.Benjamin.interactionPoint.x,
+    y: WORKSTATIONS.Benjamin.interactionPoint.y,
     state: STATE.WORKING,
   });
 
