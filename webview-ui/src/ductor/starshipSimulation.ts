@@ -316,6 +316,7 @@ export interface StarshipAgent {
   flash?: number;
   hologramTime?: number;
   commandTime?: number;
+  qaTime?: number;
   hologramSceneTime?: number;
   hologramExpansion?: number;
   hologramCamera?: { x: number; y: number; zoom: number };
@@ -891,6 +892,11 @@ export function updateAgent(
     a.commandTime = atCommand ? (a.commandTime ?? 0) + dt * speedMult : 0;
   }
 
+  if (a.name === 'Benjamin') {
+    const atScanner = isBenjaminUsingScanner(a);
+    a.qaTime = atScanner ? (a.qaTime ?? 0) + dt * speedMult : 0;
+  }
+
   // Ambient map motion persists while the control's gesture clock remains work-only.
   const usingStarMap = isKevinUsingStarMap(a);
   if (a.name === 'Kevin') {
@@ -1046,6 +1052,7 @@ export function drawAgentStatusBubble(
   drawH: number,
   bobY: number,
   canvasW: number = CW,
+  anchor: Pick<StarshipAgent, 'x' | 'y'> = a,
 ): void {
   const bubble = getAgentStatusBubble(a);
   const isTwoLines = bubble.lines.length >= 2;
@@ -1068,9 +1075,9 @@ export function drawAgentStatusBubble(
   const padX = 8;
   const boxW = maxTw + padX * 2;
   const boxH = isTwoLines ? 28 : 16;
-  const bubbleY = a.y - drawH - (isTwoLines ? 16 : 12) + bobY;
+  const bubbleY = anchor.y - drawH - (isTwoLines ? 16 : 12) + bobY;
 
-  let boxX = a.x - boxW / 2;
+  let boxX = anchor.x - boxW / 2;
   // Always clamp in canvas boundaries: boxX = clamp(boxX, 8, canvasW - boxW - 8)
   boxX = Math.max(8, Math.min(canvasW - boxW - 8, boxX));
   const boxY = bubbleY - boxH / 2;
@@ -1366,9 +1373,11 @@ export function drawAgent(
   // Keep Kevin's label beside his body, clear of the enlarged map.
   drawAgentStatusBubble(
     ctx,
-    hologramControlActive ? { ...a, x: a.x - 105, y: a.y + 40 } : a,
+    a,
     drawH,
     bobY,
+    CW,
+    hologramControlActive ? { x: a.x - 105, y: a.y + 40 } : a,
   );
 
   // Work particles floating above agent
@@ -2008,10 +2017,10 @@ export function drawKevinStarMapControl(
   // height.  These anchors make fields follow the actual gloves instead of
   // floating around a generic standing sprite.
   const poseHands = [
-    [{ x: -18, y: -60 }, { x: 18, y: -60 }],
-    [{ x: -20, y: -58 }, { x: 20, y: -80 }],
-    [{ x: -22, y: -79 }, { x: 26, y: -78 }],
-    [{ x: -19, y: -58 }, { x: 19, y: -80 }],
+    [{ x: -19, y: -47 }, { x: 19, y: -47 }],
+    [{ x: -27, y: -52 }, { x: 19, y: -47 }],
+    [{ x: -19, y: -47 }, { x: 28, y: -52 }],
+    [{ x: -27, y: -52 }, { x: 27, y: -52 }],
   ] as const;
   const hands = poseHands[poseFrame]!.map((hand) => ({
     x: cx + hand.x * depth,
@@ -2382,10 +2391,12 @@ export function drawStage(
     drawPhotonicActivity(ctx, seated ? commander!.commandTime ?? 0 : timeSec, seated);
   }
   // Keep QA telemetry, then apply the shared glass accents below the crew.
-  const qaActive = agents.some(isBenjaminUsingScanner);
+  const qaOperator = agents.find(isBenjaminUsingScanner);
+  const qaActive = !!qaOperator;
   if (livingArtwork) drawLivingRoom(ctx, timeSec, {
     crew: agents.filter(a => a.reportedState !== 'offline' && a.state !== STATE.OFFLINE),
     command: seated, qa: qaActive,
+    qaTime: qaOperator?.qaTime,
     navigation: agents.some(a => a.name === 'Kevin' && isKevinUsingStarMap(a)),
   }, livingArtwork);
   else drawWorkstationScreens(
@@ -2427,7 +2438,7 @@ export function drawStage(
       drawAlecSeatBack(ctx, chairArtwork);
       drawCommandContact(ctx, commandTime);
       ctx.restore();
-      drawAgentStatusBubble(ctx, { ...a, x, y: feetY }, height, -10);
+      drawAgentStatusBubble(ctx, a, height, -10, CW, { x, y: feetY });
       continue;
     }
     if (a.name === 'Kevin' && isKevinUsingStarMap(a) && kevinStarMapImg) {
@@ -2444,7 +2455,7 @@ export function drawStage(
       );
       // Keep the roster label beside the enlarged map rather than over its
       // star field or Kevin's raised hands.
-      drawAgentStatusBubble(ctx, { ...a, x: a.x - 92, y: a.y + 26 }, bodyHeight, -4);
+      drawAgentStatusBubble(ctx, a, bodyHeight, -4, CW, { x: a.x - 92, y: a.y + 26 });
       continue;
     }
     if (a.name === 'Benjamin' && qaActive && benjaminQAImg) {
@@ -2459,13 +2470,13 @@ export function drawStage(
         a.y,
         bodyHeight,
       );
-      drawQAContact(ctx, timeSec, a.x, a.y, getDepthScale(a.y), a.animFrame);
+      drawQAContact(ctx, a.qaTime ?? 0, a.x, a.y, getDepthScale(a.y), a.animFrame);
       drawAgentStatusBubble(ctx, a, bodyHeight, -4);
       continue;
     }
     drawAgent(ctx, a, sheetImg, timeSec, alecHologramImg, walkImg);
     if (livingArtwork && qaActive && a.name === 'Benjamin') {
-      drawQAContact(ctx, timeSec, a.x, a.y, getDepthScale(a.y), a.animFrame);
+      drawQAContact(ctx, a.qaTime ?? 0, a.x, a.y, getDepthScale(a.y), a.animFrame);
     }
   }
 

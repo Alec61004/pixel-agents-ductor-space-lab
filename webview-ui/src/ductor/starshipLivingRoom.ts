@@ -8,6 +8,7 @@ export interface RoomActivity {
   crew: readonly Point[];
   command: boolean;
   qa: boolean;
+  qaTime?: number;
   navigation: boolean;
 }
 
@@ -178,7 +179,7 @@ export function drawLivingRoom(ctx: CanvasRenderingContext2D, time: number, acti
       ctx.fillStyle = '#62d4e9'; ctx.fillRect(Math.round(x), Math.round(y), 3, 1);
     }
   }
-  if (activity.qa) drawQAExperiment(ctx, time);
+  if (activity.qa) drawQAExperiment(ctx, activity.qaTime ?? time);
   // The wide overhead lens tracks a star lattice; it is not another crystal.
   ctx.save(); ctx.beginPath(); ctx.ellipse(994, 75, 96, 21, 0, 0, Math.PI * 2); ctx.clip();
   for (let i = 0; i < 28; i++) {

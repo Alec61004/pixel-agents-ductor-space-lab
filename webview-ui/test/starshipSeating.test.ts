@@ -4,6 +4,7 @@ import { PNG } from 'pngjs';
 import { test } from 'vitest';
 import {
   createInitialCrew,
+  drawAgentStatusBubble,
   getAgentStatusBubble,
   isAgentAtStation,
   isAgentWorkingAtAssignedStation,
@@ -15,10 +16,30 @@ import {
 } from '../src/ductor/starshipSimulation.js';
 import {
   ALEC_SEATED_ATLAS,
+  ALEC_SEAT,
   BENJAMIN_QA_ATLAS,
   getCommandGesture,
   KEVIN_STARMAP_ATLAS,
 } from '../src/ductor/starshipComputerBay.js';
+
+test('visual bubble anchors never change the agent working state', () => {
+  const alec = createInitialCrew().find((agent) => agent.name === 'Alec')!;
+  Object.assign(alec, WORKSTATIONS.Alec.interactionPoint, {
+    state: STATE.WORKING, reportedState: 'working',
+  });
+  const labels: string[] = [];
+  const ctx = new Proxy({}, {
+    get: (_, key) => key === 'measureText'
+      ? (value: string) => ({ width: value.length * 6 })
+      : key === 'fillText'
+        ? (value: string) => labels.push(value)
+        : () => {},
+    set: () => true,
+  }) as CanvasRenderingContext2D;
+  drawAgentStatusBubble(ctx, alec, ALEC_SEAT.height, -10, 1600, ALEC_SEAT);
+  assert.ok(labels.includes('⚙ đang làm việc'));
+  assert.ok(!labels.includes('💤 idle'));
+});
 
 test('command gestures only advance while Alec occupies his station; Kevin keeps his independent tour', () => {
   const crew = createInitialCrew();
@@ -29,14 +50,22 @@ test('command gestures only advance while Alec occupies his station; Kevin keeps
       state: STATE.WORKING, reportedState: 'working', stateTimer: 100,
     });
   }
-  for (let i = 0; i < 32; i++) for (const a of [alec, kevin]) updateAgent(a, 0.05, 1, crew);
+  const benjamin = crew.find((a) => a.name === 'Benjamin')!;
+  Object.assign(benjamin, WORKSTATIONS.Benjamin.interactionPoint, {
+    state: STATE.WORKING, reportedState: 'working', stateTimer: 100,
+  });
+  for (let i = 0; i < 32; i++) for (const a of [alec, kevin, benjamin]) updateAgent(a, 0.05, 1, crew);
   assert.ok(alec.commandTime! > 1.5);
   assert.equal(getCommandGesture(alec.commandTime!).contact, -1);
   assert.ok(kevin.hologramTime! > 1.5);
+  assert.ok(benjamin.qaTime! > 1.5);
   assert.ok(!alec.hologramExpansion);
   Object.assign(alec, { state: STATE.OFFLINE, reportedState: 'offline' });
   updateAgent(alec, 0.05, 1, crew);
   assert.equal(alec.commandTime, 0);
+  Object.assign(benjamin, { state: STATE.MOVING, reportedState: 'working', x: 900, y: 600, targetX: 800, targetY: 600 });
+  updateAgent(benjamin, 0.05, 1, crew);
+  assert.equal(benjamin.qaTime, 0);
   Object.assign(alec, { state: STATE.MOVING, reportedState: 'working', x: 900, y: 600, targetX: 800, targetY: 600 });
   updateAgent(alec, 0.05, 1, crew);
   assert.equal(alec.commandTime, 0);
@@ -65,7 +94,7 @@ test('working state and effects begin only at the exact interaction anchors', ()
 test('all four-frame authored work-pose atlases decode with transparent borders', () => {
   const assets = [
     ['alec-command-seated-v2.png', ALEC_SEATED_ATLAS],
-    ['kevin-starmap-control-v1.png', KEVIN_STARMAP_ATLAS],
+    ['kevin-starmap-control-v2.png', KEVIN_STARMAP_ATLAS],
     ['benjamin-qa-control-v1.png', BENJAMIN_QA_ATLAS],
   ] as const;
   for (const [asset, atlas] of assets) {

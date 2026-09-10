@@ -91,19 +91,19 @@ export const PHOTONIC_BAY_ASSET = 'themes/ductor-space-lab/photonic-bay-v1.png';
 // not slices from the walk sheet: each frame is authored around the furniture
 // it operates so limbs, chair shells and holographic controls line up.
 export const ALEC_SEATED_ASSET = 'themes/ductor-space-lab/alec-command-seated-v2.png';
-export const KEVIN_STARMAP_ASSET = 'themes/ductor-space-lab/kevin-starmap-control-v1.png';
+export const KEVIN_STARMAP_ASSET = 'themes/ductor-space-lab/kevin-starmap-control-v2.png';
 export const BENJAMIN_QA_ASSET = 'themes/ductor-space-lab/benjamin-qa-control-v1.png';
 
 // The seated pelvis is inside the shell at (560, 369). The routing anchor
 // stays on the walkable floor; it is not a drawing anchor for a seated body.
-export const ALEC_SEAT = { x: 560, feetY: 401, height: 82 };
+export const ALEC_SEAT = { x: 552, feetY: 405, height: 74 };
 
 export const ALEC_SEATED_ATLAS = {
   width: 2172, height: 724, columns: 4, bodyTop: 117, bodyBottom: 634,
 };
 
 export const KEVIN_STARMAP_ATLAS = {
-  width: 2048, height: 768, columns: 4, bodyTop: 54, bodyBottom: 706,
+  width: 2172, height: 724, columns: 4, bodyTop: 152, bodyBottom: 632,
 };
 
 export const BENJAMIN_QA_ATLAS = {
@@ -213,21 +213,23 @@ export function drawPhotonicActivity(ctx: CanvasRenderingContext2D, time: number
 export function drawCommandContact(ctx: CanvasRenderingContext2D, time: number): void {
   const { contact } = getCommandGesture(time);
   if (!contact) return;
-  const x = contact < 0 ? 536 : 585;
+  const x = contact < 0 ? 520 : 591;
+  const y = 361;
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  const glow = ctx.createRadialGradient(x, 362, 0, x, 362, 9);
+  const glow = ctx.createRadialGradient(x, y, 0, x, y, 9);
   glow.addColorStop(0, '#ffd38ba8'); glow.addColorStop(0.45, '#5fe1f45c'); glow.addColorStop(1, '#1ba7c400');
-  ctx.fillStyle = glow; ctx.fillRect(x - 9, 353, 18, 18);
+  ctx.fillStyle = glow; ctx.fillRect(x - 9, y - 9, 18, 18);
   ctx.strokeStyle = '#ffd08a'; ctx.globalAlpha = 0.78; ctx.lineWidth = 0.7;
-  ctx.beginPath(); ctx.ellipse(x, 362, 5, 2, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+  ctx.beginPath(); ctx.ellipse(x, y, 5, 2, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
 }
 
 /** The seat back is foreground furniture, and only occludes its seated occupant. */
 export function drawAlecSeatBack(ctx: CanvasRenderingContext2D, artwork: RoomArtwork): void {
-  ctx.save(); ctx.beginPath();
-  // This is the front lip of the command chair, not an all-purpose desk
-  // cutout.  It deliberately hides Alec's folded calves and hips while
-  // preserving the raised forearms, helmet and the glowing control surface.
+  ctx.save();
+  // Only the lower chair lip belongs in front of Alec. Repainting the whole
+  // shell hid his torso and made the pose look pasted behind an empty chair.
+  ctx.beginPath(); ctx.rect(520, 378, 80, 44); ctx.clip();
+  ctx.beginPath();
   ctx.moveTo(528, 377); ctx.lineTo(532, 363); ctx.lineTo(544, 352);
   ctx.lineTo(555, 347); ctx.lineTo(567, 347); ctx.lineTo(579, 353);
   ctx.lineTo(589, 367); ctx.lineTo(590, 385); ctx.lineTo(583, 402);
