@@ -12,7 +12,7 @@ import {
 import type { DuctorRoleName, DuctorStatusSnapshot } from './ductorLabModel.js';
 import { ORIGINAL_COMPUTER_BAYS, STAR_MAP_WORKSTATION, STAR_MAP_PANEL, drawPhotonicComputerBay, drawPhotonicActivity, drawAlecSeatBack, drawCommandContact, getCommandGesture, ALEC_SEAT, ALEC_SEATED_ATLAS } from './starshipComputerBay.js';
 import { drawPhotonicRoom, PHOTONIC_THEME } from './starshipPhotonicTheme.js';
-import { drawLivingRoom, getLivingRoomArtwork, type RoomArtwork } from './starshipLivingRoom.js';
+import { drawLivingRoom, getLivingRoomArtwork } from './starshipLivingRoom.js';
 import { drawQAContact } from './starshipQA.js';
 import { drawStarshipExterior } from './starshipExterior.js';
 import { drawBridgeMaterialPass, drawBridgeLightPass } from './starshipSceneV2.js';
@@ -1380,8 +1380,6 @@ export function drawDeskCutouts(
   }
 }
 
-// The single planetary map is rendered inside the v4 glass. Work changes the camera;
-// leaving the station returns it to the compact survey view.
 // The single planetary map is rendered inside the v4 glass. Work changes the camera;
 // leaving the station returns it to the compact survey view.
 export function drawHologramTopGlow(
