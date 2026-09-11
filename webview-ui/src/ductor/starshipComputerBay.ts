@@ -18,7 +18,14 @@ export type ComputerBayOperator = Extract<DuctorRoleName, 'Alec' | 'Kevin'>;
  */
 export const ALEC_COMMAND_STATION = {
   sourceAsset: 'themes/ductor-space-lab/photonic-room-v4.webp',
-  chair: { centerX: 552, backCoreY: 349, seatBaseY: 399 },
+  chair: {
+    centerX: 552,
+    backTopY: 310,
+    backCoreY: 349,
+    poseBottomY: 355,
+    seatBaseY: 399,
+    shellBottomY: 406,
+  },
   field: { centerX: 552, centerY: 354 },
   contacts: {
     left: { x: 520, y: 356 },
@@ -110,10 +117,12 @@ export const KEVIN_STARMAP_ASSET = 'themes/ductor-space-lab/kevin-starmap-contro
 export const BENJAMIN_QA_ASSET = 'themes/ductor-space-lab/benjamin-qa-control-v1.png';
 
 // The routing anchor stays on the walkable floor; it is not the drawing anchor
-// for a seated body. Both now share the measured chair centre on the x-axis.
+// for a seated body. Both share the measured chair centre on the x-axis.
+// `feetY` remains the renderer-compatible name for the hidden bottom edge of
+// the authored pose; the real floor anchor still lives on the workstation.
 export const ALEC_SEAT = {
   x: ALEC_COMMAND_STATION.chair.centerX,
-  feetY: ALEC_COMMAND_STATION.chair.seatBaseY,
+  feetY: ALEC_COMMAND_STATION.chair.poseBottomY,
   height: 74,
 };
 
@@ -297,17 +306,34 @@ export function drawCommandContact(ctx: CanvasRenderingContext2D, time: number):
 
 /** Foreground chair shell: it places the lower body inside the command cradle. */
 export function drawAlecSeatBack(ctx: CanvasRenderingContext2D, artwork: RoomArtwork): void {
-  const cx = ALEC_COMMAND_STATION.chair.centerX;
+  const { centerX: cx, backTopY, shellBottomY } = ALEC_COMMAND_STATION.chair;
   ctx.save();
-  // The chair is baked into photonic-room-v4. Repaint only its real lower
-  // pedestal over Alec's boots; never add a synthetic cowl or outline here.
-  // This guarantees that color, perspective and silhouette are identical to
-  // the production artwork at every viewport size.
-  ctx.beginPath(); ctx.rect(cx - 28, 389, 56, 32); ctx.clip();
+  // Restore the real production backrest after Alec. This keeps his head,
+  // shoulders and hands visible while the chair correctly occludes the torso
+  // and folded legs; no synthetic chair color or silhouette is introduced.
   ctx.beginPath();
-  ctx.moveTo(cx - 23, 388); ctx.quadraticCurveTo(cx, 380, cx + 23, 388);
-  ctx.lineTo(cx + 22, 404); ctx.quadraticCurveTo(cx, 420, cx - 22, 404);
-  ctx.closePath(); ctx.clip();
+  ctx.moveTo(cx - 2, backTopY);
+  ctx.bezierCurveTo(
+    cx - 13, backTopY + 1,
+    cx - 24, backTopY + 19,
+    cx - 27, backTopY + 35,
+  );
+  ctx.lineTo(cx - 34, 343);
+  ctx.lineTo(cx - 35, 356);
+  ctx.quadraticCurveTo(cx - 34, 371, cx - 21, 378);
+  ctx.lineTo(cx - 23, 390);
+  ctx.quadraticCurveTo(cx, shellBottomY, cx + 23, 390);
+  ctx.lineTo(cx + 21, 378);
+  ctx.quadraticCurveTo(cx + 34, 368, cx + 35, 350);
+  ctx.lineTo(cx + 29, 343);
+  ctx.lineTo(cx + 25, 345);
+  ctx.bezierCurveTo(
+    cx + 21, backTopY + 16,
+    cx + 13, backTopY + 3,
+    cx + 4, backTopY,
+  );
+  ctx.closePath();
+  ctx.clip();
   ctx.drawImage(artwork, 0, 0, artwork.width, artwork.height, 0, 0, 1600, 678);
   ctx.restore();
 }
