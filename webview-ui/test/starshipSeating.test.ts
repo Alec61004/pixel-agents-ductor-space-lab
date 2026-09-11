@@ -49,8 +49,17 @@ test('visual bubble anchors never change the agent working state', () => {
 
 test('Alec uses the measured production-room chair geometry for every overlay', () => {
   assert.equal(ALEC_COMMAND_STATION.sourceAsset, 'themes/ductor-space-lab/photonic-room-v4.webp');
-  assert.deepEqual(ALEC_COMMAND_STATION.chair, { centerX: 552, backCoreY: 349, seatBaseY: 399 });
-  assert.deepEqual(ALEC_SEAT, { x: 552, feetY: 399, height: 74 });
+  assert.deepEqual(ALEC_COMMAND_STATION.chair, {
+    centerX: 552,
+    backTopY: 310,
+    backCoreY: 349,
+    poseBottomY: 355,
+    seatBaseY: 399,
+    shellBottomY: 406,
+  });
+  assert.deepEqual(ALEC_SEAT, { x: 552, feetY: 355, height: 74 });
+  assert.ok(ALEC_SEAT.feetY - ALEC_SEAT.height < ALEC_COMMAND_STATION.chair.backTopY,
+    'the seated pose leaves Alec visible above the backrest');
   assert.equal(WORKSTATIONS.Alec.approachPoint.x, ALEC_COMMAND_STATION.chair.centerX);
   assert.equal(WORKSTATIONS.Alec.interactionPoint.x, ALEC_COMMAND_STATION.chair.centerX);
   const calls: unknown[][] = [];
@@ -60,7 +69,11 @@ test('Alec uses the measured production-room chair geometry for every overlay', 
   }) as CanvasRenderingContext2D;
   drawAlecSeatBack(ctx, { width: 1600, height: 678 } as HTMLImageElement);
   assert.equal(calls.filter((call) => call[0] === 'drawImage').length, 1,
-    'restore exactly one pedestal slice from the production room');
+    'restore exactly one backrest mask from the production room');
+  assert.equal(calls.filter((call) => call[0] === 'bezierCurveTo').length, 2,
+    'follow both measured shoulders of the chair back');
+  assert.ok(calls.filter((call) => call[0] === 'quadraticCurveTo').length >= 3,
+    'close the backrest and pedestal around the seated pose');
   assert.equal(calls.some((call) => call[0] === 'fill'), false,
     'never paint a synthetic foreground chair over Alec');
   assert.equal(calls.filter((call) => call[0] === 'save').length,
