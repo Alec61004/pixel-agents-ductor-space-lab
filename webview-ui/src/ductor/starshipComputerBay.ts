@@ -299,36 +299,16 @@ export function drawCommandContact(ctx: CanvasRenderingContext2D, time: number):
 export function drawAlecSeatBack(ctx: CanvasRenderingContext2D, artwork: RoomArtwork): void {
   const cx = ALEC_COMMAND_STATION.chair.centerX;
   ctx.save();
-  // Restore the exact lower pedestal from the current room. Keeping this mask
-  // narrow prevents a second, invented chair silhouette from drifting away
-  // from the baked workstation.
+  // The chair is baked into photonic-room-v4. Repaint only its real lower
+  // pedestal over Alec's boots; never add a synthetic cowl or outline here.
+  // This guarantees that color, perspective and silhouette are identical to
+  // the production artwork at every viewport size.
   ctx.beginPath(); ctx.rect(cx - 28, 389, 56, 32); ctx.clip();
   ctx.beginPath();
   ctx.moveTo(cx - 23, 388); ctx.quadraticCurveTo(cx, 380, cx + 23, 388);
   ctx.lineTo(cx + 22, 404); ctx.quadraticCurveTo(cx, 420, cx - 22, 404);
   ctx.closePath(); ctx.clip();
   ctx.drawImage(artwork, 0, 0, artwork.width, artwork.height, 0, 0, 1600, 678);
-  ctx.restore();
-
-  ctx.save();
-  ctx.globalCompositeOperation = 'source-over';
-  // A compact front band hides only the boots. Its curve follows the current
-  // chair base, leaving the bent knees, torso and both controls correctly
-  // aligned with the console surface.
-  ctx.fillStyle = 'rgba(8, 23, 31, 0.97)';
-  ctx.strokeStyle = 'rgba(117, 225, 234, 0.54)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(cx - 20, 386); ctx.quadraticCurveTo(cx, 379, cx + 20, 386);
-  ctx.lineTo(cx + 18, 402); ctx.quadraticCurveTo(cx, 413, cx - 18, 402);
-  ctx.closePath(); ctx.fill(); ctx.stroke();
-  ctx.strokeStyle = 'rgba(126, 239, 246, 0.38)';
-  ctx.beginPath(); ctx.ellipse(cx, 386, 17, 3.8, 0, Math.PI, Math.PI * 2); ctx.stroke();
-  ctx.strokeStyle = 'rgba(244, 173, 91, 0.62)';
-  ctx.globalAlpha = 0.62;
-  ctx.beginPath(); ctx.moveTo(cx - 12, 402); ctx.quadraticCurveTo(cx, 408, cx + 12, 402); ctx.stroke();
-  ctx.fillStyle = '#9e69f7'; ctx.globalAlpha = 0.78;
-  ctx.fillRect(cx - 1.5, 392, 3, 7);
   ctx.restore();
 }
 

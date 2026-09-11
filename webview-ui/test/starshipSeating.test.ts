@@ -59,9 +59,10 @@ test('Alec uses the measured production-room chair geometry for every overlay', 
     set: () => true,
   }) as CanvasRenderingContext2D;
   drawAlecSeatBack(ctx, { width: 1600, height: 678 } as HTMLImageElement);
-  assert.ok(calls.some((call) => call[0] === 'drawImage'), 'restore the original pedestal');
-  assert.ok(calls.filter((call) => call[0] === 'quadraticCurveTo').length >= 5,
-    'the compact front band must follow the current chair base');
+  assert.equal(calls.filter((call) => call[0] === 'drawImage').length, 1,
+    'restore exactly one pedestal slice from the production room');
+  assert.equal(calls.some((call) => call[0] === 'fill'), false,
+    'never paint a synthetic foreground chair over Alec');
   assert.equal(calls.filter((call) => call[0] === 'save').length,
     calls.filter((call) => call[0] === 'restore').length);
 
