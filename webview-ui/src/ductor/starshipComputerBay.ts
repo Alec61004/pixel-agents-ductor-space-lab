@@ -26,11 +26,6 @@ export const ALEC_COMMAND_STATION = {
     seatBaseY: 399,
     shellBottomY: 406,
   },
-  field: { centerX: 552, centerY: 354 },
-  contacts: {
-    left: { x: 520, y: 356 },
-    right: { x: 591, y: 356 },
-  },
 } as const;
 
 export interface OriginalComputerBay {
@@ -107,8 +102,6 @@ export const ORIGINAL_COMPUTER_BAYS: Record<ComputerBayOperator, OriginalCompute
   },
 };
 
-/** Approved photonic bay artwork; coordinates remain in the original room space. */
-export const PHOTONIC_BAY_ASSET = 'themes/ductor-space-lab/photonic-bay-v1.png';
 // Dedicated working poses are kept as separate transparent atlases.  They are
 // not slices from the walk sheet: each frame is authored around the furniture
 // it operates so limbs, chair shells and holographic controls line up.
@@ -117,9 +110,10 @@ export const KEVIN_STARMAP_ASSET = 'themes/ductor-space-lab/kevin-starmap-contro
 export const BENJAMIN_QA_ASSET = 'themes/ductor-space-lab/benjamin-qa-control-v1.png';
 
 // The routing anchor stays on the walkable floor; it is not the drawing anchor
-// for a seated body. Both share the measured chair centre on the x-axis.
-// `feetY` remains the renderer-compatible name for the hidden bottom edge of
-// the authored pose; the real floor anchor still lives on the workstation.
+// for a seated body. `feetY` is retained for renderer compatibility, but here
+// it means the hidden bottom of the authored pose. Aligning that bottom with
+// the chair core leaves only Alec's head, shoulders and operating hands above
+// the real backrest, which is the correct rear-view seating silhouette.
 export const ALEC_SEAT = {
   x: ALEC_COMMAND_STATION.chair.centerX,
   feetY: ALEC_COMMAND_STATION.chair.poseBottomY,
@@ -152,171 +146,91 @@ export const STAR_MAP_PANEL = {
 } as const;
 
 /** Read, touch left, read, touch right, then rest. Hold times avoid flicker. */
-export function getCommandGesture(time: number): { frame: number; contact: number } {
+export function getCommandGesture(time: number): { frame: number } {
   const phase = ((time % 6.4) + 6.4) % 6.4;
-  if (phase < 1.4) return { frame: 0, contact: 0 };
-  if (phase < 2.1) return { frame: 1, contact: -1 };
-  if (phase < 2.8) return { frame: 0, contact: 0 };
-  if (phase < 3.7) return { frame: 2, contact: 1 };
-  return { frame: 3, contact: 0 };
+  if (phase < 1.4) return { frame: 0 };
+  if (phase < 2.1) return { frame: 1 };
+  if (phase < 2.8) return { frame: 0 };
+  if (phase < 3.7) return { frame: 2 };
+  return { frame: 3 };
 }
 
-/** Light travels along the authored console, reacting to each hand contact. */
-export function drawPhotonicActivity(ctx: CanvasRenderingContext2D, time: number, active: boolean): void {
+/**
+ * Animate only the three display apertures measured from photonic-room-v4.
+ * Nothing is drawn over the chair, console shell or floor, so the activity
+ * cannot drift away from the production furniture.
+ */
+export function drawAlecCommandDisplays(
+  ctx: CanvasRenderingContext2D,
+  time: number,
+  active: boolean,
+): void {
+  const panels = ORIGINAL_COMPUTER_BAYS.Alec.displayAreas;
+  const motion = time * (active ? 1.45 : 0.28);
+  const scan = ((motion % 1) + 1) % 1;
+  const gestureFrame = getCommandGesture(time).frame;
+  const focusedPanel = gestureFrame === 1 ? 0 : gestureFrame === 2 ? 2 : 1;
+
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  const energy = active ? 0.88 : 0.12;
-  const phase = time * (active ? 1.5 : 0.35);
-  const nodes = [[470, 346], [552, 344], [674, 344]] as const;
+  for (const [panelIndex, panel] of panels.entries()) {
+    const focused = panelIndex === focusedPanel;
+    const energy = active ? (focused ? 0.82 : 0.44) : 0.09;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(panel.x, panel.y, panel.w, panel.h);
+    ctx.clip();
 
-  // The command cradle is a spatial interface rather than a row of human
-  // monitors. Concentric field arcs sit behind Alec while data packets converge
-  // from both wings of the living console. The body is drawn later, so the
-  // projection reads as a volume surrounding the seated operator.
-  const commandX = ALEC_COMMAND_STATION.field.centerX;
-  const commandY = ALEC_COMMAND_STATION.field.centerY;
-  const commandPulse = 0.5 + Math.sin(phase * 1.7) * 0.5;
-  ctx.lineWidth = 0.8;
-  for (let ring = 0; ring < 3; ring++) {
-    const orbit = phase * (0.32 + ring * 0.06) + ring * 1.7;
-    const rx = 31 + ring * 9;
-    const ry = 9 + ring * 3;
-    ctx.globalAlpha = energy * (0.16 + ring * 0.045);
-    ctx.strokeStyle = ring === 1 ? '#f3b86a' : '#78e7f5';
+    // A narrow sweep samples the baked display instead of replacing it.
+    ctx.globalAlpha = energy * 0.34;
+    ctx.fillStyle = '#b7f5fb';
+    const scanX = panel.x - 2 + scan * (panel.w + 4);
+    ctx.fillRect(Math.round(scanX), panel.y, 2, panel.h);
+
+    // Independent spectral channels keep all three alien displays alive.
+    for (let channel = 0; channel < 6; channel++) {
+      const x = panel.x + 4 + channel * ((panel.w - 8) / 6);
+      const amplitude = 0.35 + 0.65 * (0.5 + Math.sin(motion * 2.2 + channel * 1.7 + panelIndex));
+      const height = Math.max(2, Math.round((panel.h - 8) * amplitude));
+      ctx.globalAlpha = energy * (0.24 + amplitude * 0.28);
+      ctx.fillStyle = channel === (panelIndex + 2) % 6 ? '#ffd08a' : '#75e8f5';
+      ctx.fillRect(Math.round(x), panel.y + panel.h - 4 - height, 2, height);
+    }
+
+    // The waveform reacts to Alec's left/right gesture without a free-floating
+    // hand glow, so interaction remains locked to the original glass.
+    ctx.globalAlpha = energy * 0.72;
+    ctx.strokeStyle = focused ? '#fff0bd' : '#8debf7';
+    ctx.lineWidth = 0.75;
     ctx.beginPath();
-    ctx.ellipse(commandX, commandY, rx, ry, 0, orbit, orbit + Math.PI * 0.92);
+    for (let x = 1; x < panel.w; x += 3) {
+      const px = panel.x + x;
+      const py = panel.y + panel.h * 0.46
+        + Math.sin(x * 0.38 - motion * 3.1 + panelIndex) * (focused ? 3.2 : 1.8);
+      if (x === 1) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
     ctx.stroke();
-    ctx.beginPath();
-    ctx.ellipse(commandX, commandY, rx, ry, 0, orbit + Math.PI, orbit + Math.PI * 1.72);
-    ctx.stroke();
-  }
-  for (let glyph = 0; glyph < 7; glyph++) {
-    const angle = phase * 0.42 + glyph * Math.PI * 2 / 7;
-    const gx = commandX + Math.cos(angle) * 43;
-    const gy = commandY + Math.sin(angle) * 13;
-    const size = glyph % 3 === 0 ? 2.3 : 1.5;
-    ctx.globalAlpha = energy * (0.38 + commandPulse * 0.32);
-    ctx.fillStyle = glyph % 3 === 0 ? '#ffd08a' : '#a9f5fb';
-    ctx.save(); ctx.translate(gx, gy); ctx.rotate(angle + Math.PI / 4);
-    ctx.fillRect(-size / 2, -size / 2, size, size); ctx.restore();
-  }
-  const commandFeeds = [
-    { x: 446, y: 365, bendX: 498, bendY: 381, offset: 0 },
-    { x: 694, y: 362, bendX: 626, bendY: 382, offset: 0.46 },
-  ] as const;
-  for (const feed of commandFeeds) {
-    ctx.globalAlpha = energy * 0.22;
-    ctx.strokeStyle = '#58d8eb';
-    ctx.beginPath(); ctx.moveTo(feed.x, feed.y);
-    ctx.quadraticCurveTo(feed.bendX, feed.bendY, commandX, commandY + 17); ctx.stroke();
-    for (let packet = 0; packet < 4; packet++) {
-      const t = (phase * 0.13 + packet / 4 + feed.offset) % 1;
-      const inv = 1 - t;
-      const px = inv * inv * feed.x + 2 * inv * t * feed.bendX + t * t * commandX;
-      const py = inv * inv * feed.y + 2 * inv * t * feed.bendY + t * t * (commandY + 17);
-      ctx.globalAlpha = energy * (0.42 + Math.sin(t * Math.PI) * 0.4);
-      ctx.fillStyle = packet === 0 ? '#ffbf6b' : '#8debf7';
-      ctx.fillRect(Math.round(px), Math.round(py), 2, 1);
-    }
-  }
-  for (let n = 0; n < nodes.length; n++) {
-    const [x, y] = nodes[n]!;
-    for (let i = 0; i < 5; i++) {
-      const rise = (phase * 0.24 + i / 5 + n * 0.17) % 1;
-      const px = x + Math.sin(phase + i * 1.9) * (7 + i * 2);
-      const py = y - rise * 29;
-      ctx.globalAlpha = energy * Math.sin(rise * Math.PI) * 0.8;
-      ctx.strokeStyle = i % 2 ? '#69ddf3' : '#f3a64c';
-      ctx.lineWidth = 0.7;
-      ctx.beginPath();
-      ctx.moveTo(px, py - 2); ctx.lineTo(px + 2, py);
-      ctx.lineTo(px, py + 2); ctx.lineTo(px - 2, py); ctx.closePath(); ctx.stroke();
-    }
-    ctx.globalAlpha = energy * (0.16 + 0.12 * Math.sin(phase * 2 + n));
-    ctx.strokeStyle = '#69ddf3';
-    ctx.beginPath(); ctx.ellipse(x, y, 11 + Math.sin(phase + n) * 3, 3, 0, 0, Math.PI * 2); ctx.stroke();
-  }
-  for (let i = 0; i < 8; i++) {
-    const travel = (time * (active ? 0.19 : 0.035) + i / 8) % 1;
-    const x = 427 + travel * 339;
-    const y = 363 + Math.sin(travel * Math.PI * 5) * 5;
-    ctx.globalAlpha = energy * (0.4 + 0.3 * Math.sin(travel * Math.PI));
-    ctx.fillStyle = i % 3 === 0 ? '#f3a64c' : '#8be9f8'; ctx.fillRect(Math.round(x), Math.round(y), 3, 1);
-  }
-  // Three faceted volumes emerge from the existing projectors. Perspective
-  // comes from orbiting vertices, not scaling a flat picture up and down.
-  for (let n = 0; n < nodes.length; n++) {
-    const [x, y] = nodes[n]!;
-    const r = n === 1 ? 15 : 10;
-    const cy = y - 21;
-    const vertices = Array.from({ length: 4 }, (_, i) => {
-      const angle = phase * 0.45 + i * Math.PI / 2 + n;
-      return { x: x + Math.cos(angle) * r, y: cy + Math.sin(angle) * r * 0.32 };
-    });
-    ctx.lineWidth = 0.7;
-    ctx.strokeStyle = '#75e2f5';
-    for (let i = 0; i < 4; i++) {
-      const v = vertices[i]!;
-      const next = vertices[(i + 1) % 4]!;
-      ctx.globalAlpha = energy * (v.y > cy ? 0.6 : 0.25);
-      ctx.beginPath(); ctx.moveTo(x, cy - r); ctx.lineTo(v.x, v.y);
-      ctx.lineTo(x, cy + r); ctx.moveTo(v.x, v.y); ctx.lineTo(next.x, next.y); ctx.stroke();
-      ctx.fillStyle = '#b7f3fb'; ctx.fillRect(Math.round(v.x), Math.round(v.y), 1, 1);
-    }
-    // Short alien glyphs grow from each emitter, confined to its footprint.
-    for (let i = 0; i < 3; i++) {
-      const gy = y - 4 - i * 5;
-      ctx.globalAlpha = energy * (0.3 + 0.15 * Math.sin(phase * 2 - i - n));
-      ctx.beginPath(); ctx.moveTo(x + r + 4, gy); ctx.lineTo(x + r + 7, gy - 2);
-      ctx.lineTo(x + r + 10, gy); ctx.lineTo(x + r + 8, gy + 2); ctx.stroke();
-    }
-  }
-  // Data packets follow the curved console surface between the projectors.
-  for (let lane = 0; lane < 2; lane++) {
-    const [x0, y0] = nodes[lane]!; const [x1, y1] = nodes[lane + 1]!;
-    ctx.globalAlpha = energy * 0.30; ctx.strokeStyle = '#3ed2ed';
-    ctx.beginPath(); ctx.moveTo(x0, y0 + 8);
-    ctx.quadraticCurveTo((x0 + x1) / 2, y0 + 24, x1, y1 + 8); ctx.stroke();
-    for (let p = 0; p < 3; p++) {
-      const t = (phase * 0.17 + p / 3) % 1;
-      const px = x0 + (x1 - x0) * t;
-      const py = (1-t)*(1-t)*(y0+8) + 2*t*(1-t)*(y0+24) + t*t*(y1+8);
-      ctx.globalAlpha = energy * 0.78; ctx.fillStyle = p === 1 ? '#f3a64c' : '#a9f1fb';
-      ctx.fillRect(Math.round(px), Math.round(py), 2, 1);
-    }
+    ctx.restore();
   }
   ctx.restore();
-}
-
-/** Draw after the occupant, so a hand contact visibly lights the armrest. */
-export function drawCommandContact(ctx: CanvasRenderingContext2D, time: number): void {
-  const { contact } = getCommandGesture(time);
-  if (!contact) return;
-  const point = contact < 0
-    ? ALEC_COMMAND_STATION.contacts.left
-    : ALEC_COMMAND_STATION.contacts.right;
-  const { x, y } = point;
-  ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  const glow = ctx.createRadialGradient(x, y, 0, x, y, 9);
-  glow.addColorStop(0, '#ffd38ba8'); glow.addColorStop(0.45, '#5fe1f45c'); glow.addColorStop(1, '#1ba7c400');
-  ctx.fillStyle = glow; ctx.fillRect(x - 9, y - 9, 18, 18);
-  ctx.strokeStyle = '#ffd08a'; ctx.globalAlpha = 0.78; ctx.lineWidth = 0.7;
-  ctx.beginPath(); ctx.ellipse(x, y, 5, 2, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
 }
 
 /** Foreground chair shell: it places the lower body inside the command cradle. */
 export function drawAlecSeatBack(ctx: CanvasRenderingContext2D, artwork: RoomArtwork): void {
   const { centerX: cx, backTopY, shellBottomY } = ALEC_COMMAND_STATION.chair;
   ctx.save();
-  // Restore the real production backrest after Alec. This keeps his head,
-  // shoulders and hands visible while the chair correctly occludes the torso
-  // and folded legs; no synthetic chair color or silhouette is introduced.
+  // Restore the real backrest, not merely the pedestal. The seated occupant
+  // faces the console on the far side of this shell. Head and hands protrude
+  // above/outside the backrest; torso and folded legs are occluded by it.
   ctx.beginPath();
   ctx.moveTo(cx - 2, backTopY);
   ctx.bezierCurveTo(
-    cx - 13, backTopY + 1,
-    cx - 24, backTopY + 19,
-    cx - 27, backTopY + 35,
+    cx - 13,
+    backTopY + 1,
+    cx - 24,
+    backTopY + 19,
+    cx - 27,
+    backTopY + 35,
   );
   ctx.lineTo(cx - 34, 343);
   ctx.lineTo(cx - 35, 356);
@@ -327,11 +241,7 @@ export function drawAlecSeatBack(ctx: CanvasRenderingContext2D, artwork: RoomArt
   ctx.quadraticCurveTo(cx + 34, 368, cx + 35, 350);
   ctx.lineTo(cx + 29, 343);
   ctx.lineTo(cx + 25, 345);
-  ctx.bezierCurveTo(
-    cx + 21, backTopY + 16,
-    cx + 13, backTopY + 3,
-    cx + 4, backTopY,
-  );
+  ctx.bezierCurveTo(cx + 21, backTopY + 16, cx + 13, backTopY + 3, cx + 4, backTopY);
   ctx.closePath();
   ctx.clip();
   ctx.drawImage(artwork, 0, 0, artwork.width, artwork.height, 0, 0, 1600, 678);
@@ -345,26 +255,3 @@ export const STAR_MAP_WORKSTATION = {
   displayAreas: [{ x: 513, y: 414, w: 104, h: 63 }],
   occlusionBounds: { x: 500, y: 525, w: 145, h: 65 },
 };
-
-/** Only replace the furniture area. Preserve the original star map and exterior. */
-export function drawPhotonicComputerBay(
-  ctx: CanvasRenderingContext2D,
-  artwork?: HTMLImageElement,
-): void {
-  if (!artwork || !artwork.width || !artwork.height) return;
-  ctx.save();
-  ctx.imageSmoothingEnabled = false;
-  ctx.beginPath();
-  ctx.moveTo(303, 315);
-  ctx.lineTo(380, 315);
-  ctx.lineTo(380, 299);
-  ctx.lineTo(790, 299);
-  ctx.lineTo(790, 438);
-  ctx.lineTo(500, 438);
-  ctx.lineTo(500, 498);
-  ctx.lineTo(303, 498);
-  ctx.closePath();
-  ctx.clip();
-  ctx.drawImage(artwork, 0, 0, artwork.width, artwork.height, 0, 0, 1600, 678);
-  ctx.restore();
-}

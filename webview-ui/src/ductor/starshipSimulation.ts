@@ -14,17 +14,15 @@ import {
   ORIGINAL_COMPUTER_BAYS,
   STAR_MAP_WORKSTATION,
   STAR_MAP_PANEL,
-  drawPhotonicComputerBay,
-  drawPhotonicActivity,
+  drawAlecCommandDisplays,
   drawAlecSeatBack,
-  drawCommandContact,
   getCommandGesture,
   ALEC_SEAT,
   ALEC_SEATED_ATLAS,
   KEVIN_STARMAP_ATLAS,
   BENJAMIN_QA_ATLAS,
 } from './starshipComputerBay.js';
-import { drawPhotonicRoom, PHOTONIC_THEME } from './starshipPhotonicTheme.js';
+import { PHOTONIC_THEME } from './starshipPhotonicTheme.js';
 import { drawLivingRoom, getLivingRoomArtwork } from './starshipLivingRoom.js';
 import { drawQAContact } from './starshipQA.js';
 import { drawStarshipExterior } from './starshipExterior.js';
@@ -2347,7 +2345,6 @@ export function drawStage(
   zoom: number = 1,
   alecHologramImg?: HTMLImageElement,
   walkImg?: HTMLImageElement,
-  computerBayImg?: HTMLImageElement,
   alecSeatedImg?: HTMLImageElement,
   livingRoomImg?: HTMLImageElement,
   kevinStarMapImg?: HTMLImageElement,
@@ -2365,7 +2362,7 @@ export function drawStage(
 
   const livingArtwork = getLivingRoomArtwork(livingRoomImg);
   const background = livingArtwork ?? bgImg;
-  const chairArtwork = livingArtwork ?? computerBayImg;
+  const chairArtwork = livingArtwork;
   // V2 scene uses the existing authored room as geometry, but the final
   // presentation is rebuilt with a cleaner contrast curve and dedicated
   // material/light passes. This keeps character routing and device anchors
@@ -2384,11 +2381,10 @@ export function drawStage(
 
   if (livingArtwork) drawBridgeMaterialPass(ctx, timeSec);
   drawStarshipExterior(ctx, background, timeSec, !!livingArtwork, bgImg);
-  if (!livingArtwork) drawPhotonicComputerBay(ctx, computerBayImg);
   const commander = agents.find((agent) => agent.name === 'Alec');
   const seated = !!commander && isAgentWorkingAtAssignedStation(commander);
-  if (chairArtwork) {
-    drawPhotonicActivity(ctx, seated ? commander!.commandTime ?? 0 : timeSec, seated);
+  if (livingArtwork) {
+    drawAlecCommandDisplays(ctx, seated ? commander!.commandTime ?? 0 : timeSec, seated);
   }
   // Keep QA telemetry, then apply the shared glass accents below the crew.
   const qaOperator = agents.find(isBenjaminUsingScanner);
@@ -2404,7 +2400,6 @@ export function drawStage(
     agents.filter((agent) => agent.name === 'Benjamin'),
     timeSec,
   );
-  if (!livingArtwork && computerBayImg) drawPhotonicRoom(ctx, timeSec, qaActive);
   if (livingArtwork) drawBridgeLightPass(ctx, timeSec, {
     command: seated,
     navigation: agents.some(a => a.name === 'Kevin' && isKevinUsingStarMap(a)),
@@ -2418,9 +2413,10 @@ export function drawStage(
   const sorted = [...agents].sort((a, b) => a.y - b.y);
   for (const a of sorted) {
     if (a.name === 'Alec' && seated && chairArtwork && alecSeatedImg) {
-      // Alec's source position is the floor interaction anchor, but the pose
-      // itself is anchored in the centre chair. The chair lip is composited
-      // afterward so his folded legs cannot float in front of the shell.
+      // Alec's route still terminates on the walkable floor, but his authored
+      // work pose is aligned behind the production chair. Repainting the real
+      // backrest afterward leaves his head and operating hands visible while
+      // correctly occluding the torso and folded legs.
       const { x, feetY, height } = ALEC_SEAT;
       const commandTime = a.commandTime ?? 0;
       drawAuthoredWorkPose(
@@ -2436,7 +2432,6 @@ export function drawStage(
       );
       ctx.save();
       drawAlecSeatBack(ctx, chairArtwork);
-      drawCommandContact(ctx, commandTime);
       ctx.restore();
       drawAgentStatusBubble(ctx, a, height, -10, CW, { x, y: feetY });
       continue;

@@ -19,10 +19,11 @@ import {
   ALEC_SEAT,
   ALEC_COMMAND_STATION,
   BENJAMIN_QA_ATLAS,
+  drawAlecCommandDisplays,
   drawAlecSeatBack,
-  drawPhotonicActivity,
   getCommandGesture,
   KEVIN_STARMAP_ATLAS,
+  ORIGINAL_COMPUTER_BAYS,
 } from '../src/ductor/starshipComputerBay.js';
 
 test('visual bubble anchors never change the agent working state', () => {
@@ -48,7 +49,10 @@ test('visual bubble anchors never change the agent working state', () => {
 });
 
 test('Alec uses the measured production-room chair geometry for every overlay', () => {
-  assert.equal(ALEC_COMMAND_STATION.sourceAsset, 'themes/ductor-space-lab/photonic-room-v4.webp');
+  assert.equal(
+    ALEC_COMMAND_STATION.sourceAsset,
+    'themes/ductor-space-lab/photonic-room-v4.webp',
+  );
   assert.deepEqual(ALEC_COMMAND_STATION.chair, {
     centerX: 552,
     backTopY: 310,
@@ -58,35 +62,84 @@ test('Alec uses the measured production-room chair geometry for every overlay', 
     shellBottomY: 406,
   });
   assert.deepEqual(ALEC_SEAT, { x: 552, feetY: 355, height: 74 });
-  assert.ok(ALEC_SEAT.feetY - ALEC_SEAT.height < ALEC_COMMAND_STATION.chair.backTopY,
-    'the seated pose leaves Alec visible above the backrest');
-  assert.equal(WORKSTATIONS.Alec.approachPoint.x, ALEC_COMMAND_STATION.chair.centerX);
-  assert.equal(WORKSTATIONS.Alec.interactionPoint.x, ALEC_COMMAND_STATION.chair.centerX);
+  assert.ok(
+    ALEC_SEAT.feetY - ALEC_SEAT.height < ALEC_COMMAND_STATION.chair.backTopY,
+    'the head and shoulders must remain visible above the rear-facing chair shell',
+  );
+  assert.equal(
+    WORKSTATIONS.Alec.approachPoint.x,
+    ALEC_COMMAND_STATION.chair.centerX,
+  );
+  assert.equal(
+    WORKSTATIONS.Alec.interactionPoint.x,
+    ALEC_COMMAND_STATION.chair.centerX,
+  );
   const calls: unknown[][] = [];
   const ctx = new Proxy({}, {
     get: (_, key) => (...args: unknown[]) => calls.push([key, ...args]),
     set: () => true,
   }) as CanvasRenderingContext2D;
   drawAlecSeatBack(ctx, { width: 1600, height: 678 } as HTMLImageElement);
-  assert.equal(calls.filter((call) => call[0] === 'drawImage').length, 1,
-    'restore exactly one backrest mask from the production room');
-  assert.equal(calls.filter((call) => call[0] === 'bezierCurveTo').length, 2,
-    'follow both measured shoulders of the chair back');
-  assert.ok(calls.filter((call) => call[0] === 'quadraticCurveTo').length >= 3,
-    'close the backrest and pedestal around the seated pose');
-  assert.equal(calls.some((call) => call[0] === 'fill'), false,
-    'never paint a synthetic foreground chair over Alec');
-  assert.equal(calls.filter((call) => call[0] === 'save').length,
-    calls.filter((call) => call[0] === 'restore').length);
+  assert.equal(
+    calls.filter((call) => call[0] === 'drawImage').length,
+    1,
+    'restore the production-room chair in one pass',
+  );
+  assert.equal(
+    calls.filter((call) => call[0] === 'bezierCurveTo').length,
+    2,
+    'the clip must include both curved sides of the chair back',
+  );
+  assert.ok(
+    calls.filter((call) => call[0] === 'quadraticCurveTo').length >= 3,
+    'the clip must include the arm wings and lower shell',
+  );
+  assert.equal(
+    calls.some((call) => call[0] === 'fill'),
+    false,
+    'never paint a synthetic chair over Alec',
+  );
+  assert.equal(
+    calls.filter((call) => call[0] === 'save').length,
+    calls.filter((call) => call[0] === 'restore').length,
+  );
 
   calls.length = 0;
-  drawPhotonicActivity(ctx, 2, true);
-  assert.ok(calls.filter((call) => call[0] === 'ellipse').length >= 6,
-    'the active command station includes spatial field arcs and emitters');
-  assert.ok(calls.filter((call) => call[0] === 'quadraticCurveTo').length >= 4,
-    'data feeds converge on the command cradle');
-  assert.equal(calls.filter((call) => call[0] === 'save').length,
-    calls.filter((call) => call[0] === 'restore').length);
+  drawAlecCommandDisplays(ctx, 2, true);
+  const panelRects = calls
+    .filter((call) => call[0] === 'rect')
+    .map((call) => call.slice(1));
+  assert.deepEqual(
+    panelRects,
+    ORIGINAL_COMPUTER_BAYS.Alec.displayAreas.map(({ x, y, w, h }) => [x, y, w, h]),
+    'all animation clips come from the measured production display apertures',
+  );
+  assert.equal(calls.filter((call) => call[0] === 'clip').length, 3);
+  assert.equal(calls.filter((call) => call[0] === 'ellipse').length, 0,
+    'no free-floating rings may cross the chair or console shell');
+  assert.equal(calls.filter((call) => call[0] === 'quadraticCurveTo').length, 0,
+    'no legacy data feed may drift across the furniture');
+  assert.ok(calls.filter((call) => call[0] === 'fillRect').length >= 21,
+    'each source display receives a scan and six spectral channels');
+  assert.equal(
+    calls.filter((call) => call[0] === 'save').length,
+    calls.filter((call) => call[0] === 'restore').length,
+  );
+});
+
+test('production V4 never loads or composites the obsolete photonic bay', () => {
+  const labSource = readFileSync(
+    new URL('../src/ductor/StarshipLab.tsx', import.meta.url),
+    'utf8',
+  );
+  const simulationSource = readFileSync(
+    new URL('../src/ductor/starshipSimulation.ts', import.meta.url),
+    'utf8',
+  );
+  assert.equal(labSource.includes('PHOTONIC_BAY_ASSET'), false);
+  assert.equal(labSource.includes('computerBayImg'), false);
+  assert.equal(simulationSource.includes('drawPhotonicComputerBay'), false);
+  assert.equal(simulationSource.includes('drawCommandContact'), false);
 });
 
 test('command gestures only advance while Alec occupies his station; Kevin keeps his independent tour', () => {
@@ -104,7 +157,7 @@ test('command gestures only advance while Alec occupies his station; Kevin keeps
   });
   for (let i = 0; i < 32; i++) for (const a of [alec, kevin, benjamin]) updateAgent(a, 0.05, 1, crew);
   assert.ok(alec.commandTime! > 1.5);
-  assert.equal(getCommandGesture(alec.commandTime!).contact, -1);
+  assert.equal(getCommandGesture(alec.commandTime!).frame, 1);
   assert.ok(kevin.hologramTime! > 1.5);
   assert.ok(benjamin.qaTime! > 1.5);
   assert.ok(!alec.hologramExpansion);

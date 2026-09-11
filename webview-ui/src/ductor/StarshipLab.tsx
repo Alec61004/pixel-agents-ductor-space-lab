@@ -10,7 +10,6 @@ import {
   BENJAMIN_QA_ATLAS,
   KEVIN_STARMAP_ASSET,
   KEVIN_STARMAP_ATLAS,
-  PHOTONIC_BAY_ASSET,
 } from './starshipComputerBay.js';
 import { PHOTONIC_CSS_VARS } from './starshipPhotonicTheme.js';
 import { LIVING_ROOM_ASSET } from './starshipLivingRoom.js';
@@ -283,12 +282,10 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
     const sheetImg = new Image();
     const hologramImg = new Image();
     const walkImg = new Image();
-    const computerBayImg = new Image();
     const alecSeatedImg = new Image();
     const livingRoomImg = new Image();
     const kevinStarMapImg = new Image();
     const benjaminQAImg = new Image();
-    let computerBayReady = false;
     let sceneReady = false;
     let hologramReady = false;
     let walkReady = false;
@@ -299,9 +296,6 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
     setLoaded(false);
     void loadStarshipImage(livingRoomImg, ductorAssetUrl(import.meta.env?.BASE_URL ?? './', LIVING_ROOM_ASSET)).then((ready) => {
       if (!disposed) livingRoomReady = ready;
-    });
-    void loadStarshipImage(computerBayImg, ductorAssetUrl(import.meta.env?.BASE_URL ?? './', PHOTONIC_BAY_ASSET)).then((ready) => {
-      if (!disposed) computerBayReady = ready;
     });
     void loadStarshipImage(alecSeatedImg, ductorAssetUrl(import.meta.env?.BASE_URL ?? './', ALEC_SEATED_ASSET), ALEC_SEATED_ATLAS).then((ready) => {
       if (!disposed) alecSeatedReady = ready;
@@ -476,7 +470,6 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
             zoomRef.current,
             hologramReady ? hologramImg : undefined,
             walkReady ? walkImg : undefined,
-            computerBayReady ? computerBayImg : undefined,
             alecSeatedReady ? alecSeatedImg : undefined,
             livingRoomReady ? livingRoomImg : undefined,
             kevinStarMapReady ? kevinStarMapImg : undefined,
