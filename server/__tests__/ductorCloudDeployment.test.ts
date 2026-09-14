@@ -17,7 +17,7 @@ describe('Ductor cloud deployment configuration', () => {
     expect(config.framework).toBeNull();
     expect(config.buildCommand).toBe('npm run build:webview');
     expect(config.installCommand).toBe('npm ci --ignore-scripts');
-    expect(config.outputDirectory).toBe('dist');
+    expect(config.outputDirectory).toBe('dist/webview');
     expect(config.public).toBeUndefined();
     const headers = Object.fromEntries(
       config.headers[0]?.headers.map(({ key, value }) => [key.toLowerCase(), value]) ?? [],

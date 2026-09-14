@@ -114,7 +114,7 @@
     "format:check": "prettier --check \"adapters/vscode/**/*.ts\" \"server/**/*.ts\" \"core/src/**/*.ts\" \"webview-ui/src/**/*.{ts,tsx,css}\" \"*.{js,mjs}\" \"webview-ui/*.{js,ts}\"",
     "test:webview": "cd webview-ui && npm test",
     "test:server": "cd server && npm test",
-    "test:cloud": "cd server && npm test __tests__/ductorCloudContract.test.ts __tests__/ductorCloudPublisher.test.ts __tests__/ductorCloudHandlers.test.ts __tests__/ductorBlobStore.test.ts __tests__/ductorCloudDeployment.test.ts",
+    "test:cloud": "cd server && npm test __tests__/ductorCloudContract.test.ts __tests__/ductorCloudPublisher.test.ts __tests__/ductorCloudHandlers.test.ts __tests__/ductorBlobStore.test.ts __tests__/ductorRedisStore.test.ts __tests__/ductorCloudDeployment.test.ts",
     "test:package-contract": "node --test scripts/npm-package-contract.test.mjs",
     "test": "npm run test:webview && npm run test:server && npm run test:package-contract",
     "verify:npm-package": "node scripts/verify-npm-package.mjs",
