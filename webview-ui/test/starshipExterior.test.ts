@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { drawStarshipExterior, getAccretionParticle, getExteriorShip } from '../src/ductor/starshipExterior.js';
+import { drawStarshipExterior, EXTERIOR_SHIP_COUNT, getAccretionParticle, getExteriorShip } from '../src/ductor/starshipExterior.js';
 import { createInitialCrew, drawHologramTopGlow, STATE, WORKSTATIONS } from '../src/ductor/starshipSimulation.js';
 
 test('ships travel in a shared direction with different depth speeds; accretion flows inward', () => {
@@ -12,16 +12,17 @@ test('ships travel in a shared direction with different depth speeds; accretion 
   assert.ok(later.radius < start.radius);
   assert.notEqual(later.x, start.x);
   for (let time = 0; time < 120; time += 0.25) {
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < EXTERIOR_SHIP_COUNT; i++) {
       const ship = getExteriorShip(time, i);
       assert.ok(ship.x >= 382 && ship.x < 1522 && Number.isFinite(ship.y));
       const p = getAccretionParticle(time, i);
       assert.ok(p.radius >= 29 && p.radius <= 194 && Number.isFinite(p.x) && Number.isFinite(p.y));
     }
   }
+  assert.equal(EXTERIOR_SHIP_COUNT, 3);
 });
 
-test('window effects clip before drawing and restore canvas state; the star map has no ellipse rings', () => {
+test('window effects clip before drawing; the approved planet tour retains its blue frame and glass clip', () => {
   const calls: any[][] = [];
   const ctx = new Proxy({}, {
     get: (_, name) => {
@@ -37,8 +38,41 @@ test('window effects clip before drawing and restore canvas state; the star map 
   assert.equal(calls.filter(c => c[0] === 'save').length, calls.filter(c => c[0] === 'restore').length);
   calls.length = 0;
   const crew = createInitialCrew();
-  const alec = crew.find(a => a.name === 'Alec')!;
-  Object.assign(alec, WORKSTATIONS.Alec.interactionPoint, { state:STATE.WORKING, reportedState:'working', hologramTime:2, hologramSceneTime:8 });
-  drawHologramTopGlow(ctx, crew, 2, bg);
-  assert.equal(calls.some(c => c[0] === 'ellipse'), false, 'no orbit tracks or planetary ring outlines');
+  const kevin = crew.find(a => a.name === 'Kevin')!;
+  Object.assign(kevin, WORKSTATIONS.Kevin.interactionPoint, { state:STATE.WORKING, reportedState:'working', hologramTime:2, hologramSceneTime:8 });
+  drawHologramTopGlow(ctx, crew, 2);
+  // The v4 panel owns the frame; the map renderer must never copy the old
+  // sampled screen image over it.
+  assert.ok(calls.some(c => c[0] === 'translate' && c[1] === 510 && c[2] === 409));
+  assert.equal(calls.filter(c => c[0] === 'drawImage').length, 0);
+  const glassPaint = calls.findIndex(c => c[0] === 'fillRect');
+  assert.ok(calls.slice(0, glassPaint).some(c => c[0] === 'clip'));
+  assert.equal(calls.filter(c => c[0] === 'save').length, calls.filter(c => c[0] === 'restore').length);
+});
+
+
+test('current room owns one star-map glass through every exploration phase', () => {
+  const calls: any[][] = [];
+  const ctx = new Proxy({}, {
+    get: (_, key) => key === 'createLinearGradient' || key === 'createRadialGradient'
+      ? () => ({ addColorStop() {} })
+      : (...args: any[]) => calls.push([key, ...args]),
+    set: () => true,
+  }) as CanvasRenderingContext2D;
+  const crew = createInitialCrew();
+  const kevin = crew.find(a => a.name === 'Kevin')!;
+  for (const time of [0, 2, 6, 12, 22]) {
+    Object.assign(kevin, WORKSTATIONS.Kevin.interactionPoint, {
+      state: STATE.WORKING, reportedState: 'working',
+      hologramTime: time, hologramSceneTime: time,
+    });
+    calls.length = 0;
+    drawHologramTopGlow(ctx, crew, time);
+    assert.equal(calls.filter(c => c[0] === 'drawImage').length, 0,
+      'never copy a second screen or baked chart into the room');
+    assert.ok(calls.some(c => c[0] === 'translate' && c[1] === 510 && c[2] === 409));
+    const paint = calls.findIndex(c => c[0] === 'fillRect');
+    assert.ok(calls.slice(0, paint).some(c => c[0] === 'clip'));
+    assert.equal(calls.filter(c => c[0] === 'save').length, calls.filter(c => c[0] === 'restore').length);
+  }
 });

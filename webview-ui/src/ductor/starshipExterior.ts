@@ -1,3 +1,5 @@
+import type { RoomArtwork } from './starshipLivingRoom.js';
+
 // Exterior-only animation in world coordinates. The original room remains the
 // foreground; window masks also exclude instruments, tanks and their frames.
 type Point = { x: number; y: number };
@@ -14,7 +16,14 @@ const FOREGROUND = [
   [1229, 446, 51, 44], // plant at the window sill
 ] as const;
 
-function clipExterior(ctx: CanvasRenderingContext2D) {
+const LIVING_FOREGROUND = [
+  [815, 232, 123, 280], // living specimen chamber and its crystal fin
+  [1240, 265, 54, 177], // broad structural rib between windows
+  [1260, 411, 62, 87], // bioluminescent growth on the sill
+  [1390, 402, 142, 90], // research ribbon glass
+] as const;
+
+function clipExterior(ctx: CanvasRenderingContext2D, livingRoom: boolean) {
   ctx.beginPath();
   for (const polygon of WINDOWS) {
     ctx.moveTo(polygon[0][0], polygon[0][1]);
@@ -24,7 +33,7 @@ function clipExterior(ctx: CanvasRenderingContext2D) {
   ctx.clip();
   ctx.beginPath();
   ctx.rect(0, 0, 1600, 678);
-  for (const [x, y, w, h] of FOREGROUND) ctx.rect(x, y, w, h);
+  for (const [x, y, w, h] of livingRoom ? LIVING_FOREGROUND : FOREGROUND) ctx.rect(x, y, w, h);
   ctx.clip('evenodd');
 }
 
@@ -60,9 +69,10 @@ export function getAccretionParticle(time: number, index: number): Point & { rad
 
 type ShipAsset = { x: number; y: number; clean: OffscreenCanvas; sprite: OffscreenCanvas };
 const SHIP_REGIONS = [[563, 192, 53, 28], [612, 205, 57, 28], [538, 221, 27, 17]] as const;
-const shipCache = new WeakMap<HTMLImageElement, ShipAsset[] | null>();
+export const EXTERIOR_SHIP_COUNT = SHIP_REGIONS.length;
+const shipCache = new WeakMap<RoomArtwork, ShipAsset[] | null>();
 
-function getShipAssets(bg: HTMLImageElement): ShipAsset[] | null {
+function getShipAssets(bg: RoomArtwork): ShipAsset[] | null {
   if (shipCache.has(bg)) return shipCache.get(bg)!;
   if (typeof OffscreenCanvas === 'undefined') return null;
   try {
@@ -126,9 +136,9 @@ function getShipAssets(bg: HTMLImageElement): ShipAsset[] | null {
   }
 }
 
-const diskCache = new WeakMap<HTMLImageElement, OffscreenCanvas | null>();
+const diskCache = new WeakMap<RoomArtwork, OffscreenCanvas | null>();
 
-function getDiskTexture(bg: HTMLImageElement) {
+function getDiskTexture(bg: RoomArtwork) {
   if (diskCache.has(bg)) return diskCache.get(bg)!;
   if (typeof OffscreenCanvas === 'undefined') return null;
   try {
@@ -168,18 +178,24 @@ function getDiskTexture(bg: HTMLImageElement) {
   }
 }
 
-function drawAccretionFlow(ctx: CanvasRenderingContext2D, bg: HTMLImageElement, time: number) {
+function drawAccretionFlow(
+  ctx: CanvasRenderingContext2D,
+  bg: RoomArtwork,
+  time: number,
+  rotatePaintedDisk = true,
+  centreY = 329,
+) {
   ctx.save();
   ctx.globalAlpha = 1;
   ctx.globalCompositeOperation = 'source-over';
   // Keep all accretion effects within the existing painted nebula.
   ctx.beginPath();
-  ctx.ellipse(1045, 329, 196, 94, 0.25, 0, Math.PI * 2);
+  ctx.ellipse(1045, centreY, 196, 94, 0.25, 0, Math.PI * 2);
   ctx.clip();
-  const texture = getDiskTexture(bg);
+  const texture = rotatePaintedDisk ? getDiskTexture(bg) : null;
   if (texture) {
     ctx.save();
-    ctx.translate(1045, 329);
+    ctx.translate(1045, centreY);
     ctx.transform(0.969, 0.247, -0.247 * 0.44, 0.969 * 0.44, 0, 0);
     ctx.rotate(time * 0.075);
     ctx.drawImage(texture, -192, -192);
@@ -189,14 +205,16 @@ function drawAccretionFlow(ctx: CanvasRenderingContext2D, bg: HTMLImageElement, 
   // Short, uneven luminous streams follow the original tilted disk. Avoid
   // solid concentric UI rings, and let the purple painted texture show through.
   for (let i = 0; i < 110; i++) {
-    const head = getAccretionParticle(time, i);
+    const baseHead = getAccretionParticle(time, i);
+    const head = { ...baseHead, y: baseHead.y + centreY - 329 };
     const edgeFade = Math.min(1, (194 - head.radius) / 20, (head.radius - 29) / 12);
-    ctx.globalAlpha = Math.max(0, edgeFade) * (0.13 + (i % 4) * 0.055);
-    ctx.strokeStyle = i % 5 === 0 ? '#b6f4ff' : i % 2 ? '#9876f2' : '#64bada';
+    ctx.globalAlpha = Math.max(0, edgeFade) * (0.11 + (i % 4) * 0.038);
+    ctx.strokeStyle = i % 4 === 0 ? '#f6bf68' : i % 3 === 0 ? '#8fcbe9' : '#4f79b8';
     ctx.lineWidth = i % 4 === 0 ? 2 : 1;
     ctx.beginPath();
     for (let segment = 0; segment < 7; segment++) {
-      const p = getAccretionParticle(time - segment * 0.12, i);
+      const basePoint = getAccretionParticle(time - segment * 0.12, i);
+      const p = { ...basePoint, y: basePoint.y + centreY - 329 };
       if (segment === 0) ctx.moveTo(Math.round(p.x), Math.round(p.y));
       else ctx.lineTo(Math.round(p.x), Math.round(p.y));
     }
@@ -205,38 +223,45 @@ function drawAccretionFlow(ctx: CanvasRenderingContext2D, bg: HTMLImageElement, 
   ctx.globalCompositeOperation = 'source-over';
   // A dark central shadow replaces the static white hub; a softly luminous
   // inner edge remains around it, inspired by accretion-disk visualizations.
-  const shadow = ctx.createRadialGradient(1045, 323, 13, 1045, 323, 40);
-  shadow.addColorStop(0, '#070616');
-  shadow.addColorStop(0.55, '#08081cff');
-  shadow.addColorStop(0.72, '#172443d0');
-  shadow.addColorStop(0.9, '#42769828');
-  shadow.addColorStop(1, '#42769800');
-  ctx.globalAlpha = 1;
-  ctx.fillStyle = shadow;
-  ctx.beginPath();
-  ctx.ellipse(1045, 323, 43, 29, 0.25, 0, Math.PI * 2);
-  ctx.fill();
+  const shadowY = centreY - 6;
+  // Modern artwork already has a shaded event horizon. Preserve that material;
+  // the synthetic replacement is needed only for the original white hub.
+  if (rotatePaintedDisk) {
+    const shadow = ctx.createRadialGradient(1045, shadowY, 13, 1045, shadowY, 40);
+    shadow.addColorStop(0, '#070616');
+    shadow.addColorStop(0.55, '#08081cff');
+    shadow.addColorStop(0.72, '#102a4ad8');
+    shadow.addColorStop(0.9, '#6abde434');
+    shadow.addColorStop(1, '#6abde400');
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = shadow;
+    ctx.beginPath();
+    ctx.ellipse(1045, shadowY, 43, 29, 0.25, 0, Math.PI * 2);
+    ctx.fill();
+  }
   // Uneven inner wisps rotate faster than the outer flow, not the room itself.
   ctx.globalCompositeOperation = 'screen';
   for (let i = 0; i < 5; i++) {
     const angle = i * 1.71 + time * 0.85;
-    ctx.globalAlpha = 0.16 + (Math.sin(angle) + 1) * 0.13;
-    ctx.strokeStyle = i % 3 ? '#85e0f6' : '#dcc5ff';
+    ctx.globalAlpha = 0.20 + (Math.sin(angle) + 1) * 0.16;
+    ctx.strokeStyle = i % 3 ? '#7fc4e8' : '#f4b85f';
     ctx.lineWidth = 1.2 + (i % 3) * 0.45;
     ctx.beginPath();
-    ctx.ellipse(1045, 323, 43 + i % 3, 27 + i % 2, 0.25, angle, angle + 0.35 + (i % 3) * 0.19);
+    ctx.ellipse(1045, shadowY, 43 + i % 3, 27 + i % 2, 0.25, angle, angle + 0.35 + (i % 3) * 0.19);
     ctx.stroke();
   }
   ctx.restore();
 }
 
-export function drawStarshipExterior(ctx: CanvasRenderingContext2D, bg: HTMLImageElement, time: number) {
+export function drawStarshipExterior(ctx: CanvasRenderingContext2D, bg: RoomArtwork, time: number, livingRoom = false, shipSource: RoomArtwork = bg) {
   if (!Number.isFinite(time)) return;
   ctx.save();
-  clipExterior(ctx);
+  clipExterior(ctx, livingRoom);
   ctx.imageSmoothingEnabled = false;
-  const ships = getShipAssets(bg);
-  if (ships) {
+  // The new room has clean sky. Reuse original spacecraft sprites without
+  // painting their old background reconstruction patches onto the new scene.
+  const ships = getShipAssets(shipSource);
+  if (ships && !livingRoom) {
     for (const asset of ships) ctx.drawImage(asset.clean, asset.x, asset.y);
   }
   // Parallax: nearby stars pass faster and leave brief, faint streaks. They all
@@ -246,25 +271,44 @@ export function drawStarshipExterior(ctx: CanvasRenderingContext2D, bg: HTMLImag
     const x = 380 + wrap(star.x - time * (2 + star.depth * 8), 1140);
     const y = 140 + star.y;
     ctx.globalAlpha = (0.12 + star.depth * 0.27) * (0.85 + Math.sin(time + i) * 0.15);
-    ctx.fillStyle = i % 7 === 0 ? '#d4c4f5' : '#b8deef';
+    ctx.fillStyle = i % 7 === 0 ? '#f0c37a' : '#b8e8f4';
     ctx.fillRect(Math.round(x), Math.round(y), star.depth > 0.8 ? 2 : 1, 1);
     if (star.depth > 0.7) {
       ctx.globalAlpha *= 0.25;
       ctx.fillRect(Math.round(x) + 2, Math.round(y), 5, 1);
     }
   }
-  drawAccretionFlow(ctx, bg, time);
+  // The new room already contains a detailed amber disk. Animate light over
+  // that painting without rotating sampled pixels from the former backdrop.
+  drawAccretionFlow(ctx, bg, time, !livingRoom, livingRoom ? 294 : 329);
+  if (livingRoom) {
+    // Blue window glass separates the bright violet sky from the cyan bridge.
+    // Applied inside the existing foreground exclusion masks, after the disk,
+    // so its animated texture and the painted sky share the same exposure.
+    ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+    // Feather fully inside each pane: a flat rectangle exposes the coarse
+    // animation mask around the tank and the sloping window frames.
+    for (const [x, y, rx, ry] of [[571, 223, 176, 86], [1096, 330, 144, 143], [1420, 280, 85, 128]]) {
+      ctx.save(); ctx.translate(x!, y!); ctx.scale(rx!, ry!);
+      const glass = ctx.createRadialGradient(0, 0, 0.08, 0, 0, 1);
+      glass.addColorStop(0, '#071b2e20'); glass.addColorStop(0.65, '#071b2e10');
+      glass.addColorStop(1, '#071b2e00');
+      ctx.fillStyle = glass; ctx.fillRect(-1, -1, 2, 2); ctx.restore();
+    }
+  }
   if (ships) {
-    for (let index = 0; index < 4; index++) {
-      const asset = ships[index % ships.length]!;
+    // One instance of each silhouette: the previous fourth craft repeated the
+    // first sprite and made the windows read like duplicated artwork.
+    for (let index = 0; index < EXTERIOR_SHIP_COUNT; index++) {
+      const asset = ships[index]!;
       const ship = getExteriorShip(time, index);
       ctx.globalAlpha = 0.9;
       const width = asset.sprite.width * ship.scale;
       const height = asset.sprite.height * ship.scale;
       // Small exhaust fades behind each silhouette, at its own depth/speed.
       const exhaust = ctx.createLinearGradient(ship.x + width - 2, 0, ship.x + width + 15 * ship.scale, 0);
-      exhaust.addColorStop(0, '#81d9f0b0');
-      exhaust.addColorStop(1, '#81d9f000');
+      exhaust.addColorStop(0, '#77dcf0b8');
+      exhaust.addColorStop(1, '#77dcf000');
       ctx.fillStyle = exhaust;
       ctx.fillRect(ship.x + width - 2, ship.y + height * 0.5, 17 * ship.scale, 2 * ship.scale);
       ctx.drawImage(asset.sprite, Math.round(ship.x), Math.round(ship.y), width, height);

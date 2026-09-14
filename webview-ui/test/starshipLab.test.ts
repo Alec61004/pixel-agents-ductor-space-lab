@@ -6,6 +6,12 @@ import { test } from 'vitest';
 
 import type { DuctorStatusSnapshot } from '../src/ductor/ductorLabModel.js';
 import {
+  STAR_MAP_WORKSTATION,
+  ORIGINAL_COMPUTER_BAY_ASSETS,
+  ORIGINAL_COMPUTER_BAYS,
+} from '../src/ductor/starshipComputerBay.js';
+import {
+  SHEET_ROWS,
   applySnapshotToAgents,
   ASSIGNED_WORKSTATIONS,
   ATTENTION_POINTS,
@@ -290,48 +296,38 @@ test('defines 3 fixed workstations (Alec, Kevin, Benjamin) with correct labels a
   assert.ok(WORKSTATIONS.Benjamin);
 
   // New device-anchored coordinates matching actual painted devices in starship-bg.png
-  assert.deepEqual(WORKSTATIONS.Alec.approachPoint, { x: 569, y: 656 });
-  assert.deepEqual(WORKSTATIONS.Alec.interactionPoint, { x: 569, y: 638 });
+  assert.deepEqual(WORKSTATIONS.Alec.approachPoint, { x: 552, y: 500 });
+  assert.deepEqual(WORKSTATIONS.Alec.interactionPoint, { x: 552, y: 450 });
   assert.equal(WORKSTATIONS.Alec.facing, 'back');
   assert.deepEqual(WORKSTATIONS.Alec.displayBounds, {
-    x: 505,
-    y: 442,
-    w: 140,
-    h: 98,
+    x: 455,
+    y: 302,
+    w: 255,
+    h: 110,
   });
-  assert.deepEqual(WORKSTATIONS.Alec.displayAreas, [{ x: 505, y: 442, w: 140, h: 98 }]);
+  assert.deepEqual(WORKSTATIONS.Alec.displayAreas, [
+    { x: 465, y: 312, w: 49, h: 25 },
+    { x: 560, y: 312, w: 48, h: 25 },
+    { x: 650, y: 312, w: 49, h: 25 },
+  ]);
   assert.deepEqual(WORKSTATIONS.Alec.occlusionBounds, {
-    x: 500,
-    y: 525,
-    w: 145,
-    h: 65,
+    x: 442,
+    y: 389,
+    w: 72,
+    h: 60,
   });
   assert.equal(WORKSTATIONS.Alec.label, 'Alec — Strategy');
 
-  assert.deepEqual(WORKSTATIONS.Kevin.approachPoint, { x: 450, y: 490 });
-  assert.deepEqual(WORKSTATIONS.Kevin.interactionPoint, { x: 450, y: 455 });
+  assert.deepEqual(WORKSTATIONS.Kevin.approachPoint, STAR_MAP_WORKSTATION.approachPoint);
+  assert.deepEqual(WORKSTATIONS.Kevin.interactionPoint, STAR_MAP_WORKSTATION.interactionPoint);
   assert.equal(WORKSTATIONS.Kevin.facing, 'back');
-  assert.deepEqual(WORKSTATIONS.Kevin.displayBounds, {
-    x: 460,
-    y: 318,
-    w: 250,
-    h: 32,
-  });
-  assert.deepEqual(WORKSTATIONS.Kevin.displayAreas, [
-    { x: 460, y: 318, w: 60, h: 30 },
-    { x: 536, y: 318, w: 70, h: 30 },
-    { x: 648, y: 318, w: 60, h: 30 },
-  ]);
-  assert.deepEqual(WORKSTATIONS.Kevin.occlusionBounds, {
-    x: 405,
-    y: 420,
-    w: 340,
-    h: 40,
-  });
+  assert.deepEqual(WORKSTATIONS.Kevin.displayBounds, STAR_MAP_WORKSTATION.displayBounds);
+  assert.deepEqual(WORKSTATIONS.Kevin.displayAreas, STAR_MAP_WORKSTATION.displayAreas);
+  assert.deepEqual(WORKSTATIONS.Kevin.occlusionBounds, STAR_MAP_WORKSTATION.occlusionBounds);
   assert.equal(WORKSTATIONS.Kevin.label, 'Kevin — Build');
 
-  assert.deepEqual(WORKSTATIONS.Benjamin.approachPoint, { x: 1060, y: 585 });
-  assert.deepEqual(WORKSTATIONS.Benjamin.interactionPoint, { x: 1060, y: 580 });
+  assert.deepEqual(WORKSTATIONS.Benjamin.approachPoint, { x: 1060, y: 650 });
+  assert.deepEqual(WORKSTATIONS.Benjamin.interactionPoint, { x: 1060, y: 630 });
   assert.equal(WORKSTATIONS.Benjamin.facing, 'back');
   assert.deepEqual(WORKSTATIONS.Benjamin.displayBounds, {
     x: 1010,
@@ -365,6 +361,17 @@ test('defines 3 fixed workstations (Alec, Kevin, Benjamin) with correct labels a
   assert.equal(isPointInPolygon(WORKSTATIONS.Benjamin.interactionPoint, WALKABLE_POLYGON), true);
 });
 
+test('keeps the original Alec and Kevin computer bays in one debug configuration', () => {
+  assert.equal(ORIGINAL_COMPUTER_BAY_ASSETS.background, 'themes/ductor-space-lab/starship-bg.png');
+  assert.equal(ORIGINAL_COMPUTER_BAY_ASSETS.consoleTile, 'themes/ductor-space-lab/console-neon.png');
+  assert.equal(ORIGINAL_COMPUTER_BAYS.Alec.bayId, 'central-command');
+  assert.equal(ORIGINAL_COMPUTER_BAYS.Kevin.bayId, 'port-build');
+  assert.deepEqual(WORKSTATIONS.Alec.interactionPoint, ORIGINAL_COMPUTER_BAYS.Alec.interactionPoint);
+  assert.deepEqual(WORKSTATIONS.Kevin.interactionPoint, STAR_MAP_WORKSTATION.interactionPoint);
+  assert.deepEqual(WORKSTATIONS.Alec.displayAreas, ORIGINAL_COMPUTER_BAYS.Alec.displayAreas);
+  assert.deepEqual(WORKSTATIONS.Kevin.displayAreas, STAR_MAP_WORKSTATION.displayAreas);
+});
+
 test('clamps viewport pan so focusing an agent cannot expose empty canvas space', () => {
   const desktopPan = clampPanToViewport({ x: 500, y: -500 }, { width: 1440, height: 757 }, 1.2);
   assert.equal(desktopPan.x, 240);
@@ -380,7 +387,7 @@ test('agent working state positions agent at their own assigned workstation inte
   const kevin = crew.find((a) => a.name === 'Kevin')!;
   const benjamin = crew.find((a) => a.name === 'Benjamin')!;
 
-  // Alec stands in front of the projector and faces the map
+  // Alec commands from the rebuilt alien bridge and faces its displays.
   assert.equal(alec.x, WORKSTATIONS.Alec.interactionPoint.x);
   assert.equal(alec.y, WORKSTATIONS.Alec.interactionPoint.y);
   assert.equal(alec.facing, 'back');
@@ -644,16 +651,16 @@ test('drawAgent disables imageSmoothingEnabled, sets role shadowColor rim glow, 
   // Must have executed at least 2 drawImage passes (base + lighter brightness boost)
   assert.ok(drawCalls.length >= 2);
 
-  // First sprite draw: pixel smoothing disabled, rim glow with role color, shadowBlur = 8
+  // First sprite draw: pixel smoothing disabled, with a compact rim glow.
   const basePass = drawCalls[0];
   assert.equal(basePass.imageSmoothingEnabled, false);
   assert.equal(basePass.shadowColor, '#5ce1ff');
-  assert.equal(basePass.shadowBlur, 8);
+  assert.equal(basePass.shadowBlur, 4);
 
-  // Second sprite draw: lighter composite mode with alpha 0.22 to boost sprite brightness
+  // Second sprite draw: lighter composite mode with a restrained brightness boost.
   const boostPass = drawCalls[1];
   assert.equal(boostPass.globalCompositeOperation, 'lighter');
-  assert.equal(boostPass.globalAlpha, 0.22);
+  assert.equal(boostPass.globalAlpha, 0.10);
 });
 
 test('getAgentStatusBubble generates correct text and role colors for working, idle, blocked, and offline states', () => {
@@ -662,8 +669,8 @@ test('getAgentStatusBubble generates correct text and role colors for working, i
     name: 'Alec',
     role: 'Planner',
     skin: SKINS[4],
-    x: 480,
-    y: 505,
+    x: WORKSTATIONS.Alec.interactionPoint.x,
+    y: WORKSTATIONS.Alec.interactionPoint.y,
     state: STATE.WORKING,
   });
   const kevin = makeAgent({
@@ -671,8 +678,8 @@ test('getAgentStatusBubble generates correct text and role colors for working, i
     name: 'Kevin',
     role: 'Builder',
     skin: SKINS[2],
-    x: 920,
-    y: 535,
+    x: WORKSTATIONS.Kevin.interactionPoint.x,
+    y: WORKSTATIONS.Kevin.interactionPoint.y,
     state: STATE.WORKING,
   });
   const benjamin = makeAgent({
@@ -680,8 +687,8 @@ test('getAgentStatusBubble generates correct text and role colors for working, i
     name: 'Benjamin',
     role: 'QA',
     skin: SKINS[0],
-    x: 1240,
-    y: 520,
+    x: WORKSTATIONS.Benjamin.interactionPoint.x,
+    y: WORKSTATIONS.Benjamin.interactionPoint.y,
     state: STATE.WORKING,
   });
 
@@ -739,13 +746,14 @@ test('work particles spawn every ~0.9s for working agents with role-specific ico
 
   // Advance another 0.5s (total 1.0s >= 0.9s): particle spawns
   updateAgent(alec, 0.5, 1, crew);
-  assert.equal(alec.particles?.length ?? 0, 0, 'Alec uses gestures instead of typing particles');
-  assert.equal(alec.hologramTime, 1);
+  assert.equal(alec.particles?.length, 1, 'Alec works at the photonic command bay');
+  const ap = alec.particles![0]!;
 
   // Test Kevin code particle
   updateAgent(kevin, 1.0, 1, crew);
-  assert.equal(kevin.particles?.length, 1);
-  const kp = kevin.particles![0]!;
+  assert.equal(kevin.particles?.length ?? 0, 0, 'Kevin uses map gestures instead of particles');
+  assert.equal(kevin.hologramTime, 1);
+  const kp = { icon: ROLE_PARTICLE_ICONS.Kevin, color: ROLE_GLOW_COLORS.Kevin };
   assert.equal(kp.icon, '</>');
   assert.equal(kp.color, '#5ce1ff');
 
@@ -757,10 +765,10 @@ test('work particles spawn every ~0.9s for working agents with role-specific ico
   assert.equal(bp.color, '#ff5c5c');
 
   // Particles float upward and decay over time
-  const initialY = kp.y;
-  updateAgent(kevin, 0.1, 1, crew);
-  assert.ok(kp.y < initialY, 'Particle must move upwards (y decreases)');
-  assert.ok(kp.alpha < 1, 'Particle alpha must decay');
+  const initialY = ap.y;
+  updateAgent(alec, 0.1, 1, crew);
+  assert.ok(ap.y < initialY, 'Particle must move upwards (y decreases)');
+  assert.ok(ap.alpha < 1, 'Particle alpha must decay');
 });
 
 test('working agent faces into desk/station according to assigned workstation config', () => {
@@ -908,7 +916,7 @@ test('drawAgent selects front-idle frames for Alec (facing front) and back-idle 
 
   for (const { agent, row, name } of skinTestCases) {
     // This checks generic idle sheets; dedicated Alec typing frames are covered below.
-    if (name === 'Alec') agent.state = STATE.IDLE;
+    if (name === 'Alec' || name === 'Kevin') agent.state = STATE.IDLE;
     for (let phase = 0; phase < 4; phase++) {
       // Front facing: col = 0..3 (sx = 0,1,2,3 * cw), row = row (sy = row * ch)
       drawCalls.length = 0;
@@ -1058,17 +1066,17 @@ test('drawWorkstationScreens draws low-alpha glow only inside painted display ar
   // Working crew: screens should be drawn
   drawWorkstationScreens(mockCtx, crew, 0);
 
-  // Verify every real Kevin monitor display area
+  // Alec's photonic command bay receives the workstation activity tint.
   const kevinDisplayFills = fillRectCalls.filter((c) =>
-    WORKSTATIONS.Kevin.displayAreas.some(
+    WORKSTATIONS.Alec.displayAreas.some(
       (area) => c.x === area.x && c.y === area.y && c.w === area.w && c.h === area.h,
     ),
   );
-  assert.equal(kevinDisplayFills.length, WORKSTATIONS.Kevin.displayAreas.length);
+  assert.equal(kevinDisplayFills.length, WORKSTATIONS.Alec.displayAreas.length);
 
   const kevinFill = kevinDisplayFills[0];
   assert.ok(kevinFill);
-  assert.equal(kevinFill.fillStyle, ROLE_GLOW_COLORS.Kevin);
+  assert.equal(kevinFill.fillStyle, ROLE_GLOW_COLORS.Alec);
   assert.ok(kevinFill.globalAlpha >= 0.12 && kevinFill.globalAlpha <= 0.22);
 
   // Verify Benjamin display area
@@ -1085,15 +1093,15 @@ test('drawWorkstationScreens draws low-alpha glow only inside painted display ar
 
   // Test idle state: screen turns off (no rect drawn for idle agent)
   fillRectCalls.length = 0;
-  const kevin = crew.find((a) => a.name === 'Kevin')!;
+  const kevin = crew.find((a) => a.name === 'Alec')!;
   kevin.state = STATE.IDLE;
   kevin.reportedState = 'idle';
 
   drawWorkstationScreens(mockCtx, crew, 0);
 
-  // Kevin's displayBounds must NOT be drawn when idle
+  // Alec's displayBounds must NOT be drawn when idle.
   const kevinIdleFill = fillRectCalls.find(
-    (c) => c.x === WORKSTATIONS.Kevin.displayBounds.x && c.y === WORKSTATIONS.Kevin.displayBounds.y,
+    (c) => c.x === WORKSTATIONS.Alec.displayBounds.x && c.y === WORKSTATIONS.Alec.displayBounds.y,
   );
   assert.equal(kevinIdleFill, undefined);
 });
@@ -1115,7 +1123,7 @@ test('drawDeskCutouts renders occlusion bounds from bgImg to occlude agent lower
 
   drawDeskCutouts(mockCtx, mockBgImg, crew);
 
-  // Only seated operators are behind their desks; Alec is in front.
+  // Alec and Benjamin sit behind their consoles; Kevin stands at the map.
   assert.equal(drawImageCalls.length, 2);
 
   // Alec occlusion bounds
@@ -1123,7 +1131,7 @@ test('drawDeskCutouts renders occlusion bounds from bgImg to occlude agent lower
     (c) =>
       c[1] === WORKSTATIONS.Alec.occlusionBounds.x && c[2] === WORKSTATIONS.Alec.occlusionBounds.y,
   );
-  assert.equal(alecCutout, undefined);
+  assert.ok(alecCutout);
 
   // Kevin occlusion bounds
   const kevinCutout = drawImageCalls.find(
@@ -1131,9 +1139,7 @@ test('drawDeskCutouts renders occlusion bounds from bgImg to occlude agent lower
       c[1] === WORKSTATIONS.Kevin.occlusionBounds.x &&
       c[2] === WORKSTATIONS.Kevin.occlusionBounds.y,
   );
-  assert.ok(kevinCutout);
-  assert.equal(kevinCutout[3], WORKSTATIONS.Kevin.occlusionBounds.w);
-  assert.equal(kevinCutout[4], WORKSTATIONS.Kevin.occlusionBounds.h);
+  assert.equal(kevinCutout, undefined);
 
   // Benjamin occlusion bounds
   const benjaminCutout = drawImageCalls.find(
@@ -1152,7 +1158,7 @@ test('drawDeskCutouts renders occlusion bounds from bgImg to occlude agent lower
   alec.reportedState = 'idle';
 
   drawDeskCutouts(mockCtx, mockBgImg, crew);
-  assert.equal(drawImageCalls.length, 2);
+  assert.equal(drawImageCalls.length, 1);
   const alecIdleCutout = drawImageCalls.find(
     (c) =>
       c[1] === WORKSTATIONS.Alec.occlusionBounds.x && c[2] === WORKSTATIONS.Alec.occlusionBounds.y,
@@ -1182,7 +1188,7 @@ test('drawDeskCutouts never hides a crew member while routing away from a desk',
 
 test('V1.9 typing effects: drawAgent renders 2 typing arms (3x2px) in role color oscillating in opposite phase with deterministic 0.20s cadence', () => {
   const crew = createInitialCrew(snapshot);
-  const kevin = crew.find((a) => a.name === 'Kevin')!;
+  const kevin = crew.find((a) => a.name === 'Alec')!;
   assert.equal(kevin.state, STATE.WORKING);
 
   const fillRectCalls: Array<{
@@ -1350,8 +1356,8 @@ test('V1.9 typing effects: drawAgent renders 2 typing arms (3x2px) in role color
     const leftArm = fillRectCalls[0]!;
     const rightArm = fillRectCalls[1]!;
 
-    assert.equal(leftArm.fillStyle, ROLE_GLOW_COLORS.Kevin);
-    assert.equal(rightArm.fillStyle, ROLE_GLOW_COLORS.Kevin);
+    assert.equal(leftArm.fillStyle, ROLE_GLOW_COLORS.Alec);
+    assert.equal(rightArm.fillStyle, ROLE_GLOW_COLORS.Alec);
     // Dimensions roughly 3x2px (scaled with depthScale ~0.8-1.1)
     assert.ok(leftArm.w >= 2 && leftArm.w <= 4);
     assert.ok(leftArm.h >= 1.5 && leftArm.h <= 3);
@@ -1513,14 +1519,15 @@ test('V1.9 idle wander: idle agent wanders between points every 2-4s and changes
   }
 });
 
-test('Alec uses intact original rear poses with gesture fields and the same cyan map', () => {
+test('Kevin uses intact rear poses with gesture fields and the single cyan map', () => {
   const crew = createInitialCrew(snapshot);
-  const alec = crew.find((a) => a.name === 'Alec')!;
-  const bgImg = { width: 1600, height: 678 } as HTMLImageElement;
+  const kevin = crew.find((a) => a.name === 'Kevin')!;
   const sheet = { width: 1280, height: 960 } as HTMLImageElement;
   const hologramSprite = { width: 160, height: 112 } as HTMLImageElement;
+
   function frame(time: number) {
-    alec.hologramTime = time;
+    kevin.hologramTime = time;
+    kevin.hologramSceneTime = time;
     const calls: any[][] = [];
     const ctx = new Proxy(
       {},
@@ -1539,92 +1546,66 @@ test('Alec uses intact original rear poses with gesture fields and the same cyan
         set: () => true,
       },
     ) as CanvasRenderingContext2D;
-    drawHologramTopGlow(ctx, crew, time, bgImg);
-    drawAlecHologramControl(ctx, alec);
-    drawAgent(ctx, alec, sheet, time, hologramSprite);
+    drawHologramTopGlow(ctx, crew, time);
+    drawAlecHologramControl(ctx, kevin);
+    drawAgent(ctx, kevin, sheet, time, hologramSprite);
     return calls;
   }
+
   for (const time of [0.15, 0.65, 1.13]) assert.equal(getAlecHologramFrame(time), 0);
   for (const time of [0, 0.4, 0.9, 1.8, 2.8]) assert.equal(getAlecHologramFrame(time), 1);
   assert.equal(getHologramNavigation(1.3, true).route, 0, 'route waits for the last key release');
   assert.ok(getHologramNavigation(1.9, true).route > 0, 'route draws after the typing phrase');
   assert.equal(frame(1.9).some((c) => c[0] === 'transform'), false, 'the map camera stays still');
+
   const first = frame(0);
-  assert.deepEqual(
-    first.find((c) => c[0] === 'drawImage')?.slice(1, 6),
-    [bgImg, 516, 443, 106, 71],
-    'reuse the full original cyan map and frame',
-  );
+  assert.ok(first.some((c) => c[0] === 'translate' && c[1] === 510 && c[2] === 409));
+  assert.equal(first.filter((c) => c[0] === 'drawImage').length, 2,
+    'only the intact crew sprite passes use drawImage');
   assert.notDeepEqual(frame(3), first);
   assert.deepEqual(frame(0), first);
+
   for (let time = 0; time < 8; time += 0.05) {
     const calls = frame(time);
-    const map = calls.find((c) => c[0] === 'drawImage' && c[1] === bgImg)!;
-    if (time >= 0.6) assert.ok(Math.abs(map[8] - 106 * 1.65) < 0.0001);
-    const poses = calls.filter((c) => c[0] === 'drawImage' && c[1] === hologramSprite);
+    assert.equal(calls.some((c) => c[0] === 'drawImage' && c[1] === hologramSprite), false,
+      'the legacy hologram sprite is never painted over Kevin');
+    const poses = calls.filter((c) => c[0] === 'drawImage' && c[1] === sheet);
     assert.equal(poses.length, 2, 'whole sprite plus its existing brightness pass');
     for (const pose of poses) {
-      assert.deepEqual(pose.slice(2, 6), [getAlecHologramFrame(time) * 80, 0, 80, 112]);
+      assert.deepEqual(pose.slice(2, 6), [
+        (8 + getAlecHologramFrame(time)) * 80,
+        kevin.skin.row * (960 / SHEET_ROWS),
+        80,
+        960 / SHEET_ROWS,
+      ]);
     }
-    assert.equal(
-      calls.some((c) => c[0] === 'rotate'),
-      false,
-      'never rotate cropped limbs',
-    );
-    assert.equal(
-      calls.some((c) => c[0] === 'clip' && c[1] === 'evenodd'),
-      false,
-      'never cut holes in the body',
-    );
-    assert.equal(
-      calls.filter((c) => c[0] === 'save').length,
-      calls.filter((c) => c[0] === 'restore').length,
-    );
-    for (const call of calls)
+    assert.equal(calls.some((c) => c[0] === 'rotate'), false, 'never rotate cropped limbs');
+    assert.equal(calls.some((c) => c[0] === 'clip' && c[1] === 'evenodd'), false,
+      'never cut holes in the body');
+    assert.equal(calls.filter((c) => c[0] === 'save').length,
+      calls.filter((c) => c[0] === 'restore').length);
+    for (const call of calls) {
       for (const n of call.slice(1)) {
         if (typeof n === 'number') assert.ok(Number.isFinite(n));
       }
+    }
   }
+
   for (const state of ['idle', 'waiting', 'blocked', 'offline']) {
-    Object.assign(alec, { state, reportedState: state });
+    Object.assign(kevin, { state, reportedState: state });
     const calls = frame(0);
-    const map = calls.find((c) => c[0] === 'drawImage' && c[1] === bgImg);
-    assert.deepEqual(map?.slice(8, 10), [106, 71], `${state}: same map at resting size`);
-    assert.ok(
-      calls.some((c) => c[0] === 'createRadialGradient'),
-      `${state}: render the new field`,
-    );
-    assert.equal(
-      calls.some((c) => c[0] === 'drawImage' && c[1] === hologramSprite),
-      false,
-      state,
-    );
+    assert.ok(calls.some((c) => c[0] === 'fillRect'), `${state}: render the map field`);
+    assert.equal(calls.some((c) => c[0] === 'drawImage' && c[1] === hologramSprite), false, state);
   }
-  Object.assign(alec, { state: STATE.MOVING, reportedState: 'working' });
-  assert.equal(
-    frame(0).some((c) => c[0] === 'drawImage' && c[1] === hologramSprite),
-    false,
-  );
-  Object.assign(alec, WORKSTATIONS.Alec.interactionPoint, {
+  Object.assign(kevin, WORKSTATIONS.Kevin.interactionPoint, {
     state: STATE.WORKING,
     reportedState: 'working',
     hologramExpansion: 0,
   });
-  for (let i = 0; i < 10; i++) updateAgent(alec, 0.1, 1, crew);
-  const expanded = frame(1).find((c) => c[0] === 'drawImage' && c[1] === bgImg);
-  assert.ok(Math.abs(expanded![8] - 106 * 1.65) < 0.001);
-  const sceneTime = alec.hologramSceneTime;
-  Object.assign(alec, { state: STATE.IDLE, reportedState: 'idle', stateTimer: 10 });
-  updateAgent(alec, 0.2, 1, crew);
-  const shrinking = frame(0).find((c) => c[0] === 'drawImage' && c[1] === bgImg);
-  assert.ok(shrinking![8] > 106 && shrinking![8] < expanded![8], 'smoothly shrink on work end');
-  for (let i = 0; i < 8; i++) updateAgent(alec, 0.1, 1, crew);
-  const resting = frame(0).find((c) => c[0] === 'drawImage' && c[1] === bgImg);
-  assert.equal(resting![8], 106);
-  assert.ok(alec.hologramSceneTime! > sceneTime!, 'ambient field keeps moving while idle');
+  for (let i = 0; i < 10; i++) updateAgent(kevin, 0.1, 1, crew);
+  assert.ok(frame(1).some((c) => c[0] === 'fillRect'), 'working map remains procedural');
 });
-
-test('the ringed world travels around the fixed star while navigation follows Alec gestures', () => {
+test('the ringed world travels around the fixed star while navigation follows Kevin gestures', () => {
   const start = getHologramOrbit(0);
   const later = getHologramOrbit(6);
   assert.ok(Math.hypot(later.x - start.x, later.y - start.y) > 10);
