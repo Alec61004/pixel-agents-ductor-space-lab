@@ -1,7 +1,7 @@
-import { createBlobCloudStatusStore } from '../_lib/ductorBlobStore.js';
+import { createRedisCloudStatusStore } from '../_lib/ductorRedisStore.js';
 import { createCloudHeartbeatHandler } from '../_lib/ductorHandlers.js';
 
-const store = createBlobCloudStatusStore();
+const store = createRedisCloudStatusStore();
 
 export const POST = createCloudHeartbeatHandler({
   secret: process.env['DUCTOR_CLOUD_WRITE_SECRET'],
