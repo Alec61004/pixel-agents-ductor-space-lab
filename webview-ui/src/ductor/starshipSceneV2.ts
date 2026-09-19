@@ -70,10 +70,15 @@ function getAlecDeskLightMotion(
     return { x, y, alpha: 1, radius: 1 };
   }
   const phase = time * 1.15 + index * 0.78;
-  const travel = 0.5 + 0.5 * Math.sin(time * 1.35 - index * 0.92);
+  // A narrow pulse travels through the authored nodes in sequence.
+  const travel = Math.pow(
+    Math.max(0, Math.sin(time * 1.35 - index * 0.92)),
+    4,
+  );
   return {
-    x: x + Math.sin(phase) * 0.7,
-    y: y + Math.cos(phase * 1.17) * 1.2,
+    // Keep the movement inside the original pixels so the room geometry never drifts.
+    x: x + Math.sin(phase) * (0.25 + travel * 0.45),
+    y: y + Math.cos(phase * 1.17) * (0.45 + travel * 0.75),
     alpha: 1 + travel * 1.35,
     radius: 1 + travel * 0.7,
   };
@@ -152,8 +157,6 @@ export function drawBridgeLightPass(
   // Local station pools. These are deliberately elliptical reflections rather
   // than full-room bloom, matching the reference's hierarchy.
   const stations = [
-    // Alec's old desk bloom is removed; only the authored practical points move.
-    { x: 560, y: 426, rx: 170, ry: 50, color: '128,181,201', active: false },
     { x: 568, y: 582, rx: 105, ry: 54, color: '122,170,204', active: activity.navigation },
     { x: 1060, y: 587, rx: 120, ry: 45, color: '138,191,187', active: activity.qa },
   ];
