@@ -50,6 +50,35 @@ const cyanPracticalLights = [
   [1549,405],
 ] as const;
 
+function isAlecDeskLight(x: number, y: number): boolean {
+  return x >= 400 && x <= 700 && y >= 425 && y <= 460;
+}
+
+/**
+ * Move only the existing practical-light pixels around Alec's command desk.
+ * The coordinates remain the authored room coordinates; no new light layer or
+ * replacement geometry is introduced.
+ */
+function getAlecDeskLightMotion(
+  x: number,
+  y: number,
+  time: number,
+  index: number,
+  active: boolean,
+): { x: number; y: number; alpha: number; radius: number } {
+  if (!active || !isAlecDeskLight(x, y)) {
+    return { x, y, alpha: 1, radius: 1 };
+  }
+  const phase = time * 1.15 + index * 0.78;
+  const travel = 0.5 + 0.5 * Math.sin(time * 1.35 - index * 0.92);
+  return {
+    x: x + Math.sin(phase) * 0.7,
+    y: y + Math.cos(phase * 1.17) * 1.2,
+    alpha: 1 + travel * 1.35,
+    radius: 1 + travel * 0.7,
+  };
+}
+
 function clipFloor(ctx: CanvasRenderingContext2D): void {
   ctx.beginPath();
   ctx.moveTo(300, 395);
@@ -104,24 +133,27 @@ export function drawBridgeLightPass(
   ctx.save();
   const pulse = 0.86 + Math.sin(time * 0.9) * 0.08;
 
-  for (const [x,y] of amberPracticalLights) {
-    glowDot(ctx, x, y, AMBER, 10, 0.055 * pulse);
+  for (const [index,[x,y]] of amberPracticalLights.entries()) {
+    const motion = getAlecDeskLightMotion(x, y, time, index, activity.command);
+    glowDot(ctx, motion.x, motion.y, AMBER, 10 * motion.radius, 0.055 * pulse * motion.alpha);
     ctx.save();
     ctx.globalCompositeOperation = 'screen';
-    ctx.globalAlpha = 0.22 * pulse;
+    ctx.globalAlpha = 0.22 * pulse * motion.alpha;
     ctx.fillStyle = AMBER_SOFT;
-    ctx.fillRect(x - 1.5, y - 0.75, 3, 1.5);
+    ctx.fillRect(motion.x - 1.5, motion.y - 0.75, 3, 1.5);
     ctx.restore();
   }
 
-  for (const [x,y] of cyanPracticalLights) {
-    glowDot(ctx, x, y, CYAN, 8, 0.025 * pulse);
+  for (const [index,[x,y]] of cyanPracticalLights.entries()) {
+    const motion = getAlecDeskLightMotion(x, y, time, index + amberPracticalLights.length, activity.command);
+    glowDot(ctx, motion.x, motion.y, CYAN, 8 * motion.radius, 0.025 * pulse * motion.alpha);
   }
 
   // Local station pools. These are deliberately elliptical reflections rather
   // than full-room bloom, matching the reference's hierarchy.
   const stations = [
-    { x: 560, y: 426, rx: 170, ry: 50, color: '128,181,201', active: activity.command },
+    // Alec's old desk bloom is removed; only the authored practical points move.
+    { x: 560, y: 426, rx: 170, ry: 50, color: '128,181,201', active: false },
     { x: 568, y: 582, rx: 105, ry: 54, color: '122,170,204', active: activity.navigation },
     { x: 1060, y: 587, rx: 120, ry: 45, color: '138,191,187', active: activity.qa },
   ];
