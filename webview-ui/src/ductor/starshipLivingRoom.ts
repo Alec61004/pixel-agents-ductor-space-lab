@@ -1,7 +1,7 @@
 import { drawQAExperiment } from './starshipQA.js';
 import { PHOTONIC_THEME } from './starshipPhotonicTheme.js';
 
-export const LIVING_ROOM_ASSET = 'themes/ductor-space-lab/photonic-room-v4.webp';
+export const LIVING_ROOM_ASSET = 'themes/ductor-space-lab/photonic-room-v3.webp';
 export type RoomArtwork = HTMLImageElement | HTMLCanvasElement | OffscreenCanvas;
 type Point = { x: number; y: number };
 export interface RoomActivity {
