@@ -50,37 +50,35 @@ const cyanPracticalLights = [
   [1549,405],
 ] as const;
 
-function isAlecDeskLight(x: number, y: number): boolean {
-  return x >= 400 && x <= 700 && y >= 425 && y <= 460;
-}
-
 /**
- * Move only the existing practical-light pixels around Alec's command desk.
- * The coordinates remain the authored room coordinates; no new light layer or
- * replacement geometry is introduced.
+ * These are the small amber pixels already authored on Alec's central command
+ * console in photonic-room-v3.webp. The animation follows those pixels; it
+ * does not invent a second desk, screen, or room-wide light layer.
  */
-function getAlecDeskLightMotion(
+const ALEC_DESK_WORK_NODES = [
+  [423.8, 338.9, AMBER],
+  [458.5, 318.3, AMBER],
+  [505.6, 313.8, AMBER],
+  [603.6, 317.9, AMBER],
+  [618.7, 329.0, AMBER],
+  [689.9, 322.3, AMBER],
+] as const;
+
+function getAlecDeskNodeMotion(
   x: number,
   y: number,
   time: number,
   index: number,
-  active: boolean,
-): { x: number; y: number; alpha: number; radius: number } {
-  if (!active || !isAlecDeskLight(x, y)) {
-    return { x, y, alpha: 1, radius: 1 };
-  }
-  const phase = time * 1.15 + index * 0.78;
-  // A narrow pulse travels through the authored nodes in sequence.
-  const travel = Math.pow(
-    Math.max(0, Math.sin(time * 1.35 - index * 0.92)),
-    4,
+): { x: number; y: number; pulse: number } {
+  const pulse = Math.pow(
+    Math.max(0, Math.sin(time * 1.55 - index * 0.72)),
+    5,
   );
   return {
-    // Keep the movement inside the original pixels so the room geometry never drifts.
-    x: x + Math.sin(phase) * (0.25 + travel * 0.45),
-    y: y + Math.cos(phase * 1.17) * (0.45 + travel * 0.75),
-    alpha: 1 + travel * 1.35,
-    radius: 1 + travel * 0.7,
+    // Sub-pixel shimmer keeps each glow anchored to its source pixel.
+    x: x + Math.sin(time * 1.8 + index) * (0.18 + pulse * 0.42),
+    y: y + Math.cos(time * 1.45 + index * 0.8) * (0.18 + pulse * 0.34),
+    pulse,
   };
 }
 
@@ -138,20 +136,31 @@ export function drawBridgeLightPass(
   ctx.save();
   const pulse = 0.86 + Math.sin(time * 0.9) * 0.08;
 
-  for (const [index,[x,y]] of amberPracticalLights.entries()) {
-    const motion = getAlecDeskLightMotion(x, y, time, index, activity.command);
-    glowDot(ctx, motion.x, motion.y, AMBER, 10 * motion.radius, 0.055 * pulse * motion.alpha);
+  for (const [x, y] of amberPracticalLights) {
+    glowDot(ctx, x, y, AMBER, 10, 0.055 * pulse);
     ctx.save();
     ctx.globalCompositeOperation = 'screen';
-    ctx.globalAlpha = 0.22 * pulse * motion.alpha;
+    ctx.globalAlpha = 0.22 * pulse;
     ctx.fillStyle = AMBER_SOFT;
-    ctx.fillRect(motion.x - 1.5, motion.y - 0.75, 3, 1.5);
+    ctx.fillRect(x - 1.5, y - 0.75, 3, 1.5);
     ctx.restore();
   }
 
-  for (const [index,[x,y]] of cyanPracticalLights.entries()) {
-    const motion = getAlecDeskLightMotion(x, y, time, index + amberPracticalLights.length, activity.command);
-    glowDot(ctx, motion.x, motion.y, CYAN, 8 * motion.radius, 0.025 * pulse * motion.alpha);
+  for (const [x, y] of cyanPracticalLights) {
+    glowDot(ctx, x, y, CYAN, 8, 0.025 * pulse);
+  }
+
+  if (activity.command) {
+    for (const [index, [x, y, color]] of ALEC_DESK_WORK_NODES.entries()) {
+      const motion = getAlecDeskNodeMotion(x, y, time, index);
+      glowDot(ctx, motion.x, motion.y, color, 4 + motion.pulse * 4, 0.06 + motion.pulse * 0.20);
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      ctx.globalAlpha = 0.12 + motion.pulse * 0.38;
+      ctx.fillStyle = AMBER_SOFT;
+      ctx.fillRect(motion.x - 1.1, motion.y - 1.1, 2.2, 2.2);
+      ctx.restore();
+    }
   }
 
   // Local station pools. These are deliberately elliptical reflections rather
