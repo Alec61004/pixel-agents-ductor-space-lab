@@ -215,6 +215,139 @@ export function drawAlecCommandDisplays(
   ctx.restore();
 }
 
+
+/**
+ * Animate the small cyan/amber emitters already painted into the Alec bay.
+ *
+ * The reference artwork carries the geometry; this pass only adds restrained
+ * travelling glints over those authored light nodes. It deliberately replaces
+ * the old display-scan/typing overlay instead of drawing a second console.
+ */
+const ALEC_LIGHT_LANES = [
+  {
+    points: [
+      [420, 452], [445, 453], [495, 433], [548, 452],
+      [600, 452], [626, 450], [674, 448],
+    ],
+    color: '#a9f5fb',
+    speed: 0.18,
+    phase: 0,
+  },
+  {
+    points: [
+      [445, 453], [470, 447], [495, 433], [530, 425],
+      [560, 426], [590, 439], [626, 450],
+    ],
+    color: '#ffd38d',
+    speed: 0.13,
+    phase: 0.43,
+  },
+] as const;
+
+const ALEC_LIGHT_NODES = [
+  [420, 452, '#a9f5fb'],
+  [445, 453, '#ffd38d'],
+  [495, 433, '#a9f5fb'],
+  [548, 452, '#a9f5fb'],
+  [600, 452, '#a9f5fb'],
+  [626, 450, '#ffd38d'],
+  [674, 448, '#a9f5fb'],
+] as const;
+
+function sampleAlecLightLane(
+  points: readonly (readonly [number, number])[],
+  progress: number,
+): { x: number; y: number } {
+  const segmentCount = Math.max(1, points.length - 1);
+  const scaled = Math.max(0, Math.min(0.999999, progress)) * segmentCount;
+  const segment = Math.min(segmentCount - 1, Math.floor(scaled));
+  const local = scaled - segment;
+  const from = points[segment]!;
+  const to = points[segment + 1]!;
+  return {
+    x: from[0] + (to[0] - from[0]) * local,
+    y: from[1] + (to[1] - from[1]) * local,
+  };
+}
+
+function drawAlecLightSpark(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  color: string,
+  size: number,
+  alpha: number,
+): void {
+  const radius = size * 4.5;
+  const glow = ctx.createRadialGradient(x, y, 0, x, y, radius);
+  glow.addColorStop(0, color);
+  glow.addColorStop(0.24, color);
+  glow.addColorStop(1, '#00000000');
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = glow;
+  ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+
+  ctx.strokeStyle = color;
+  ctx.lineWidth = Math.max(0.55, size * 0.55);
+  ctx.beginPath();
+  ctx.moveTo(x - size * 2.2, y);
+  ctx.lineTo(x + size * 2.2, y);
+  ctx.moveTo(x, y - size * 2.2);
+  ctx.lineTo(x, y + size * 2.2);
+  ctx.stroke();
+
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(x, y, Math.max(0.7, size * 0.6), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+/** Draw only moving glints for the live Alec command-bay activity. */
+export function drawAlecStationLightMotion(
+  ctx: CanvasRenderingContext2D,
+  time: number,
+  active: boolean,
+): void {
+  if (!active) return;
+
+  ctx.save();
+  for (const lane of ALEC_LIGHT_LANES) {
+    const progress = ((time * lane.speed + lane.phase) % 1 + 1) % 1;
+
+    // A short, dim trail makes the point read as travelling energy while
+    // leaving the original cyan/amber hardware visible underneath.
+    for (let trail = 4; trail >= 1; trail--) {
+      const trailPoint = sampleAlecLightLane(
+        lane.points,
+        (progress - trail * 0.018 + 1) % 1,
+      );
+      drawAlecLightSpark(
+        ctx,
+        trailPoint.x,
+        trailPoint.y,
+        lane.color,
+        0.62 + (4 - trail) * 0.08,
+        0.045 + (4 - trail) * 0.025,
+      );
+    }
+
+    const point = sampleAlecLightLane(lane.points, progress);
+    drawAlecLightSpark(ctx, point.x, point.y, lane.color, 1.35, 0.7);
+  }
+
+  // Let the authored emitters breathe very slightly, so the whole bay feels
+  // alive even while the travelling glints are between two nodes.
+  for (const [x, y, color] of ALEC_LIGHT_NODES) {
+    const pulse = 0.5 + 0.5 * Math.sin(time * 1.8 + x * 0.035);
+    drawAlecLightSpark(ctx, x, y, color, 0.42, 0.12 + pulse * 0.08);
+  }
+  ctx.restore();
+}
+
 /** Foreground chair shell: it places the lower body inside the command cradle. */
 export function drawAlecSeatBack(ctx: CanvasRenderingContext2D, artwork: RoomArtwork): void {
   const { centerX: cx, backTopY, shellBottomY } = ALEC_COMMAND_STATION.chair;
