@@ -12,7 +12,7 @@ export interface ComputerBayBounds {
 export type ComputerBayOperator = Extract<DuctorRoleName, 'Alec' | 'Kevin'>;
 
 /**
- * Measured from the production `photonic-room-v4.webp` after its one-time
+ * Measured from the production `photonic-room-v3.webp` after its one-time
  * normalisation to 1600×678. The violet chair core occupies x=548..557 with a
  * centroid at x=552.5; every Alec overlay must derive from this geometry.
  */
