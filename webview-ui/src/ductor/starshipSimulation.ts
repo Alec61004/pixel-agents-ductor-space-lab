@@ -2334,7 +2334,7 @@ export function drawStage(
     command: seated,
     navigation: agents.some(a => a.name === 'Kevin' && isKevinUsingStarMap(a)),
     qa: qaActive,
-  });
+  }, livingArtwork);
   drawFloorMarkers(ctx, showStations);
   if (livingArtwork) drawHologramTopGlow(ctx, agents, timeSec);
   const mapOperator = agents.find((agent) => agent.name === 'Kevin');
