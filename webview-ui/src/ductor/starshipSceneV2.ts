@@ -75,14 +75,13 @@ function getAlecDeskNodeMotion(
   time: number,
   index: number,
 ): { x: number; y: number; pulse: number } {
-  const pulse = Math.pow(
-    Math.max(0, Math.sin(time * 1.55 - index * 0.72)),
-    5,
-  );
+  const wave = Math.max(0, Math.sin(time * 1.55 - index * 0.72));
+  // Keep a visible idle glow while a brighter pulse travels node-by-node.
+  const pulse = 0.18 + 0.82 * Math.pow(wave, 3);
   return {
-    // Sub-pixel shimmer keeps each glow anchored to its source pixel.
-    x: x + Math.sin(time * 1.8 + index) * (0.18 + pulse * 0.42),
-    y: y + Math.cos(time * 1.45 + index * 0.8) * (0.18 + pulse * 0.34),
+    // The source pixel stays anchored; only its highlight shimmers around it.
+    x: x + Math.sin(time * 1.8 + index) * (0.35 + pulse * 0.9),
+    y: y + Math.cos(time * 1.45 + index * 0.8) * (0.3 + pulse * 0.75),
     pulse,
   };
 }
@@ -158,12 +157,12 @@ export function drawBridgeLightPass(
   if (activity.command) {
     for (const [index, [x, y, color]] of ALEC_DESK_WORK_NODES.entries()) {
       const motion = getAlecDeskNodeMotion(x, y, time, index);
-      glowDot(ctx, motion.x, motion.y, color, 4 + motion.pulse * 4, 0.06 + motion.pulse * 0.20);
+      glowDot(ctx, motion.x, motion.y, color, 5 + motion.pulse * 7, 0.12 + motion.pulse * 0.36);
       ctx.save();
       ctx.globalCompositeOperation = 'screen';
-      ctx.globalAlpha = 0.12 + motion.pulse * 0.38;
-      ctx.fillStyle = AMBER_SOFT;
-      ctx.fillRect(motion.x - 1.1, motion.y - 1.1, 2.2, 2.2);
+      ctx.globalAlpha = 0.32 + motion.pulse * 0.58;
+      ctx.fillStyle = color;
+      ctx.fillRect(motion.x - 1.45, motion.y - 1.45, 2.9, 2.9);
       ctx.restore();
     }
   }
