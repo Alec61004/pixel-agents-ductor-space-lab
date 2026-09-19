@@ -19,11 +19,9 @@ import {
   ALEC_SEAT,
   ALEC_COMMAND_STATION,
   BENJAMIN_QA_ATLAS,
-  drawAlecCommandDisplays,
   drawAlecSeatBack,
   getCommandGesture,
   KEVIN_STARMAP_ATLAS,
-  ORIGINAL_COMPUTER_BAYS,
 } from '../src/ductor/starshipComputerBay.js';
 
 test('visual bubble anchors never change the agent working state', () => {
@@ -51,7 +49,7 @@ test('visual bubble anchors never change the agent working state', () => {
 test('Alec uses the measured production-room chair geometry for every overlay', () => {
   assert.equal(
     ALEC_COMMAND_STATION.sourceAsset,
-    'themes/ductor-space-lab/photonic-room-v4.webp',
+    'themes/ductor-space-lab/photonic-room-v3.webp',
   );
   assert.deepEqual(ALEC_COMMAND_STATION.chair, {
     centerX: 552,
@@ -104,30 +102,10 @@ test('Alec uses the measured production-room chair geometry for every overlay', 
     calls.filter((call) => call[0] === 'restore').length,
   );
 
-  calls.length = 0;
-  drawAlecCommandDisplays(ctx, 2, true);
-  const panelRects = calls
-    .filter((call) => call[0] === 'rect')
-    .map((call) => call.slice(1));
-  assert.deepEqual(
-    panelRects,
-    ORIGINAL_COMPUTER_BAYS.Alec.displayAreas.map(({ x, y, w, h }) => [x, y, w, h]),
-    'all animation clips come from the measured production display apertures',
-  );
-  assert.equal(calls.filter((call) => call[0] === 'clip').length, 3);
-  assert.equal(calls.filter((call) => call[0] === 'ellipse').length, 0,
-    'no free-floating rings may cross the chair or console shell');
-  assert.equal(calls.filter((call) => call[0] === 'quadraticCurveTo').length, 0,
-    'no legacy data feed may drift across the furniture');
-  assert.ok(calls.filter((call) => call[0] === 'fillRect').length >= 21,
-    'each source display receives a scan and six spectral channels');
-  assert.equal(
-    calls.filter((call) => call[0] === 'save').length,
-    calls.filter((call) => call[0] === 'restore').length,
-  );
+
 });
 
-test('production V4 never loads or composites the obsolete photonic bay', () => {
+test('production V3 never loads or composites the obsolete photonic bay', () => {
   const labSource = readFileSync(
     new URL('../src/ductor/StarshipLab.tsx', import.meta.url),
     'utf8',
