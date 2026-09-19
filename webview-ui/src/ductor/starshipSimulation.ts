@@ -14,7 +14,7 @@ import {
   ORIGINAL_COMPUTER_BAYS,
   STAR_MAP_WORKSTATION,
   STAR_MAP_PANEL,
-  drawAlecCommandDisplays,
+  drawAlecStationLightMotion,
   drawAlecSeatBack,
   getCommandGesture,
   ALEC_SEAT,
@@ -2383,15 +2383,19 @@ export function drawStage(
   drawStarshipExterior(ctx, background, timeSec, !!livingArtwork, bgImg);
   const commander = agents.find((agent) => agent.name === 'Alec');
   const seated = !!commander && isAgentWorkingAtAssignedStation(commander);
-  if (livingArtwork) {
-    drawAlecCommandDisplays(ctx, seated ? commander!.commandTime ?? 0 : timeSec, seated);
+  if (livingArtwork && seated) {
+    // Alec's live activity is now carried by moving glints on the authored bay
+    // emitters; do not paint the old three-screen scan overlay.
+    drawAlecStationLightMotion(ctx, commander!.commandTime ?? 0, true);
   }
   // Keep QA telemetry, then apply the shared glass accents below the crew.
   const qaOperator = agents.find(isBenjaminUsingScanner);
   const qaActive = !!qaOperator;
   if (livingArtwork) drawLivingRoom(ctx, timeSec, {
     crew: agents.filter(a => a.reportedState !== 'offline' && a.state !== STATE.OFFLINE),
-    command: seated, qa: qaActive,
+    // Alec's old desk-wide bloom is intentionally disabled; the authored bay
+    // points are animated by drawAlecStationLightMotion above.
+    command: false, qa: qaActive,
     qaTime: qaOperator?.qaTime,
     navigation: agents.some(a => a.name === 'Kevin' && isKevinUsingStarMap(a)),
   }, livingArtwork);
@@ -2401,7 +2405,9 @@ export function drawStage(
     timeSec,
   );
   if (livingArtwork) drawBridgeLightPass(ctx, timeSec, {
-    command: seated,
+    // Do not restore the previous Alec station ellipse; only the authored
+    // travelling points should react to Alec's work state.
+    command: false,
     navigation: agents.some(a => a.name === 'Kevin' && isKevinUsingStarMap(a)),
     qa: qaActive,
   });
