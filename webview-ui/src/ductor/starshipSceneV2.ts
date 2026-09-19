@@ -196,15 +196,17 @@ export function drawBridgeLightPass(
     }
   }
 
-  for (const [index, [x, yTop, yBottom]] of ALEC_DESK_WHITE_COLUMNS.entries()) {
-    const motion = getAlecDeskColumnMotion(yTop, yBottom, time, index);
-    glowDot(ctx, x, motion.y, WHITE, 4 + motion.pulse * 4, 0.12 + motion.pulse * 0.32);
-    ctx.save();
-    ctx.globalCompositeOperation = 'screen';
-    ctx.globalAlpha = 0.2 + motion.pulse * 0.55;
-    ctx.fillStyle = WHITE;
-    ctx.fillRect(x - 1, motion.y - 1.5, 2, 3);
-    ctx.restore();
+  if (activity.command) {
+    for (const [index, [x, yTop, yBottom]] of ALEC_DESK_WHITE_COLUMNS.entries()) {
+      const motion = getAlecDeskColumnMotion(yTop, yBottom, time, index);
+      glowDot(ctx, x, motion.y, WHITE, 4 + motion.pulse * 4, 0.12 + motion.pulse * 0.32);
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      ctx.globalAlpha = 0.2 + motion.pulse * 0.55;
+      ctx.fillStyle = WHITE;
+      ctx.fillRect(x - 1, motion.y - 1.5, 2, 3);
+      ctx.restore();
+    }
   }
 
   // Local station pools. These are deliberately elliptical reflections rather
