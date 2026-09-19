@@ -69,6 +69,35 @@ const ALEC_DESK_WORK_NODES = [
   [689.9, 322.3, AMBER],
 ] as const;
 
+/**
+ * Existing vertical white columns on the same console rail. Only a moving
+ * highlight bead is drawn inside each authored column; the column geometry
+ * itself remains in photonic-room-v3.webp.
+ */
+const ALEC_DESK_WHITE_COLUMNS = [
+  [530, 284, 310],
+  [548, 285, 310],
+  [559, 284, 310],
+  [569, 291, 310],
+  [590, 285, 314],
+  [619, 287, 316],
+  [674, 288, 317],
+  [683, 283, 310],
+] as const;
+
+function getAlecDeskColumnMotion(
+  yTop: number,
+  yBottom: number,
+  time: number,
+  index: number,
+): { y: number; pulse: number } {
+  const travel = 0.5 + 0.5 * Math.sin(time * 1.1 - index * 0.58);
+  return {
+    y: yTop + travel * (yBottom - yTop),
+    pulse: 0.2 + travel * 0.8,
+  };
+}
+
 function getAlecDeskNodeMotion(
   x: number,
   y: number,
@@ -165,6 +194,17 @@ export function drawBridgeLightPass(
       ctx.fillRect(motion.x - 1.45, motion.y - 1.45, 2.9, 2.9);
       ctx.restore();
     }
+  }
+
+  for (const [index, [x, yTop, yBottom]] of ALEC_DESK_WHITE_COLUMNS.entries()) {
+    const motion = getAlecDeskColumnMotion(yTop, yBottom, time, index);
+    glowDot(ctx, x, motion.y, WHITE, 4 + motion.pulse * 4, 0.12 + motion.pulse * 0.32);
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    ctx.globalAlpha = 0.2 + motion.pulse * 0.55;
+    ctx.fillStyle = WHITE;
+    ctx.fillRect(x - 1, motion.y - 1.5, 2, 3);
+    ctx.restore();
   }
 
   // Local station pools. These are deliberately elliptical reflections rather
