@@ -17,7 +17,7 @@ export type ComputerBayOperator = Extract<DuctorRoleName, 'Alec' | 'Kevin'>;
  * centroid at x=552.5; every Alec overlay must derive from this geometry.
  */
 export const ALEC_COMMAND_STATION = {
-  sourceAsset: 'themes/ductor-space-lab/photonic-room-v4.webp',
+  sourceAsset: 'themes/ductor-space-lab/photonic-room-v3.webp',
   chair: {
     centerX: 552,
     backTopY: 310,
@@ -160,61 +160,6 @@ export function getCommandGesture(time: number): { frame: number } {
  * Nothing is drawn over the chair, console shell or floor, so the activity
  * cannot drift away from the production furniture.
  */
-export function drawAlecCommandDisplays(
-  ctx: CanvasRenderingContext2D,
-  time: number,
-  active: boolean,
-): void {
-  const panels = ORIGINAL_COMPUTER_BAYS.Alec.displayAreas;
-  const motion = time * (active ? 1.45 : 0.28);
-  const scan = ((motion % 1) + 1) % 1;
-  const gestureFrame = getCommandGesture(time).frame;
-  const focusedPanel = gestureFrame === 1 ? 0 : gestureFrame === 2 ? 2 : 1;
-
-  ctx.save();
-  ctx.globalCompositeOperation = 'lighter';
-  for (const [panelIndex, panel] of panels.entries()) {
-    const focused = panelIndex === focusedPanel;
-    const energy = active ? (focused ? 0.82 : 0.44) : 0.09;
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(panel.x, panel.y, panel.w, panel.h);
-    ctx.clip();
-
-    // A narrow sweep samples the baked display instead of replacing it.
-    ctx.globalAlpha = energy * 0.34;
-    ctx.fillStyle = '#b7f5fb';
-    const scanX = panel.x - 2 + scan * (panel.w + 4);
-    ctx.fillRect(Math.round(scanX), panel.y, 2, panel.h);
-
-    // Independent spectral channels keep all three alien displays alive.
-    for (let channel = 0; channel < 6; channel++) {
-      const x = panel.x + 4 + channel * ((panel.w - 8) / 6);
-      const amplitude = 0.35 + 0.65 * (0.5 + Math.sin(motion * 2.2 + channel * 1.7 + panelIndex));
-      const height = Math.max(2, Math.round((panel.h - 8) * amplitude));
-      ctx.globalAlpha = energy * (0.24 + amplitude * 0.28);
-      ctx.fillStyle = channel === (panelIndex + 2) % 6 ? '#ffd08a' : '#75e8f5';
-      ctx.fillRect(Math.round(x), panel.y + panel.h - 4 - height, 2, height);
-    }
-
-    // The waveform reacts to Alec's left/right gesture without a free-floating
-    // hand glow, so interaction remains locked to the original glass.
-    ctx.globalAlpha = energy * 0.72;
-    ctx.strokeStyle = focused ? '#fff0bd' : '#8debf7';
-    ctx.lineWidth = 0.75;
-    ctx.beginPath();
-    for (let x = 1; x < panel.w; x += 3) {
-      const px = panel.x + x;
-      const py = panel.y + panel.h * 0.46
-        + Math.sin(x * 0.38 - motion * 3.1 + panelIndex) * (focused ? 3.2 : 1.8);
-      if (x === 1) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-    }
-    ctx.stroke();
-    ctx.restore();
-  }
-  ctx.restore();
-}
-
 /** Foreground chair shell: it places the lower body inside the command cradle. */
 export function drawAlecSeatBack(ctx: CanvasRenderingContext2D, artwork: RoomArtwork): void {
   const { centerX: cx, backTopY, shellBottomY } = ALEC_COMMAND_STATION.chair;
