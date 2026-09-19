@@ -4,7 +4,7 @@ The active bridge uses a dark navy hull, restrained cyan systems lighting and wa
 
 ## Editing
 
-- Artwork: `webview-ui/public/assets/themes/ductor-space-lab/photonic-room-v4.webp`.
+- Artwork: `webview-ui/public/assets/themes/ductor-space-lab/photonic-room-v3.webp`.
 - Room normalisation, fixture coordinates and ambient motion: `webview-ui/src/ductor/starshipLivingRoom.ts`.
 - Command desk, seated pose anchors and contact timing: `starshipComputerBay.ts`.
 - Exterior masks, accretion flow and moving spacecraft: `starshipExterior.ts`.
@@ -35,6 +35,6 @@ References previously consulted for alien interior forms (not imported assets):
 
 Validation covers asset header and aspect ratio, room cache behavior, unique moving spacecraft, balanced canvas save/restore calls, active/offline 1600×678 scene renders, TypeScript/build checks and the Vercel preview deployment.
 
-## Room V4 color pass
+## Room V3 color pass
 
 Built-in imagegen edited V3 lighting and materials while retaining station geometry: neutral blue-gray titanium, readable midtones, restrained ice-blue systems, champagne practicals and pale sage specimen glass. The exact edit direction was to preserve all silhouettes and positions, soften saturated cyan/orange bloom, and retain the indigo exterior with its warm accretion disk. The renderer no longer adds a global contrast/saturation boost or rectangular navy glazes. Frame-local planet exploration remains on the current glass.
