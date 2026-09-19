@@ -14,7 +14,6 @@ import {
   ORIGINAL_COMPUTER_BAYS,
   STAR_MAP_WORKSTATION,
   STAR_MAP_PANEL,
-  drawAlecCommandDisplays,
   drawAlecSeatBack,
   getCommandGesture,
   ALEC_SEAT,
@@ -2383,9 +2382,8 @@ export function drawStage(
   drawStarshipExterior(ctx, background, timeSec, !!livingArtwork, bgImg);
   const commander = agents.find((agent) => agent.name === 'Alec');
   const seated = !!commander && isAgentWorkingAtAssignedStation(commander);
-  if (livingArtwork) {
-    drawAlecCommandDisplays(ctx, seated ? commander!.commandTime ?? 0 : timeSec, seated);
-  }
+  // Alec's activity is rendered by the original command-bay practical lights.
+  // Keep the baked room artwork intact and do not add a second screen layer.
   // Keep QA telemetry, then apply the shared glass accents below the crew.
   const qaOperator = agents.find(isBenjaminUsingScanner);
   const qaActive = !!qaOperator;
