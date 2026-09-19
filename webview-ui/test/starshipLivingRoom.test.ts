@@ -13,7 +13,7 @@ import {
 import { drawStarshipExterior } from '../src/ductor/starshipExterior.js';
 
 test('the full room decodes and normalises once into the original coordinate space', () => {
-  assert.equal(LIVING_ROOM_ASSET, 'themes/ductor-space-lab/photonic-room-v4.webp');
+  assert.equal(LIVING_ROOM_ASSET, 'themes/ductor-space-lab/photonic-room-v3.webp');
   const roomFile = readFileSync(new URL(`../public/assets/${LIVING_ROOM_ASSET}`, import.meta.url));
   assert.equal(roomFile.toString('ascii', 0, 4), 'RIFF');
   assert.equal(roomFile.toString('ascii', 8, 12), 'WEBP');
