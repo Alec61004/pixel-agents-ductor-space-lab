@@ -75,27 +75,64 @@ const ALEC_DESK_WORK_NODES = [
  * itself remains in photonic-room-v3.webp.
  */
 const ALEC_DESK_WHITE_COLUMNS = [
-  [530, 284, 310],
-  [548, 285, 310],
-  [559, 284, 310],
-  [569, 291, 310],
-  [590, 285, 314],
-  [619, 287, 316],
-  [674, 288, 317],
-  [683, 283, 310],
+  // x, top, bottom, clean-patch source x
+  [530, 284, 310, 518],
+  [548, 285, 310, 540],
+  [559, 284, 310, 551],
+  [569, 291, 310, 579],
+  [590, 285, 314, 581],
+  [619, 287, 316, 610],
+  [674, 288, 317, 665],
+  [683, 283, 310, 691],
 ] as const;
 
 function getAlecDeskColumnMotion(
-  yTop: number,
-  yBottom: number,
   time: number,
   index: number,
-): { y: number; pulse: number } {
+): { offset: number; pulse: number } {
   const travel = 0.5 + 0.5 * Math.sin(time * 1.1 - index * 0.58);
   return {
-    y: yTop + travel * (yBottom - yTop),
+    offset: Math.sin(time * 1.05 - index * 0.58) * 2.4,
     pulse: 0.2 + travel * 0.8,
   };
+}
+
+function drawAlecDeskWhiteColumn(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  yTop: number,
+  yBottom: number,
+  offset: number,
+  pulse: number,
+): void {
+  const top = yTop + offset;
+  const bottom = yBottom + offset;
+  const height = bottom - top;
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+
+  // Rebuild the complete authored column: stem, cap, and its small star head.
+  ctx.globalAlpha = 0.42 + pulse * 0.42;
+  ctx.fillStyle = CYAN;
+  ctx.fillRect(x - 1.5, top + 3, 3, Math.max(2, height - 3));
+
+  ctx.globalAlpha = 0.7 + pulse * 0.3;
+  ctx.fillStyle = WHITE;
+  ctx.fillRect(x - 0.65, top + 2, 1.3, Math.max(2, height - 3));
+
+  ctx.globalAlpha = 0.8 + pulse * 0.2;
+  ctx.fillRect(x - 1.5, top, 3, 3);
+  ctx.fillRect(x - 0.75, top - 1.5, 1.5, 6);
+
+  ctx.globalAlpha = 0.22 + pulse * 0.32;
+  ctx.strokeStyle = WHITE;
+  ctx.lineWidth = 0.7;
+  ctx.beginPath();
+  ctx.moveTo(x, top - 4);
+  ctx.lineTo(x, top + 5);
+  ctx.stroke();
+  ctx.restore();
 }
 
 function getAlecDeskNodeMotion(
@@ -165,6 +202,7 @@ export function drawBridgeLightPass(
   ctx: CanvasRenderingContext2D,
   time: number,
   activity: BridgeActivity,
+  artwork?: CanvasImageSource,
 ): void {
   ctx.save();
   const pulse = 0.86 + Math.sin(time * 0.9) * 0.08;
@@ -196,16 +234,28 @@ export function drawBridgeLightPass(
     }
   }
 
-  if (activity.command) {
-    for (const [index, [x, yTop, yBottom]] of ALEC_DESK_WHITE_COLUMNS.entries()) {
-      const motion = getAlecDeskColumnMotion(yTop, yBottom, time, index);
-      glowDot(ctx, x, motion.y, WHITE, 4 + motion.pulse * 4, 0.12 + motion.pulse * 0.32);
+  if (activity.command && artwork) {
+    for (const [index, [x, yTop, yBottom, patchX]] of ALEC_DESK_WHITE_COLUMNS.entries()) {
+      const motion = getAlecDeskColumnMotion(time, index);
+
+      // Restore a nearby clean rail strip over the baked column before moving it.
       ctx.save();
-      ctx.globalCompositeOperation = 'screen';
-      ctx.globalAlpha = 0.2 + motion.pulse * 0.55;
-      ctx.fillStyle = WHITE;
-      ctx.fillRect(x - 1, motion.y - 1.5, 2, 3);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 1;
+      ctx.drawImage(
+        artwork,
+        patchX - 4,
+        yTop - 4,
+        8,
+        yBottom - yTop + 8,
+        x - 4,
+        yTop - 4,
+        8,
+        yBottom - yTop + 8,
+      );
       ctx.restore();
+
+      drawAlecDeskWhiteColumn(ctx, x, yTop, yBottom, motion.offset, motion.pulse);
     }
   }
 
