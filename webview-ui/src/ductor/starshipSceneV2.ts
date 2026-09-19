@@ -16,6 +16,7 @@ export interface BridgeActivity {
 const CYAN = '#91cbdc';
 const AMBER = '#ddb381';
 const AMBER_SOFT = '#f5dfbd';
+const WHITE = '#f4fbff';
 
 function glowDot(
   ctx: CanvasRenderingContext2D,
@@ -58,9 +59,13 @@ const cyanPracticalLights = [
 const ALEC_DESK_WORK_NODES = [
   [423.8, 338.9, AMBER],
   [458.5, 318.3, AMBER],
+  [518.4, 309.2, WHITE],
   [505.6, 313.8, AMBER],
+  [520.7, 343.3, WHITE],
+  [587.7, 342.7, WHITE],
   [603.6, 317.9, AMBER],
   [618.7, 329.0, AMBER],
+  [631.0, 316.3, WHITE],
   [689.9, 322.3, AMBER],
 ] as const;
 
