@@ -73,6 +73,12 @@ fs.mkdirSync(out,{recursive:true});
  await page.selectOption('#layer','command-desk');await page.fill('#x','396');await page.locator('#x').press('Tab');
  check('HTML editor changes the same manifest used by compositor',await page.evaluate(()=>scene.manifest.layers.find(l=>l.id==='command-desk').x===396));
  await page.click('#reset');check('HTML reset restores layer',await page.evaluate(()=>scene.manifest.layers.find(l=>l.id==='command-desk').x===371));
+ await page.selectOption('#group','alec-command-bay');await page.fill('#groupDx','12');await page.fill('#groupDy','-4');await page.click('#moveGroup');
+ check('HTML group move updates every Alec source layer',await page.evaluate(()=>scene.manifest.layers.find(l=>l.id==='command-desk').x===383&&scene.manifest.layers.find(l=>l.id==='command-chair').x===613));
+ await page.click('#undo');check('HTML undo restores group coordinates',await page.evaluate(()=>scene.manifest.layers.find(l=>l.id==='command-desk').x===371));
+ await page.click('#redo');check('HTML redo reapplies group coordinates',await page.evaluate(()=>scene.manifest.layers.find(l=>l.id==='command-desk').x===383));
+ check('group delta maps into Alec routing world',await page.evaluate(async()=>{const sim=await import('/src/ductor/starshipSimulation.js');sim.syncAlecWorkstationToPixelScene(scene.manifest);return Math.abs(sim.WORKSTATIONS.Alec.interactionPoint.x-561.97)<0.1&&Math.abs(sim.WORKSTATIONS.Alec.interactionPoint.y-446.68)<0.1;}));
+ await page.click('#undo');
  const download=page.waitForEvent('download');await page.click('#save');const dl=await download;await dl.saveAs(path.join(out,'exported-scene.json'));check('HTML exports editable manifest',JSON.parse(fs.readFileSync(path.join(out,'exported-scene.json'))).layers.length===43);
  check('drawStage activates source animation only for Alec at work',await page.evaluate(async()=>{
    const sim=await import('/src/ductor/starshipSimulation.js');

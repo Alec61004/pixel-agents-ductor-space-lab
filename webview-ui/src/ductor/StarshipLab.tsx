@@ -63,6 +63,7 @@ import {
   ROLE_PARTICLE_ICONS,
   routeToPoint,
   seedStars,
+  syncAlecWorkstationToPixelScene,
   SHEET_COLS,
   SHEET_ROWS,
   SKINS,
@@ -304,6 +305,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
     ).then((scene) => {
       if (!disposed) {
         pixelScene = scene;
+        syncAlecWorkstationToPixelScene(scene.manifest);
         pixelSceneReady = Boolean(scene);
       }
     }).catch((error: unknown) => {

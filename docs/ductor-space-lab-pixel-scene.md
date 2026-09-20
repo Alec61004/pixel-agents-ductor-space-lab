@@ -4,7 +4,8 @@ Open `/pixel-scene-editor.html` on the same dev server or built site. The editor
 a Vite multi-page entry, not an iframe inside the live-agent screen. It imports
 the **same** `starshipPixelScene.ts` module and loads the **same** `scene.json` as
 `StarshipLab`. It has Idle/Working, pause, desk zoom, numeric transforms, tint,
-motion controls, layer reset and JSON export. No GitHub writes occur in the editor.
+motion controls, group movement, undo/redo, JSON import/export and anchor preview.
+No GitHub writes occur in the editor.
 
 Export JSON, review its diff, then replace:
 `webview-ui/public/assets/themes/ductor-space-lab/pixel-scene/scene.json`.
@@ -20,9 +21,11 @@ not automatically updated by changes made in this repo.
 - Only after composition is the result normalized to **1600×678**. Existing
   chair/glass/occlusion samplers require this size; do not pass them native artwork.
 - The editor uses `nativeArtwork`. The app uses `render(time, active)`/`artwork`.
-- Editing furniture does **not** automatically move agent routing, hotspots or
-  occlusion masks; those live in the simulation/workstation modules and must be
-  updated deliberately. This editor is a layer editor, not a navigation editor.
+- The `alec-command-bay` group is anchored to `command-chair`. Its native delta is
+  converted to the 1600×678 world and applied to Alec's approach point,
+  interaction point, display bounds, occlusion and seated pose at scene load.
+  Moving that group in the editor keeps the agent aligned after the exported
+  manifest is installed.
 
 ## Alec working state
 

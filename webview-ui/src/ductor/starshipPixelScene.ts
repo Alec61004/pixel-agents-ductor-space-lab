@@ -18,10 +18,19 @@ export interface StarshipPixelSceneLayer {
     intensity: number;
   };
 }
+export interface StarshipPixelSceneGroup {
+  id: string;
+  layerIds: string[];
+  anchorLayer: string;
+  baseAnchor: { x: number; y: number };
+  /** Native pixels to world pixels for the simulation coordinate system. */
+  worldScale: { x: number; y: number };
+}
 export interface StarshipPixelSceneManifest {
   format: string; version: number;
   width: number; height: number;
   layers: StarshipPixelSceneLayer[];
+  groups?: Record<string, StarshipPixelSceneGroup>;
   [key: string]: unknown;
 }
 type Surface = HTMLCanvasElement | OffscreenCanvas;
@@ -82,6 +91,33 @@ function validate(m: StarshipPixelSceneManifest): void {
     if (l.tintMix !== undefined && (!Number.isFinite(l.tintMix) || l.tintMix < 0 || l.tintMix > 1)) throw new Error(`Invalid tint mix: ${l.id}`);
     if (l.working && (!['console','light-column'].includes(l.working.kind) || ![l.working.speed,l.working.phase,l.working.intensity,l.working.amplitude ?? 0].every(Number.isFinite))) throw new Error(`Invalid working effect: ${l.id}`);
   }
+  if (m.groups) {
+    const ids = new Set(m.layers.map((layer) => layer.id));
+    for (const [id, group] of Object.entries(m.groups)) {
+      if (group.id !== id || !ids.has(group.anchorLayer) || !group.layerIds.length ||
+          !group.layerIds.every((layerId) => ids.has(layerId)) ||
+          !Number.isFinite(group.baseAnchor.x) || !Number.isFinite(group.baseAnchor.y) ||
+          !Number.isFinite(group.worldScale.x) || !Number.isFinite(group.worldScale.y) ||
+          group.worldScale.x <= 0 || group.worldScale.y <= 0) {
+        throw new Error(`Invalid scene group: ${id}`);
+      }
+    }
+  }
+}
+
+/** Translation of an authored group in the 1600×678 simulation world. */
+export function getPixelSceneGroupDelta(
+  manifest: StarshipPixelSceneManifest,
+  groupId: string,
+): { x: number; y: number } {
+  const group = manifest.groups?.[groupId];
+  if (!group) return { x: 0, y: 0 };
+  const anchor = manifest.layers.find((layer) => layer.id === group.anchorLayer);
+  if (!anchor) return { x: 0, y: 0 };
+  return {
+    x: (anchor.x - group.baseAnchor.x) * group.worldScale.x,
+    y: (anchor.y - group.baseAnchor.y) * group.worldScale.y,
+  };
 }
 
 /** Separate luminous RGB residual from a row-wise estimated backing, never move an opaque crop.

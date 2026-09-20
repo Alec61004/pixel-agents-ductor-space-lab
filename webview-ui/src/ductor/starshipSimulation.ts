@@ -26,7 +26,8 @@ import { drawLivingRoom, getLivingRoomArtwork } from './starshipLivingRoom.js';
 import { drawQAContact } from './starshipQA.js';
 import { drawStarshipExterior } from './starshipExterior.js';
 import { drawBridgeMaterialPass, drawBridgeLightPass } from './starshipSceneV2.js';
-import type { StarshipPixelScene } from './starshipPixelScene.js';
+import { getPixelSceneGroupDelta } from './starshipPixelScene.js';
+import type { StarshipPixelScene, StarshipPixelSceneManifest } from './starshipPixelScene.js';
 
 export const SHEET_COLS = 16;
 export const SHEET_ROWS = 8;
@@ -116,6 +117,27 @@ export const WORKSTATIONS: Record<DuctorRoleName, WorkstationConfig> = {
 };
 
 export const ASSIGNED_WORKSTATIONS = WORKSTATIONS;
+
+/**
+ * Keep routing, seating, screen interaction and occlusion on the same anchor
+ * as the authored pixel scene. The manifest is the editable source of truth;
+ * the old 1600×678 values remain the base layout for scenes without metadata.
+ */
+export function syncAlecWorkstationToPixelScene(manifest?: StarshipPixelSceneManifest): void {
+  const base = ORIGINAL_COMPUTER_BAYS.Alec;
+  const delta = manifest ? getPixelSceneGroupDelta(manifest, 'alec-command-bay') : { x: 0, y: 0 };
+  const translatePoint = (point: { x: number; y: number }) => ({ x: point.x + delta.x, y: point.y + delta.y });
+  const translateBounds = (bounds: DeviceBounds) => ({ ...bounds, x: bounds.x + delta.x, y: bounds.y + delta.y });
+  WORKSTATIONS.Alec = {
+    agentName: 'Alec',
+    ...base,
+    approachPoint: translatePoint(base.approachPoint),
+    interactionPoint: translatePoint(base.interactionPoint),
+    displayBounds: translateBounds(base.displayBounds),
+    displayAreas: base.displayAreas.map(translateBounds),
+    occlusionBounds: translateBounds(base.occlusionBounds),
+  };
+}
 
 export const OFFLINE_POINTS: Record<DuctorRoleName, { x: number; y: number }> = {
   Alec: { x: 120, y: 620 },
@@ -2349,7 +2371,10 @@ export function drawStage(
       // work pose is aligned behind the production chair. Repainting the real
       // backrest afterward leaves his head and operating hands visible while
       // correctly occluding the torso and folded legs.
-      const { x, feetY, height } = ALEC_SEAT;
+      const sceneDelta = WORKSTATIONS.Alec.interactionPoint.y - ORIGINAL_COMPUTER_BAYS.Alec.interactionPoint.y;
+      const x = WORKSTATIONS.Alec.interactionPoint.x;
+      const feetY = ALEC_SEAT.feetY + sceneDelta;
+      const { height } = ALEC_SEAT;
       const commandTime = a.commandTime ?? 0;
       drawAuthoredWorkPose(
         ctx,
