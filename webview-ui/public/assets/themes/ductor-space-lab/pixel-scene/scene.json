@@ -1,0 +1,2684 @@
+{
+  "format": "space-lab-pixel-layers",
+  "version": 2,
+  "width": 1926,
+  "height": 816,
+  "sourceSHA256": "53d6e296b8c1099039d1ed462edec1f7317554d29ea37c909f2e3bd8a6aff808",
+  "limitations": "Manual cutout boundaries; baked light/shadows; no hidden background. Identity lossless, not semantic/vector reconstruction.",
+  "layers": [
+    {
+      "id": "hull-remainder",
+      "name": "Vỏ tàu · các pixel còn lại",
+      "group": "hull-remainder",
+      "source": {
+        "x": 0,
+        "y": 0,
+        "w": 1926,
+        "h": 671
+      },
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/hull-remainder.png",
+      "maskPolygon": null,
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 371671
+    },
+    {
+      "id": "deck",
+      "name": "Sàn và dây nền",
+      "group": "deck",
+      "source": {
+        "x": 0,
+        "y": 495,
+        "w": 1926,
+        "h": 321
+      },
+      "x": 0,
+      "y": 495,
+      "z": 1,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/deck.png",
+      "maskPolygon": [
+        [
+          0,
+          660
+        ],
+        [
+          190,
+          576
+        ],
+        [
+          409,
+          407
+        ],
+        [
+          918,
+          423
+        ],
+        [
+          987,
+          543
+        ],
+        [
+          1510,
+          526
+        ],
+        [
+          1711,
+          559
+        ],
+        [
+          1926,
+          671
+        ],
+        [
+          1926,
+          816
+        ],
+        [
+          0,
+          816
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 387706
+    },
+    {
+      "id": "window-left",
+      "name": "Cửa sổ trái · không gian",
+      "group": "window-left",
+      "source": {
+        "x": 450,
+        "y": 99,
+        "w": 469,
+        "h": 237
+      },
+      "x": 450,
+      "y": 99,
+      "z": 2,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/window-left.png",
+      "maskPolygon": [
+        [
+          450,
+          145
+        ],
+        [
+          487,
+          99
+        ],
+        [
+          865,
+          99
+        ],
+        [
+          898,
+          112
+        ],
+        [
+          919,
+          148
+        ],
+        [
+          918,
+          290
+        ],
+        [
+          886,
+          332
+        ],
+        [
+          490,
+          336
+        ],
+        [
+          451,
+          299
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 105218
+    },
+    {
+      "id": "window-center",
+      "name": "Cửa sổ giữa · hố đen",
+      "group": "window-center",
+      "source": {
+        "x": 1001,
+        "y": 96,
+        "w": 510,
+        "h": 439
+      },
+      "x": 1001,
+      "y": 96,
+      "z": 3,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/window-center.png",
+      "maskPolygon": [
+        [
+          1001,
+          153
+        ],
+        [
+          1030,
+          108
+        ],
+        [
+          1057,
+          96
+        ],
+        [
+          1454,
+          96
+        ],
+        [
+          1508,
+          144
+        ],
+        [
+          1511,
+          488
+        ],
+        [
+          1475,
+          535
+        ],
+        [
+          1067,
+          535
+        ],
+        [
+          1003,
+          495
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 187637
+    },
+    {
+      "id": "window-right",
+      "name": "Cửa sổ phải · không gian",
+      "group": "window-right",
+      "source": {
+        "x": 1575,
+        "y": 98,
+        "w": 277,
+        "h": 407
+      },
+      "x": 1575,
+      "y": 98,
+      "z": 4,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/window-right.png",
+      "maskPolygon": [
+        [
+          1576,
+          155
+        ],
+        [
+          1605,
+          109
+        ],
+        [
+          1631,
+          98
+        ],
+        [
+          1821,
+          98
+        ],
+        [
+          1840,
+          115
+        ],
+        [
+          1835,
+          192
+        ],
+        [
+          1852,
+          229
+        ],
+        [
+          1838,
+          492
+        ],
+        [
+          1590,
+          520
+        ],
+        [
+          1575,
+          460
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 95466
+    },
+    {
+      "id": "ceiling-lens",
+      "name": "Thấu kính trần",
+      "group": "ceiling-lens",
+      "source": {
+        "x": 1077,
+        "y": 0,
+        "w": 237,
+        "h": 61
+      },
+      "x": 1077,
+      "y": 0,
+      "z": 5,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/ceiling-lens.png",
+      "maskPolygon": [
+        [
+          1077,
+          26
+        ],
+        [
+          1114,
+          7
+        ],
+        [
+          1277,
+          0
+        ],
+        [
+          1314,
+          24
+        ],
+        [
+          1300,
+          47
+        ],
+        [
+          1244,
+          61
+        ],
+        [
+          1133,
+          57
+        ],
+        [
+          1080,
+          43
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 11200
+    },
+    {
+      "id": "airlock",
+      "name": "Cửa khoang trái",
+      "group": "airlock",
+      "source": {
+        "x": 63,
+        "y": 275,
+        "w": 148,
+        "h": 359
+      },
+      "x": 63,
+      "y": 275,
+      "z": 6,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/airlock.png",
+      "maskPolygon": [
+        [
+          69,
+          361
+        ],
+        [
+          118,
+          275
+        ],
+        [
+          158,
+          283
+        ],
+        [
+          206,
+          345
+        ],
+        [
+          211,
+          567
+        ],
+        [
+          188,
+          607
+        ],
+        [
+          130,
+          634
+        ],
+        [
+          76,
+          618
+        ],
+        [
+          63,
+          582
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 41307
+    },
+    {
+      "id": "storage",
+      "name": "Kệ trái",
+      "group": "storage",
+      "source": {
+        "x": 223,
+        "y": 145,
+        "w": 197,
+        "h": 439
+      },
+      "x": 223,
+      "y": 145,
+      "z": 7,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/storage.png",
+      "maskPolygon": [
+        [
+          223,
+          184
+        ],
+        [
+          292,
+          145
+        ],
+        [
+          381,
+          148
+        ],
+        [
+          420,
+          195
+        ],
+        [
+          417,
+          491
+        ],
+        [
+          344,
+          584
+        ],
+        [
+          231,
+          566
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 68923
+    },
+    {
+      "id": "command-desk",
+      "name": "Bàn Alec · vỏ bàn",
+      "group": "command-desk",
+      "source": {
+        "x": 371,
+        "y": 320,
+        "w": 590,
+        "h": 213
+      },
+      "x": 371,
+      "y": 320,
+      "z": 8,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/command-desk.png",
+      "maskPolygon": [
+        [
+          372,
+          438
+        ],
+        [
+          405,
+          358
+        ],
+        [
+          498,
+          357
+        ],
+        [
+          544,
+          320
+        ],
+        [
+          584,
+          320
+        ],
+        [
+          604,
+          354
+        ],
+        [
+          724,
+          354
+        ],
+        [
+          734,
+          322
+        ],
+        [
+          750,
+          325
+        ],
+        [
+          776,
+          355
+        ],
+        [
+          841,
+          352
+        ],
+        [
+          854,
+          326
+        ],
+        [
+          870,
+          355
+        ],
+        [
+          934,
+          377
+        ],
+        [
+          961,
+          418
+        ],
+        [
+          946,
+          478
+        ],
+        [
+          851,
+          534
+        ],
+        [
+          733,
+          495
+        ],
+        [
+          477,
+          533
+        ],
+        [
+          369,
+          485
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 68284
+    },
+    {
+      "id": "command-chair",
+      "name": "Ghế Alec · toàn bộ phần nhìn thấy",
+      "group": "command-chair",
+      "source": {
+        "x": 601,
+        "y": 373,
+        "w": 134,
+        "h": 128
+      },
+      "x": 601,
+      "y": 373,
+      "z": 9,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/command-chair.png",
+      "maskPolygon": [
+        [
+          646,
+          383
+        ],
+        [
+          665,
+          373
+        ],
+        [
+          683,
+          383
+        ],
+        [
+          699,
+          414
+        ],
+        [
+          721,
+          417
+        ],
+        [
+          735,
+          440
+        ],
+        [
+          725,
+          469
+        ],
+        [
+          705,
+          487
+        ],
+        [
+          701,
+          516
+        ],
+        [
+          681,
+          531
+        ],
+        [
+          647,
+          530
+        ],
+        [
+          624,
+          516
+        ],
+        [
+          623,
+          488
+        ],
+        [
+          601,
+          473
+        ],
+        [
+          609,
+          444
+        ],
+        [
+          629,
+          426
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 10352
+    },
+    {
+      "id": "port-chair",
+      "name": "Ghế bên trái",
+      "group": "port-chair",
+      "source": {
+        "x": 334,
+        "y": 450,
+        "w": 147,
+        "h": 99
+      },
+      "x": 334,
+      "y": 450,
+      "z": 10,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/port-chair.png",
+      "maskPolygon": [
+        [
+          335,
+          462
+        ],
+        [
+          357,
+          450
+        ],
+        [
+          380,
+          459
+        ],
+        [
+          377,
+          488
+        ],
+        [
+          417,
+          474
+        ],
+        [
+          459,
+          504
+        ],
+        [
+          481,
+          524
+        ],
+        [
+          475,
+          543
+        ],
+        [
+          444,
+          549
+        ],
+        [
+          422,
+          533
+        ],
+        [
+          410,
+          514
+        ],
+        [
+          360,
+          526
+        ],
+        [
+          334,
+          514
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 7188
+    },
+    {
+      "id": "tank-main",
+      "name": "Bồn mẫu vật lớn · toàn bộ vỏ",
+      "group": "specimen-tank",
+      "source": {
+        "x": 979,
+        "y": 243,
+        "w": 140,
+        "h": 395
+      },
+      "x": 979,
+      "y": 243,
+      "z": 11,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/tank-main.png",
+      "maskPolygon": [
+        [
+          979,
+          268
+        ],
+        [
+          1002,
+          248
+        ],
+        [
+          1061,
+          243
+        ],
+        [
+          1101,
+          256
+        ],
+        [
+          1119,
+          275
+        ],
+        [
+          1115,
+          324
+        ],
+        [
+          1113,
+          476
+        ],
+        [
+          1118,
+          494
+        ],
+        [
+          1100,
+          532
+        ],
+        [
+          1097,
+          577
+        ],
+        [
+          1117,
+          608
+        ],
+        [
+          1099,
+          632
+        ],
+        [
+          1026,
+          638
+        ],
+        [
+          987,
+          617
+        ],
+        [
+          989,
+          590
+        ],
+        [
+          1005,
+          566
+        ],
+        [
+          997,
+          524
+        ],
+        [
+          980,
+          498
+        ],
+        [
+          985,
+          459
+        ],
+        [
+          981,
+          307
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 26037
+    },
+    {
+      "id": "pod-left",
+      "name": "Bình sàn trái",
+      "group": "pod-left",
+      "source": {
+        "x": 383,
+        "y": 559,
+        "w": 83,
+        "h": 155
+      },
+      "x": 383,
+      "y": 559,
+      "z": 12,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/pod-left.png",
+      "maskPolygon": [
+        [
+          390,
+          582
+        ],
+        [
+          399,
+          565
+        ],
+        [
+          430,
+          559
+        ],
+        [
+          451,
+          571
+        ],
+        [
+          458,
+          591
+        ],
+        [
+          457,
+          674
+        ],
+        [
+          466,
+          693
+        ],
+        [
+          450,
+          709
+        ],
+        [
+          413,
+          714
+        ],
+        [
+          388,
+          698
+        ],
+        [
+          383,
+          681
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 6189
+    },
+    {
+      "id": "pod-middle",
+      "name": "Bình sàn giữa",
+      "group": "pod-middle",
+      "source": {
+        "x": 469,
+        "y": 561,
+        "w": 81,
+        "h": 153
+      },
+      "x": 469,
+      "y": 561,
+      "z": 13,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/pod-middle.png",
+      "maskPolygon": [
+        [
+          474,
+          581
+        ],
+        [
+          488,
+          565
+        ],
+        [
+          514,
+          561
+        ],
+        [
+          534,
+          576
+        ],
+        [
+          541,
+          602
+        ],
+        [
+          541,
+          679
+        ],
+        [
+          550,
+          693
+        ],
+        [
+          535,
+          711
+        ],
+        [
+          496,
+          714
+        ],
+        [
+          474,
+          701
+        ],
+        [
+          469,
+          679
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 5887
+    },
+    {
+      "id": "pod-right",
+      "name": "Bình sàn phải",
+      "group": "pod-right",
+      "source": {
+        "x": 858,
+        "y": 564,
+        "w": 81,
+        "h": 154
+      },
+      "x": 858,
+      "y": 564,
+      "z": 14,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/pod-right.png",
+      "maskPolygon": [
+        [
+          865,
+          584
+        ],
+        [
+          878,
+          568
+        ],
+        [
+          905,
+          564
+        ],
+        [
+          925,
+          577
+        ],
+        [
+          932,
+          602
+        ],
+        [
+          931,
+          680
+        ],
+        [
+          939,
+          698
+        ],
+        [
+          923,
+          715
+        ],
+        [
+          888,
+          718
+        ],
+        [
+          862,
+          704
+        ],
+        [
+          858,
+          683
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 5906
+    },
+    {
+      "id": "star-map-table",
+      "name": "Bàn bản đồ Kevin",
+      "group": "kevin-star-map",
+      "source": {
+        "x": 598,
+        "y": 576,
+        "w": 162,
+        "h": 104
+      },
+      "x": 598,
+      "y": 576,
+      "z": 15,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/star-map-table.png",
+      "maskPolygon": [
+        [
+          613,
+          594
+        ],
+        [
+          639,
+          581
+        ],
+        [
+          691,
+          576
+        ],
+        [
+          728,
+          581
+        ],
+        [
+          751,
+          596
+        ],
+        [
+          760,
+          617
+        ],
+        [
+          746,
+          647
+        ],
+        [
+          718,
+          677
+        ],
+        [
+          645,
+          680
+        ],
+        [
+          612,
+          661
+        ],
+        [
+          598,
+          627
+        ],
+        [
+          599,
+          608
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 13275
+    },
+    {
+      "id": "star-map-glass",
+      "name": "Màn bản đồ Kevin",
+      "group": "kevin-star-map",
+      "source": {
+        "x": 614,
+        "y": 491,
+        "w": 130,
+        "h": 85
+      },
+      "x": 614,
+      "y": 491,
+      "z": 16,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/star-map-glass.png",
+      "maskPolygon": [
+        [
+          617,
+          510
+        ],
+        [
+          626,
+          498
+        ],
+        [
+          652,
+          492
+        ],
+        [
+          690,
+          491
+        ],
+        [
+          728,
+          497
+        ],
+        [
+          742,
+          508
+        ],
+        [
+          744,
+          565
+        ],
+        [
+          734,
+          575
+        ],
+        [
+          623,
+          576
+        ],
+        [
+          614,
+          566
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 10137
+    },
+    {
+      "id": "hologram-left",
+      "name": "Hologram trái · cả chân đế",
+      "group": "hologram-left",
+      "source": {
+        "x": 814,
+        "y": 400,
+        "w": 90,
+        "h": 153
+      },
+      "x": 814,
+      "y": 400,
+      "z": 17,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/hologram-left.png",
+      "maskPolygon": [
+        [
+          814,
+          400
+        ],
+        [
+          889,
+          428
+        ],
+        [
+          904,
+          449
+        ],
+        [
+          902,
+          491
+        ],
+        [
+          884,
+          492
+        ],
+        [
+          891,
+          516
+        ],
+        [
+          904,
+          530
+        ],
+        [
+          891,
+          550
+        ],
+        [
+          842,
+          553
+        ],
+        [
+          825,
+          540
+        ],
+        [
+          830,
+          521
+        ],
+        [
+          852,
+          509
+        ],
+        [
+          835,
+          481
+        ],
+        [
+          815,
+          471
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 9553
+    },
+    {
+      "id": "hologram-right",
+      "name": "Hologram phải · cả chân đế",
+      "group": "hologram-right",
+      "source": {
+        "x": 915,
+        "y": 431,
+        "w": 80,
+        "h": 149
+      },
+      "x": 915,
+      "y": 431,
+      "z": 18,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/hologram-right.png",
+      "maskPolygon": [
+        [
+          917,
+          431
+        ],
+        [
+          981,
+          453
+        ],
+        [
+          994,
+          476
+        ],
+        [
+          995,
+          519
+        ],
+        [
+          978,
+          523
+        ],
+        [
+          969,
+          538
+        ],
+        [
+          987,
+          552
+        ],
+        [
+          978,
+          571
+        ],
+        [
+          936,
+          580
+        ],
+        [
+          915,
+          565
+        ],
+        [
+          918,
+          545
+        ],
+        [
+          937,
+          530
+        ],
+        [
+          924,
+          509
+        ],
+        [
+          918,
+          502
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 8619
+    },
+    {
+      "id": "map-pedestal",
+      "name": "Trụ máy cạnh bản đồ",
+      "group": "map-pedestal",
+      "source": {
+        "x": 789,
+        "y": 548,
+        "w": 72,
+        "h": 131
+      },
+      "x": 789,
+      "y": 548,
+      "z": 19,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/map-pedestal.png",
+      "maskPolygon": [
+        [
+          789,
+          565
+        ],
+        [
+          807,
+          552
+        ],
+        [
+          833,
+          548
+        ],
+        [
+          852,
+          560
+        ],
+        [
+          861,
+          584
+        ],
+        [
+          853,
+          663
+        ],
+        [
+          832,
+          679
+        ],
+        [
+          797,
+          667
+        ],
+        [
+          790,
+          643
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 7796
+    },
+    {
+      "id": "qa-table",
+      "name": "Bàn QA · toàn bộ phần nhìn thấy",
+      "group": "qa-table",
+      "source": {
+        "x": 1104,
+        "y": 545,
+        "w": 328,
+        "h": 135
+      },
+      "x": 1104,
+      "y": 545,
+      "z": 20,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/qa-table.png",
+      "maskPolygon": [
+        [
+          1149,
+          573
+        ],
+        [
+          1192,
+          555
+        ],
+        [
+          1252,
+          545
+        ],
+        [
+          1327,
+          552
+        ],
+        [
+          1377,
+          579
+        ],
+        [
+          1416,
+          609
+        ],
+        [
+          1432,
+          643
+        ],
+        [
+          1418,
+          670
+        ],
+        [
+          1379,
+          679
+        ],
+        [
+          1187,
+          680
+        ],
+        [
+          1135,
+          665
+        ],
+        [
+          1104,
+          639
+        ],
+        [
+          1117,
+          602
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 23566
+    },
+    {
+      "id": "qa-glass",
+      "name": "Mặt kính bàn QA",
+      "group": "qa-table",
+      "source": {
+        "x": 1176,
+        "y": 559,
+        "w": 182,
+        "h": 74
+      },
+      "x": 1176,
+      "y": 559,
+      "z": 21,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/qa-glass.png",
+      "maskPolygon": [
+        [
+          1176,
+          588
+        ],
+        [
+          1192,
+          573
+        ],
+        [
+          1240,
+          562
+        ],
+        [
+          1290,
+          559
+        ],
+        [
+          1332,
+          568
+        ],
+        [
+          1358,
+          588
+        ],
+        [
+          1355,
+          609
+        ],
+        [
+          1327,
+          625
+        ],
+        [
+          1279,
+          633
+        ],
+        [
+          1223,
+          627
+        ],
+        [
+          1189,
+          613
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 10182
+    },
+    {
+      "id": "research-desk",
+      "name": "Bàn nghiên cứu bên phải",
+      "group": "research-desk",
+      "source": {
+        "x": 1517,
+        "y": 494,
+        "w": 336,
+        "h": 106
+      },
+      "x": 1517,
+      "y": 494,
+      "z": 22,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/research-desk.png",
+      "maskPolygon": [
+        [
+          1517,
+          510
+        ],
+        [
+          1536,
+          494
+        ],
+        [
+          1612,
+          505
+        ],
+        [
+          1686,
+          498
+        ],
+        [
+          1773,
+          513
+        ],
+        [
+          1846,
+          551
+        ],
+        [
+          1853,
+          589
+        ],
+        [
+          1820,
+          600
+        ],
+        [
+          1769,
+          566
+        ],
+        [
+          1698,
+          558
+        ],
+        [
+          1572,
+          584
+        ],
+        [
+          1519,
+          565
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 17718
+    },
+    {
+      "id": "research-screen",
+      "name": "Màn cong bên phải",
+      "group": "research-screen",
+      "source": {
+        "x": 1692,
+        "y": 439,
+        "w": 167,
+        "h": 111
+      },
+      "x": 1692,
+      "y": 439,
+      "z": 23,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/research-screen.png",
+      "maskPolygon": [
+        [
+          1694,
+          445
+        ],
+        [
+          1705,
+          439
+        ],
+        [
+          1769,
+          439
+        ],
+        [
+          1812,
+          455
+        ],
+        [
+          1859,
+          489
+        ],
+        [
+          1857,
+          546
+        ],
+        [
+          1846,
+          550
+        ],
+        [
+          1810,
+          520
+        ],
+        [
+          1764,
+          504
+        ],
+        [
+          1692,
+          500
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 10711
+    },
+    {
+      "id": "plant-right",
+      "name": "Cây bên phải",
+      "group": "plant-right",
+      "source": {
+        "x": 1525,
+        "y": 426,
+        "w": 77,
+        "h": 101
+      },
+      "x": 1525,
+      "y": 426,
+      "z": 24,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/plant-right.png",
+      "maskPolygon": [
+        [
+          1524,
+          450
+        ],
+        [
+          1544,
+          471
+        ],
+        [
+          1543,
+          430
+        ],
+        [
+          1558,
+          450
+        ],
+        [
+          1567,
+          425
+        ],
+        [
+          1576,
+          459
+        ],
+        [
+          1594,
+          441
+        ],
+        [
+          1582,
+          474
+        ],
+        [
+          1602,
+          463
+        ],
+        [
+          1589,
+          495
+        ],
+        [
+          1590,
+          514
+        ],
+        [
+          1579,
+          527
+        ],
+        [
+          1547,
+          525
+        ],
+        [
+          1534,
+          510
+        ],
+        [
+          1537,
+          486
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 4352
+    },
+    {
+      "id": "mini-pod-a",
+      "name": "Ống mẫu nhỏ A",
+      "group": "mini-pod-a",
+      "source": {
+        "x": 1598,
+        "y": 459,
+        "w": 33,
+        "h": 69
+      },
+      "x": 1598,
+      "y": 459,
+      "z": 25,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/mini-pod-a.png",
+      "maskPolygon": [
+        [
+          1601,
+          468
+        ],
+        [
+          1610,
+          459
+        ],
+        [
+          1623,
+          462
+        ],
+        [
+          1631,
+          474
+        ],
+        [
+          1630,
+          518
+        ],
+        [
+          1622,
+          528
+        ],
+        [
+          1605,
+          525
+        ],
+        [
+          1598,
+          519
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 1908
+    },
+    {
+      "id": "mini-pod-b",
+      "name": "Ống mẫu nhỏ B",
+      "group": "mini-pod-b",
+      "source": {
+        "x": 1638,
+        "y": 459,
+        "w": 34,
+        "h": 69
+      },
+      "x": 1638,
+      "y": 459,
+      "z": 26,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/mini-pod-b.png",
+      "maskPolygon": [
+        [
+          1642,
+          469
+        ],
+        [
+          1651,
+          459
+        ],
+        [
+          1664,
+          461
+        ],
+        [
+          1672,
+          473
+        ],
+        [
+          1671,
+          518
+        ],
+        [
+          1663,
+          528
+        ],
+        [
+          1648,
+          525
+        ],
+        [
+          1638,
+          518
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 1927
+    },
+    {
+      "id": "orb-stool",
+      "name": "Ghế quả cầu bên phải",
+      "group": "orb-stool",
+      "source": {
+        "x": 1624,
+        "y": 548,
+        "w": 71,
+        "h": 102
+      },
+      "x": 1624,
+      "y": 548,
+      "z": 27,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/orb-stool.png",
+      "maskPolygon": [
+        [
+          1629,
+          561
+        ],
+        [
+          1645,
+          550
+        ],
+        [
+          1665,
+          548
+        ],
+        [
+          1688,
+          561
+        ],
+        [
+          1695,
+          585
+        ],
+        [
+          1683,
+          602
+        ],
+        [
+          1674,
+          610
+        ],
+        [
+          1677,
+          624
+        ],
+        [
+          1692,
+          633
+        ],
+        [
+          1683,
+          649
+        ],
+        [
+          1641,
+          650
+        ],
+        [
+          1624,
+          637
+        ],
+        [
+          1631,
+          625
+        ],
+        [
+          1646,
+          620
+        ],
+        [
+          1645,
+          606
+        ],
+        [
+          1630,
+          593
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 5082
+    },
+    {
+      "id": "wall-screen",
+      "name": "Màn tường phải",
+      "group": "wall-screen",
+      "source": {
+        "x": 1878,
+        "y": 302,
+        "w": 48,
+        "h": 207
+      },
+      "x": 1878,
+      "y": 302,
+      "z": 28,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/wall-screen.png",
+      "maskPolygon": [
+        [
+          1878,
+          302
+        ],
+        [
+          1919,
+          340
+        ],
+        [
+          1926,
+          509
+        ],
+        [
+          1896,
+          481
+        ],
+        [
+          1879,
+          433
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 6854
+    },
+    {
+      "id": "tank-glass",
+      "name": "Bồn lớn · kính và mẫu vật",
+      "group": "specimen-tank",
+      "source": {
+        "x": 990,
+        "y": 303,
+        "w": 115,
+        "h": 176
+      },
+      "x": 990,
+      "y": 303,
+      "z": 29,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/tank-glass.png",
+      "maskPolygon": [
+        [
+          990,
+          307
+        ],
+        [
+          1010,
+          312
+        ],
+        [
+          1071,
+          312
+        ],
+        [
+          1105,
+          303
+        ],
+        [
+          1106,
+          449
+        ],
+        [
+          1100,
+          465
+        ],
+        [
+          1074,
+          479
+        ],
+        [
+          1028,
+          479
+        ],
+        [
+          1000,
+          465
+        ],
+        [
+          990,
+          449
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 16872
+    },
+    {
+      "id": "pod-left-glass",
+      "name": "Bình trái · kính",
+      "group": "pod-left",
+      "source": {
+        "x": 397,
+        "y": 600,
+        "w": 55,
+        "h": 76
+      },
+      "x": 397,
+      "y": 600,
+      "z": 30,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/pod-left-glass.png",
+      "maskPolygon": [
+        [
+          397,
+          600
+        ],
+        [
+          452,
+          600
+        ],
+        [
+          451,
+          663
+        ],
+        [
+          444,
+          674
+        ],
+        [
+          409,
+          676
+        ],
+        [
+          397,
+          666
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 3987
+    },
+    {
+      "id": "pod-middle-glass",
+      "name": "Bình giữa · kính",
+      "group": "pod-middle",
+      "source": {
+        "x": 481,
+        "y": 599,
+        "w": 53,
+        "h": 78
+      },
+      "x": 481,
+      "y": 599,
+      "z": 31,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/pod-middle-glass.png",
+      "maskPolygon": [
+        [
+          481,
+          600
+        ],
+        [
+          534,
+          599
+        ],
+        [
+          534,
+          665
+        ],
+        [
+          525,
+          676
+        ],
+        [
+          493,
+          677
+        ],
+        [
+          481,
+          665
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 3967
+    },
+    {
+      "id": "pod-right-glass",
+      "name": "Bình phải · kính",
+      "group": "pod-right",
+      "source": {
+        "x": 871,
+        "y": 603,
+        "w": 54,
+        "h": 80
+      },
+      "x": 871,
+      "y": 603,
+      "z": 32,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/pod-right-glass.png",
+      "maskPolygon": [
+        [
+          871,
+          604
+        ],
+        [
+          925,
+          603
+        ],
+        [
+          925,
+          669
+        ],
+        [
+          918,
+          681
+        ],
+        [
+          883,
+          683
+        ],
+        [
+          871,
+          670
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 4124
+    },
+    {
+      "id": "alec-column-left",
+      "name": "Cột sáng Alec · trái",
+      "group": "alec-columns",
+      "source": {
+        "x": 633,
+        "y": 329,
+        "w": 10,
+        "h": 45
+      },
+      "x": 633,
+      "y": 329,
+      "z": 33,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/alec-column-left.png",
+      "maskPolygon": [
+        [
+          633,
+          329
+        ],
+        [
+          643,
+          329
+        ],
+        [
+          643,
+          374
+        ],
+        [
+          633,
+          374
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 450
+    },
+    {
+      "id": "alec-column-center",
+      "name": "Cột sáng Alec · giữa",
+      "group": "alec-columns",
+      "source": {
+        "x": 654,
+        "y": 308,
+        "w": 11,
+        "h": 67
+      },
+      "x": 654,
+      "y": 308,
+      "z": 34,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/alec-column-center.png",
+      "maskPolygon": [
+        [
+          654,
+          309
+        ],
+        [
+          665,
+          308
+        ],
+        [
+          665,
+          375
+        ],
+        [
+          654,
+          375
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 732
+    },
+    {
+      "id": "alec-column-right",
+      "name": "Cột sáng Alec · phải",
+      "group": "alec-columns",
+      "source": {
+        "x": 669,
+        "y": 327,
+        "w": 11,
+        "h": 47
+      },
+      "x": 669,
+      "y": 327,
+      "z": 35,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/alec-column-right.png",
+      "maskPolygon": [
+        [
+          669,
+          327
+        ],
+        [
+          680,
+          327
+        ],
+        [
+          680,
+          374
+        ],
+        [
+          669,
+          374
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 517
+    },
+    {
+      "id": "alec-column-side",
+      "name": "Cột sáng Alec · cụm phải",
+      "group": "alec-columns",
+      "source": {
+        "x": 818,
+        "y": 315,
+        "w": 12,
+        "h": 60
+      },
+      "x": 818,
+      "y": 315,
+      "z": 36,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/alec-column-side.png",
+      "maskPolygon": [
+        [
+          818,
+          315
+        ],
+        [
+          830,
+          315
+        ],
+        [
+          830,
+          375
+        ],
+        [
+          818,
+          375
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 720
+    },
+    {
+      "id": "airlock-strip",
+      "name": "Đèn dọc cửa khoang",
+      "group": "airlock-strip",
+      "source": {
+        "x": 119,
+        "y": 369,
+        "w": 13,
+        "h": 220
+      },
+      "x": 119,
+      "y": 369,
+      "z": 37,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/airlock-strip.png",
+      "maskPolygon": [
+        [
+          119,
+          369
+        ],
+        [
+          132,
+          369
+        ],
+        [
+          132,
+          589
+        ],
+        [
+          119,
+          589
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 2860
+    },
+    {
+      "id": "tank-light-left",
+      "name": "Đèn bồn lớn · trái",
+      "group": "specimen-tank",
+      "source": {
+        "x": 984,
+        "y": 312,
+        "w": 12,
+        "h": 139
+      },
+      "x": 984,
+      "y": 312,
+      "z": 38,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/tank-light-left.png",
+      "maskPolygon": [
+        [
+          984,
+          312
+        ],
+        [
+          996,
+          312
+        ],
+        [
+          996,
+          451
+        ],
+        [
+          984,
+          451
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 1668
+    },
+    {
+      "id": "tank-light-right",
+      "name": "Đèn bồn lớn · phải",
+      "group": "specimen-tank",
+      "source": {
+        "x": 1098,
+        "y": 308,
+        "w": 13,
+        "h": 143
+      },
+      "x": 1098,
+      "y": 308,
+      "z": 39,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/tank-light-right.png",
+      "maskPolygon": [
+        [
+          1098,
+          308
+        ],
+        [
+          1111,
+          308
+        ],
+        [
+          1111,
+          451
+        ],
+        [
+          1098,
+          451
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 1859
+    },
+    {
+      "id": "top-amber",
+      "name": "Đèn trần phải · amber",
+      "group": "top-amber",
+      "source": {
+        "x": 1684,
+        "y": 36,
+        "w": 98,
+        "h": 18
+      },
+      "x": 1684,
+      "y": 36,
+      "z": 40,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/top-amber.png",
+      "maskPolygon": [
+        [
+          1684,
+          36
+        ],
+        [
+          1782,
+          36
+        ],
+        [
+          1782,
+          54
+        ],
+        [
+          1684,
+          54
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 1764
+    },
+    {
+      "id": "qa-lamp",
+      "name": "Đèn chân bàn QA",
+      "group": "qa-table",
+      "source": {
+        "x": 1248,
+        "y": 662,
+        "w": 40,
+        "h": 17
+      },
+      "x": 1248,
+      "y": 662,
+      "z": 41,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/qa-lamp.png",
+      "maskPolygon": [
+        [
+          1248,
+          662
+        ],
+        [
+          1288,
+          662
+        ],
+        [
+          1288,
+          679
+        ],
+        [
+          1248,
+          679
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 680
+    },
+    {
+      "id": "tank-lamp",
+      "name": "Đèn chân bồn lớn",
+      "group": "specimen-tank",
+      "source": {
+        "x": 1028,
+        "y": 496,
+        "w": 51,
+        "h": 15
+      },
+      "x": 1028,
+      "y": 496,
+      "z": 42,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/tank-lamp.png",
+      "maskPolygon": [
+        [
+          1028,
+          496
+        ],
+        [
+          1079,
+          496
+        ],
+        [
+          1079,
+          511
+        ],
+        [
+          1028,
+          511
+        ]
+      ],
+      "maskQuality": "manual-region-not-semantic-ground-truth",
+      "pixelCount": 765
+    }
+  ],
+  "sourceAsset": "scene-reference.png"
+}

@@ -26,6 +26,7 @@ import { drawLivingRoom, getLivingRoomArtwork } from './starshipLivingRoom.js';
 import { drawQAContact } from './starshipQA.js';
 import { drawStarshipExterior } from './starshipExterior.js';
 import { drawBridgeMaterialPass, drawBridgeLightPass } from './starshipSceneV2.js';
+import type { StarshipPixelScene } from './starshipPixelScene.js';
 
 export const SHEET_COLS = 16;
 export const SHEET_ROWS = 8;
@@ -2280,6 +2281,7 @@ export function drawStage(
   livingRoomImg?: HTMLImageElement,
   kevinStarMapImg?: HTMLImageElement,
   benjaminQAImg?: HTMLImageElement,
+  pixelScene?: StarshipPixelScene,
 ): { scale: number; offX: number; offY: number } {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, rect.width, rect.height);
@@ -2291,7 +2293,7 @@ export function drawStage(
   const offX = (rect.width - drawW) / 2 + panX;
   const offY = (rect.height - drawH) / 2 + panY;
 
-  const livingArtwork = getLivingRoomArtwork(livingRoomImg);
+  const livingArtwork = pixelScene?.artwork ?? getLivingRoomArtwork(livingRoomImg);
   const background = livingArtwork ?? bgImg;
   const chairArtwork = livingArtwork;
   // V2 scene uses the existing authored room as geometry, but the final

@@ -15,6 +15,11 @@ import { PHOTONIC_CSS_VARS } from './starshipPhotonicTheme.js';
 import { LIVING_ROOM_ASSET } from './starshipLivingRoom.js';
 import { getStarshipSceneHotspotAt } from './starshipSceneLayout.js';
 import {
+  loadStarshipPixelScene,
+  PIXEL_SCENE_MANIFEST,
+  type StarshipPixelScene,
+} from './starshipPixelScene.js';
+import {
   type AgentStatusBubble,
   applyCloudStatus,
   applySnapshotToAgents,
@@ -291,7 +296,17 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
     let livingRoomReady = false;
     let kevinStarMapReady = false;
     let benjaminQAReady = false;
+    let pixelScene: StarshipPixelScene | undefined;
+    let pixelSceneReady = false;
     setLoaded(false);
+    void loadStarshipPixelScene(
+      ductorAssetUrl(import.meta.env?.BASE_URL ?? './', PIXEL_SCENE_MANIFEST),
+    ).then((scene) => {
+      if (!disposed) {
+        pixelScene = scene;
+        pixelSceneReady = Boolean(scene);
+      }
+    });
     void loadStarshipImage(livingRoomImg, ductorAssetUrl(import.meta.env?.BASE_URL ?? './', LIVING_ROOM_ASSET)).then((ready) => {
       if (!disposed) livingRoomReady = ready;
     });
@@ -467,6 +482,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
             livingRoomReady ? livingRoomImg : undefined,
             kevinStarMapReady ? kevinStarMapImg : undefined,
             benjaminQAReady ? benjaminQAImg : undefined,
+            pixelSceneReady ? pixelScene : undefined,
           );
         }
       }
@@ -476,7 +492,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
         if (starsCtx) {
           const rect = wrap.getBoundingClientRect();
           const dpr = window.devicePixelRatio || 1;
-          if (livingRoomReady) {
+          if (livingRoomReady || pixelSceneReady) {
             // Room V3 and the exterior pass already contain window stars. The
             // old full-screen layer placed duplicate stars on hull and floor.
             starsCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
