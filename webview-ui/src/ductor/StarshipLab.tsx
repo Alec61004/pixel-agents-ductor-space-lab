@@ -13,6 +13,7 @@ import {
 } from './starshipComputerBay.js';
 import { PHOTONIC_CSS_VARS } from './starshipPhotonicTheme.js';
 import { LIVING_ROOM_ASSET } from './starshipLivingRoom.js';
+import { getStarshipSceneHotspotAt } from './starshipSceneLayout.js';
 import {
   type AgentStatusBubble,
   applyCloudStatus,
@@ -159,12 +160,6 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
       'themes/ductor-space-lab/starship-sheet.png',
     );
 
-  const resolvedHologramUrl = ductorAssetUrl(
-    typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL
-      ? import.meta.env.BASE_URL
-      : './',
-    'themes/ductor-space-lab/alec-hologram.png',
-  );
   const resolvedWalkUrl = ductorAssetUrl(
     typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL
       ? import.meta.env.BASE_URL
@@ -265,6 +260,11 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
     const { scale, offX, offY } = lastTransformRef.current;
     const px = (mx - offX) / (scale || 1);
     const py = (my - offY) / (scale || 1);
+    const hotspot = getStarshipSceneHotspotAt({ x: px, y: py });
+    if (hotspot) {
+      pushLog(hotspot.statusLabel);
+      return;
+    }
     const clamped = clampPointToPolygon({ x: px, y: py }, WALKABLE_POLYGON);
     routeToPoint(agentsRef.current, clamped.x, clamped.y, pushLog);
   };
@@ -280,14 +280,12 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
     let disposed = false;
     const bgImg = new Image();
     const sheetImg = new Image();
-    const hologramImg = new Image();
     const walkImg = new Image();
     const alecSeatedImg = new Image();
     const livingRoomImg = new Image();
     const kevinStarMapImg = new Image();
     const benjaminQAImg = new Image();
     let sceneReady = false;
-    let hologramReady = false;
     let walkReady = false;
     let alecSeatedReady = false;
     let livingRoomReady = false;
@@ -325,11 +323,6 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
       sceneReady = backgroundReady && sheetReady;
       setLoaded(sceneReady);
     });
-    void loadStarshipImage(hologramImg, resolvedHologramUrl, { width: 160, height: 112 }).then(
-      (ready) => {
-        if (!disposed) hologramReady = ready;
-      },
-    );
     void loadStarshipImage(walkImg, resolvedWalkUrl, { width: 960, height: 336 }).then(
       (ready) => {
         if (!disposed) walkReady = ready;
@@ -468,7 +461,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
             panRef.current.x,
             panRef.current.y,
             zoomRef.current,
-            hologramReady ? hologramImg : undefined,
+            undefined,
             walkReady ? walkImg : undefined,
             alecSeatedReady ? alecSeatedImg : undefined,
             livingRoomReady ? livingRoomImg : undefined,
@@ -516,7 +509,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
       }
       cancelAnimationFrame(animId);
     };
-  }, [resolvedBgUrl, resolvedSheetUrl, resolvedHologramUrl, resolvedWalkUrl]);
+  }, [resolvedBgUrl, resolvedSheetUrl, resolvedWalkUrl]);
 
   const isCloud = Boolean(snapshot?.publishedAt);
   const isStale = Boolean(snapshot?.stale);

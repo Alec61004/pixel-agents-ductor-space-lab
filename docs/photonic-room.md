@@ -5,6 +5,7 @@ The active bridge uses a dark navy hull, restrained cyan systems lighting and wa
 ## Editing
 
 - Artwork: `webview-ui/public/assets/themes/ductor-space-lab/photonic-room-v3.webp`.
+- Scene-object bounds and HTML hotspot mapping: `webview-ui/src/ductor/starshipSceneLayout.ts`.
 - Room normalisation, fixture coordinates and ambient motion: `webview-ui/src/ductor/starshipLivingRoom.ts`.
 - Command desk, seated pose anchors and contact timing: `starshipComputerBay.ts`.
 - Exterior masks, accretion flow and moving spacecraft: `starshipExterior.ts`.

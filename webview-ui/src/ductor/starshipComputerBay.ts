@@ -1,5 +1,6 @@
 import type { DuctorRoleName } from './ductorLabModel.js';
 import type { RoomArtwork } from './starshipLivingRoom.js';
+import { STARSHIP_SCENE_OBJECTS } from './starshipSceneLayout.js';
 
 /** Pixel bounds in the authored 1600×678 starship background. */
 export interface ComputerBayBounds {
@@ -70,7 +71,7 @@ export const ORIGINAL_COMPUTER_BAYS: Record<ComputerBayOperator, OriginalCompute
     label: 'Alec — Strategy',
     roleDescription: 'Strategy',
     bayId: 'central-command',
-    backgroundBounds: { x: 407, y: 299, w: 327, h: 130 },
+    backgroundBounds: { ...STARSHIP_SCENE_OBJECTS.alecCommand.bounds },
     approachPoint: { x: ALEC_COMMAND_STATION.chair.centerX, y: 500 },
     interactionPoint: { x: ALEC_COMMAND_STATION.chair.centerX, y: 450 },
     facing: 'back',
@@ -132,15 +133,9 @@ export const BENJAMIN_QA_ATLAS = {
   width: 2172, height: 724, columns: 4, bodyTop: 124, bodyBottom: 651,
 };
 
-/**
- * Single source of truth for the star-map glass in photonic-room-v4.
- * The room artwork is normalised to 1600×678 before this panel is drawn.
- */
+/** The production star-map glass, measured in the shared scene manifest. */
 export const STAR_MAP_PANEL = {
-  x: 510,
-  y: 409,
-  w: 110,
-  h: 70,
+  ...STARSHIP_SCENE_OBJECTS.kevinStarMap.bounds,
   centerX: 53,
   centerY: 35.5,
 } as const;
@@ -156,7 +151,7 @@ export function getCommandGesture(time: number): { frame: number } {
 }
 
 /**
- * Animate only the three display apertures measured from photonic-room-v4.
+ * Animate only the three display apertures measured from photonic-room-v3.
  * Nothing is drawn over the chair, console shell or floor, so the activity
  * cannot drift away from the production furniture.
  */

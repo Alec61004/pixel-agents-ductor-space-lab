@@ -1,5 +1,6 @@
 import { drawQAExperiment } from './starshipQA.js';
 import { PHOTONIC_THEME } from './starshipPhotonicTheme.js';
+import { STARSHIP_SCENE_OBJECTS } from './starshipSceneLayout.js';
 
 export const LIVING_ROOM_ASSET = 'themes/ductor-space-lab/photonic-room-v3.webp';
 export type RoomArtwork = HTMLImageElement | HTMLCanvasElement | OffscreenCanvas;
@@ -37,9 +38,12 @@ export function getLivingRoomArtwork(image?: HTMLImageElement): RoomArtwork | un
 
 export const LIVING_ROOM_ZONES = {
   pods: [
-    { x: 326, y: 483, w: 48, h: 101 }, { x: 392, y: 483, w: 47, h: 101 },
-    { x: 719, y: 487, w: 49, h: 99 }, { x: 821, y: 235, w: 116, h: 195 },
-    { x: 1325, y: 390, w: 21, h: 55 }, { x: 1354, y: 390, w: 22, h: 55 },
+    { ...STARSHIP_SCENE_OBJECTS.floorPodLeft.bounds },
+    { ...STARSHIP_SCENE_OBJECTS.floorPodRight.bounds },
+    { ...STARSHIP_SCENE_OBJECTS.floorPodCenter.bounds },
+    { ...STARSHIP_SCENE_OBJECTS.specimenTank.bounds },
+    { ...STARSHIP_SCENE_OBJECTS.rightSpecimenA.bounds },
+    { ...STARSHIP_SCENE_OBJECTS.rightSpecimenB.bounds },
   ],
   conduits: [
     [[38, 640], [142, 644], [170, 607], [310, 604]],
@@ -54,7 +58,7 @@ export const LIVING_ROOM_ZONES = {
 
 /** Inner glass coordinates for the preserved alien specimen tank. */
 export const SPECIMEN_TANK = {
-  x: 821, y: 235, w: 116, h: 195,
+  ...STARSHIP_SCENE_OBJECTS.specimenTank.bounds,
   cx: 879, cy: 332.5,
 } as const;
 
