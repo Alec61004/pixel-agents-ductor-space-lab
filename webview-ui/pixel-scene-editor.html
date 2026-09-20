@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Space Lab · Scene Editor</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:#07111c;color:#dfedf5;font:15px system-ui}header{padding:16px 22px;border-bottom:1px solid #26394b}h1{font-size:20px;margin:0 0 6px}p{margin:5px 0;color:#a1b8cb}main{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:16px;padding:16px}canvas{display:block;width:100%;height:auto;background:#102035;touch-action:none}section{min-width:0}aside{display:grid;gap:10px;align-content:start}label{display:grid;gap:4px}input,select,button{font:inherit;color:inherit;background:#15263a;border:1px solid #3b5870;border-radius:5px;padding:8px;max-width:100%}button{cursor:pointer}button[aria-pressed=true]{background:#19636b}nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}#status{padding:12px;color:#80e7dc}#status[data-error=true]{color:#ffad8c}.fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}small{line-height:1.5;color:#a1b8cb}@media(max-width:800px){main{grid-template-columns:1fr}}
+  </style>
+  <style>aside,label{min-width:0}.fields{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}input,select{width:100%;min-width:0}</style>
+</head>
+<body>
+  <header><h1>Space Lab · Chỉnh layer gốc</h1><p>Cùng manifest và renderer với live app · tọa độ 1926 × 816</p></header>
+  <main>
+    <section>
+      <nav><button id="idle" aria-pressed="true">Idle</button><button id="working" aria-pressed="false">Alec working</button><button id="pause">Tạm dừng</button><button id="focus">Phóng to bàn Alec</button><button id="all">Toàn cảnh</button></nav>
+      <canvas id="scene" width="1926" height="816" aria-label="Preview scene layers"></canvas>
+      <div id="status" role="status">Đang tải layer…</div>
+      <small>Idle giữ ảnh gốc. Nền bị che sau cột sáng là ước lượng, không phải dữ liệu phục hồi chính xác. Các điểm đứng, hotspot và vùng va chạm của agent chưa tự đổi khi di chuyển đồ đạc.</small>
+    </section>
+    <aside>
+      <label>Layer<select id="layer"></select></label>
+      <div class="fields">
+        <label>X<input id="x" type="number" step="1"></label><label>Y<input id="y" type="number" step="1"></label>
+        <label>Scale X<input id="scaleX" type="number" min="0.01" step="0.01"></label><label>Scale Y<input id="scaleY" type="number" min="0.01" step="0.01"></label>
+        <label>Góc xoay<input id="rotation" type="number"></label><label>Thứ tự Z<input id="z" type="number"></label>
+        <label>Màu<input id="tint" type="color"></label><label>Pha màu<input id="tintMix" type="number" min="0" max="1" step="0.05"></label>
+        <label>Biên độ<input id="amplitude" type="number" min="0" max="30"></label><label>Tốc độ<input id="speed" type="number" min="0" max="10" step="0.1"></label>
+      </div>
+      <button id="reset">Khôi phục layer</button><button id="save">Tải scene.json đã chỉnh</button>
+      <small>Xuất JSON rồi thay manifest trong repo để áp dụng vào app. Chỉnh ở đây không tự ghi lên GitHub.</small>
+    </aside>
+  </main>
+  <script type="module" src="/src/ductor/starshipPixelSceneEditor.ts"></script>
+</body>
+</html>

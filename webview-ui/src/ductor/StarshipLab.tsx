@@ -306,6 +306,11 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
         pixelScene = scene;
         pixelSceneReady = Boolean(scene);
       }
+    }).catch((error: unknown) => {
+      if (!disposed) {
+        console.error('[Space Lab] Pixel scene failed; showing static fallback.', error);
+        pushLog('Scene layers failed to load · static fallback active.');
+      }
     });
     void loadStarshipImage(livingRoomImg, ductorAssetUrl(import.meta.env?.BASE_URL ?? './', LIVING_ROOM_ASSET)).then((ready) => {
       if (!disposed) livingRoomReady = ready;

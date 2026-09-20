@@ -2293,7 +2293,9 @@ export function drawStage(
   const offX = (rect.width - drawW) / 2 + panX;
   const offY = (rect.height - drawH) / 2 + panY;
 
-  const livingArtwork = pixelScene?.artwork ?? getLivingRoomArtwork(livingRoomImg);
+  const commander = agents.find((agent) => agent.name === 'Alec');
+  const seated = !!commander && isAgentWorkingAtAssignedStation(commander);
+  const livingArtwork = pixelScene?.render(commander?.commandTime ?? timeSec, seated) ?? getLivingRoomArtwork(livingRoomImg);
   const background = livingArtwork ?? bgImg;
   const chairArtwork = livingArtwork;
   // V2 scene uses the existing authored room as geometry, but the final
@@ -2314,17 +2316,6 @@ export function drawStage(
 
   if (livingArtwork) drawBridgeMaterialPass(ctx, timeSec);
   drawStarshipExterior(ctx, background, timeSec, !!livingArtwork, bgImg);
-  const commander = agents.find((agent) => agent.name === 'Alec');
-  const seated = !!commander && isAgentWorkingAtAssignedStation(commander);
-  if (pixelScene) {
-    pixelScene.drawAnimatedLayers(
-      ctx,
-      timeSec,
-      CW / pixelScene.width,
-      CH / pixelScene.height,
-      seated,
-    );
-  }
   // Alec's activity is rendered by the original command-bay practical lights.
   // Keep the baked room artwork intact and do not add a second screen layer.
   // Keep QA telemetry, then apply the shared glass accents below the crew.

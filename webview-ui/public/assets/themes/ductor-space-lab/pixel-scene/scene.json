@@ -565,7 +565,13 @@
         ]
       ],
       "maskQuality": "manual-region-not-semantic-ground-truth",
-      "pixelCount": 68284
+      "pixelCount": 68284,
+      "working": {
+        "kind": "console",
+        "speed": 0.28,
+        "phase": 0,
+        "intensity": 1
+      }
     },
     {
       "id": "command-chair",
@@ -1271,7 +1277,13 @@
         ]
       ],
       "maskQuality": "manual-region-not-semantic-ground-truth",
-      "pixelCount": 9553
+      "pixelCount": 9553,
+      "working": {
+        "kind": "console",
+        "speed": 0.28,
+        "phase": 0.3,
+        "intensity": 1
+      }
     },
     {
       "id": "hologram-right",
@@ -1353,7 +1365,13 @@
         ]
       ],
       "maskQuality": "manual-region-not-semantic-ground-truth",
-      "pixelCount": 8619
+      "pixelCount": 8619,
+      "working": {
+        "kind": "console",
+        "speed": 0.28,
+        "phase": 0.65,
+        "intensity": 1
+      }
     },
     {
       "id": "map-pedestal",
@@ -2260,106 +2278,6 @@
       "pixelCount": 4124
     },
     {
-      "id": "alec-column-left-repair",
-      "name": "Phục hồi nền · Cột sáng Alec · trái",
-      "group": "alec-column-repair",
-      "source": {
-        "x": 633,
-        "y": 329,
-        "w": 10,
-        "h": 45
-      },
-      "x": 633,
-      "y": 329,
-      "z": 32.5,
-      "scaleX": 1,
-      "scaleY": 1,
-      "rotation": 0,
-      "opacity": 1,
-      "visible": true,
-      "tint": "#ffffff",
-      "tintMix": 0,
-      "asset": "layers/alec-column-repair-left.png",
-      "maskPolygon": null,
-      "maskQuality": "repair-patch-for-runtime-motion",
-      "pixelCount": 450
-    },
-    {
-      "id": "alec-column-center-repair",
-      "name": "Phục hồi nền · Cột sáng Alec · giữa",
-      "group": "alec-column-repair",
-      "source": {
-        "x": 654,
-        "y": 308,
-        "w": 11,
-        "h": 67
-      },
-      "x": 654,
-      "y": 308,
-      "z": 32.5,
-      "scaleX": 1,
-      "scaleY": 1,
-      "rotation": 0,
-      "opacity": 1,
-      "visible": true,
-      "tint": "#ffffff",
-      "tintMix": 0,
-      "asset": "layers/alec-column-repair-center.png",
-      "maskPolygon": null,
-      "maskQuality": "repair-patch-for-runtime-motion",
-      "pixelCount": 732
-    },
-    {
-      "id": "alec-column-right-repair",
-      "name": "Phục hồi nền · Cột sáng Alec · phải",
-      "group": "alec-column-repair",
-      "source": {
-        "x": 669,
-        "y": 327,
-        "w": 11,
-        "h": 47
-      },
-      "x": 669,
-      "y": 327,
-      "z": 32.5,
-      "scaleX": 1,
-      "scaleY": 1,
-      "rotation": 0,
-      "opacity": 1,
-      "visible": true,
-      "tint": "#ffffff",
-      "tintMix": 0,
-      "asset": "layers/alec-column-repair-right.png",
-      "maskPolygon": null,
-      "maskQuality": "repair-patch-for-runtime-motion",
-      "pixelCount": 517
-    },
-    {
-      "id": "alec-column-side-repair",
-      "name": "Phục hồi nền · Cột sáng Alec · cụm phải",
-      "group": "alec-column-repair",
-      "source": {
-        "x": 818,
-        "y": 315,
-        "w": 12,
-        "h": 60
-      },
-      "x": 818,
-      "y": 315,
-      "z": 32.5,
-      "scaleX": 1,
-      "scaleY": 1,
-      "rotation": 0,
-      "opacity": 1,
-      "visible": true,
-      "tint": "#ffffff",
-      "tintMix": 0,
-      "asset": "layers/alec-column-repair-side.png",
-      "maskPolygon": null,
-      "maskQuality": "repair-patch-for-runtime-motion",
-      "pixelCount": 720
-    },
-    {
       "id": "alec-column-left",
       "name": "Cột sáng Alec · trái",
       "group": "alec-columns",
@@ -2400,12 +2318,12 @@
       ],
       "maskQuality": "manual-region-not-semantic-ground-truth",
       "pixelCount": 450,
-      "motion": {
-        "axis": "y",
-        "amplitude": 5,
-        "speed": 1.15,
+      "working": {
+        "kind": "light-column",
+        "amplitude": 8,
+        "speed": 2.1,
         "phase": 0,
-        "activeWhen": "alec-working"
+        "intensity": 1
       }
     },
     {
@@ -2449,12 +2367,12 @@
       ],
       "maskQuality": "manual-region-not-semantic-ground-truth",
       "pixelCount": 732,
-      "motion": {
-        "axis": "y",
-        "amplitude": 5,
-        "speed": 1.15,
+      "working": {
+        "kind": "light-column",
+        "amplitude": 8,
+        "speed": 2.1,
         "phase": 1.3,
-        "activeWhen": "alec-working"
+        "intensity": 1
       }
     },
     {
@@ -2498,12 +2416,12 @@
       ],
       "maskQuality": "manual-region-not-semantic-ground-truth",
       "pixelCount": 517,
-      "motion": {
-        "axis": "y",
-        "amplitude": 5,
-        "speed": 1.15,
+      "working": {
+        "kind": "light-column",
+        "amplitude": 8,
+        "speed": 2.1,
         "phase": 2.6,
-        "activeWhen": "alec-working"
+        "intensity": 1
       }
     },
     {
@@ -2547,12 +2465,12 @@
       ],
       "maskQuality": "manual-region-not-semantic-ground-truth",
       "pixelCount": 720,
-      "motion": {
-        "axis": "y",
-        "amplitude": 5,
-        "speed": 1.15,
+      "working": {
+        "kind": "light-column",
+        "amplitude": 8,
+        "speed": 2.1,
         "phase": 0.7,
-        "activeWhen": "alec-working"
+        "intensity": 1
       }
     },
     {
@@ -2809,9 +2727,5 @@
     }
   ],
   "sourceAsset": "scene-reference.png",
-  "motion": {
-    "enabledWhen": "alec-working",
-    "units": "native-source-pixels",
-    "note": "Four command lights move vertically with a repaired backing patch; desk and hologram working lighting remains in the runtime pass."
-  }
+  "animationNotes": "Idle reconstructs the original. Working lights use an estimated backing plus an additive luminous residual; hidden pixels are approximated, not recovered. Console effects modify only owned pixels in each layer's local space."
 }

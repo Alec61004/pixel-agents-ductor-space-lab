@@ -116,28 +116,7 @@ export function drawBridgeLightPass(
     glowDot(ctx, x, y, CYAN, 8, 0.025 * pulse);
   }
 
-  // Alec's whole command bay wakes as one system while he is seated.
-  if (activity.command) {
-    const workPulse = 0.72 + Math.sin(time * 1.35) * 0.18;
-    ctx.save();
-    ctx.globalCompositeOperation = 'screen';
-    ctx.globalAlpha = 0.24 * workPulse;
-    ctx.strokeStyle = CYAN;
-    ctx.lineWidth = 0.85;
-    ctx.beginPath();
-    ctx.moveTo(438, 383);
-    ctx.quadraticCurveTo(555, 346, 706, 380);
-    ctx.quadraticCurveTo(755, 389, 811, 424);
-    ctx.stroke();
-    ctx.restore();
-
-    for (let i = 0; i < 7; i += 1) {
-      const travel = (time * 0.24 + i / 7) % 1;
-      const x = 440 + travel * 365;
-      const y = 382 + Math.sin(travel * Math.PI) * 12;
-      glowDot(ctx, x, y, CYAN, 7, 0.035 * workPulse);
-    }
-  }
+  // Alec's source-layer compositor owns command-bay animation.
 
 
   // Local station pools. These are deliberately elliptical reflections rather

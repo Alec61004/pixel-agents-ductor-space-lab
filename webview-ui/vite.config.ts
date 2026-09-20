@@ -122,6 +122,12 @@ function browserMockAssetsPlugin(): Plugin {
 export default defineConfig({
   plugins: [tailwindcss(), react(), browserMockAssetsPlugin()],
   build: {
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+        sceneEditor: path.resolve(__dirname, 'pixel-scene-editor.html'),
+      },
+    },
     outDir: '../dist/webview',
     emptyOutDir: true,
   },

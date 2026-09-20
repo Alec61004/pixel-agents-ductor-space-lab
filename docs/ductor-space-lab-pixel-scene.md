@@ -1,30 +1,79 @@
-# Space Lab pixel scene
+# Pixel scene and HTML editor
 
-The branch runtime now assembles the lossless layer scene before drawing agents. The
-source image is 1926×816 and is byte-identical to the original photonic room. The
-stage scales the assembled canvas to the simulation's 1600×678 world.
+Open `/pixel-scene-editor.html` on the same dev server or built site. The editor is
+a Vite multi-page entry, not an iframe inside the live-agent screen. It imports
+the **same** `starshipPixelScene.ts` module and loads the **same** `scene.json` as
+`StarshipLab`. It has Idle/Working, pause, desk zoom, numeric transforms, tint,
+motion controls, layer reset and JSON export. No GitHub writes occur in the editor.
 
-Edit only `webview-ui/public/assets/themes/ductor-space-lab/pixel-scene/scene.json`
-for object transforms:
+Export JSON, review its diff, then replace:
+`webview-ui/public/assets/themes/ductor-space-lab/pixel-scene/scene.json`.
+Rebuild/reload the app to apply the saved manifest. The standalone earlier ZIP is
+not automatically updated by changes made in this repo.
 
-- `x`, `y`: integer top-left anchors in the source image.
-- `z`: draw order.
-- `scaleX`, `scaleY`, `rotation`, `opacity`, `visible`: raster transforms.
-- `tint`, `tintMix`: per-layer color blend.
-- `layers/*.png`: the cropped RGBA pixels for each addressable layer.
+## Coordinate contract
 
-The loader renders the layers once to a native canvas and `drawStage` then scales
-that canvas alongside the existing live crew simulation. The old photonic-room image
-remains a fallback if the manifest or a layer cannot load.
+- Source and layer anchors use 1926×816 native pixels, origin top-left.
+- `source` describes the immutable PNG crop; `x/y` are destination anchors.
+- Rotation is in degrees about that anchor. `scaleX/scaleY` act locally.
+- All static and animated pixels are composited in native space in manifest z-order.
+- Only after composition is the result normalized to **1600×678**. Existing
+  chair/glass/occlusion samplers require this size; do not pass them native artwork.
+- The editor uses `nativeArtwork`. The app uses `render(time, active)`/`artwork`.
+- Editing furniture does **not** automatically move agent routing, hotspots or
+  occlusion masks; those live in the simulation/workstation modules and must be
+  updated deliberately. This editor is a layer editor, not a navigation editor.
 
-Layer boundaries preserve every source pixel at rest, but they are ownership masks
-traced by hand. Moving a layer cannot reconstruct background that was hidden behind
-it. If a moved object also changes an interaction point, walkable area, or occlusion,
-update the corresponding TypeScript scene manifest and workstation constants too.
+## Alec working state
 
-The standalone editor and its offline verification report are in the companion
-Library bundle. The repo integration intentionally keeps only the runtime source of
-truth and its pixel layers.
+`drawStage` passes the existing seated/working predicate and `commandTime` into the
+source compositor. Review also counts as working; idle, offline and walking to
+the station do not. Other crew behavior is unchanged.
 
+Seven layers have editable `working` metadata:
 
-Working-state motion: the four `alec-column-*` layers have a `motion` block with native-pixel amplitude/speed/phase. The runtime activates it only when Alec is working. Four `alec-column-*-repair` layers cover the original slots, so the desk does not show holes. The command-bay light pass also animates the desk rail and data packets as one working system.
+- `command-desk`, `hologram-left`, `hologram-right`: `kind: console`, with a
+  source-pixel light sweep/pulse. Changes are restricted to the layer alpha and
+  bright cyan/amber pixels. No stage-space rail or duplicate screens are drawn.
+- Four `alec-column-*` layers: `kind: light-column`, `amplitude` in native pixels,
+  `speed` in radians/second, and `phase` in radians. A luminous RGB residual moves
+  additively; the opaque rectangular crop itself never moves.
+- For `console`, `speed` is sweeps/second, `phase` is a sweep offset, `intensity`
+  controls the color response. The effect is regenerated in local layer space.
+
+Idle uses untouched source sprites and is byte-exact at native resolution. Working
+columns use row-edge interpolation to estimate pixels hidden by the light. This
+is **not** recovered ground-truth background or semantic segmentation. Ambient
+glow outside the crop remains baked. Do not claim arbitrary movement is lossless.
+The four former `alec-column-repair-*` PNG files are obsolete and removed; old
+fixed-coordinate command-rail overlays are removed as well.
+
+Effects update at 24 fps; agents retain their animation loop. Failed manifest or
+PNG loads reject, evict the failed cache entry, and are reported by `StarshipLab`
+in the console and bridge log before it shows the static fallback. A retry can
+recover. Relative URLs are resolved against `document.baseURI` and layer URLs
+against the fetched manifest's absolute URL.
+
+## Verification
+
+Browser regression script: `webview-ui/test/browser/starshipPixelScene.browser.cjs`.
+Requires Node supporting `node:module.stripTypeScriptTypes` (tested Node 24),
+`playwright`, and the existing `pngjs` dependency. Install Playwright in your test
+environment and its Chromium browser; run from `webview-ui`:
+
+```sh
+node test/browser/starshipPixelScene.browser.cjs
+```
+
+Optionally set `PIXEL_SCENE_BROWSER` to a local Chromium executable and
+`SCENE_QA_OUTPUT` to a result directory. Default results go to `.tmp/pixel-scene-qa`
+at repo root. The script intercepts asset requests locally, runs the real renderer
+and HTML editor, and checks relative/subpath URLs, idle equality, active-frame
+differences, alpha coverage, return to idle, moved-layer alignment, failure/retry,
+JSON export, mobile overflow and the real `drawStage` state handoff.
+
+Recorded local Chromium result: idle RGBA exact; 65,959 changed pixels in working
+frame vs idle; 65,006 changed pixels across two working frames; zero transparent
+pixels and zero JS errors. Targeted strict TypeScript compilation also passes for
+the edited app/renderer/editor modules and their dependency graph. These checks
+do not establish that a deployed production site has pulled this branch.
