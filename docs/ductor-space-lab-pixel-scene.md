@@ -25,3 +25,6 @@ update the corresponding TypeScript scene manifest and workstation constants too
 The standalone editor and its offline verification report are in the companion
 Library bundle. The repo integration intentionally keeps only the runtime source of
 truth and its pixel layers.
+
+
+Working-state motion: the four `alec-column-*` layers have a `motion` block with native-pixel amplitude/speed/phase. The runtime activates it only when Alec is working. Four `alec-column-*-repair` layers cover the original slots, so the desk does not show holes. The command-bay light pass also animates the desk rail and data packets as one working system.

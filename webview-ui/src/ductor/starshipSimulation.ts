@@ -2316,6 +2316,15 @@ export function drawStage(
   drawStarshipExterior(ctx, background, timeSec, !!livingArtwork, bgImg);
   const commander = agents.find((agent) => agent.name === 'Alec');
   const seated = !!commander && isAgentWorkingAtAssignedStation(commander);
+  if (pixelScene) {
+    pixelScene.drawAnimatedLayers(
+      ctx,
+      timeSec,
+      CW / pixelScene.width,
+      CH / pixelScene.height,
+      seated,
+    );
+  }
   // Alec's activity is rendered by the original command-bay practical lights.
   // Keep the baked room artwork intact and do not add a second screen layer.
   // Keep QA telemetry, then apply the shared glass accents below the crew.

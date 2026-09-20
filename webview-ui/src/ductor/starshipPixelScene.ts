@@ -10,6 +10,14 @@
 export const PIXEL_SCENE_MANIFEST =
   'themes/ductor-space-lab/pixel-scene/scene.json';
 
+export interface StarshipPixelSceneMotion {
+  axis: 'x' | 'y';
+  amplitude: number;
+  speed: number;
+  phase: number;
+  activeWhen?: 'alec-working' | 'always';
+}
+
 export interface StarshipPixelSceneLayer {
   id: string;
   source: { x: number; y: number; w: number; h: number };
@@ -24,6 +32,7 @@ export interface StarshipPixelSceneLayer {
   tint?: string;
   tintMix?: number;
   asset: string;
+  motion?: StarshipPixelSceneMotion;
 }
 
 export interface StarshipPixelSceneManifest {
@@ -33,16 +42,33 @@ export interface StarshipPixelSceneManifest {
   height: number;
   sourceSHA256?: string;
   layers: StarshipPixelSceneLayer[];
+  motion?: {
+    enabledWhen?: 'alec-working' | 'always';
+    units?: 'native-source-pixels';
+    note?: string;
+  };
+}
+
+type RenderCanvas = HTMLCanvasElement | OffscreenCanvas;
+
+interface LoadedPixelSceneLayer {
+  layer: StarshipPixelSceneLayer;
+  sprite: RenderCanvas;
 }
 
 export interface StarshipPixelScene {
   readonly width: number;
   readonly height: number;
-  readonly artwork: HTMLCanvasElement | OffscreenCanvas;
+  readonly artwork: RenderCanvas;
   readonly manifest: StarshipPixelSceneManifest;
+  drawAnimatedLayers(
+    ctx: CanvasRenderingContext2D,
+    timeSec: number,
+    worldScaleX: number,
+    worldScaleY: number,
+    alecWorking: boolean,
+  ): void;
 }
-
-type RenderCanvas = HTMLCanvasElement | OffscreenCanvas;
 
 const cache = new Map<string, Promise<StarshipPixelScene | undefined>>();
 
@@ -79,6 +105,53 @@ function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
 }
 
+function prepareSprite(
+  image: HTMLImageElement,
+  layer: StarshipPixelSceneLayer,
+): RenderCanvas | undefined {
+  const width = Math.max(1, Math.round(layer.source.w));
+  const height = Math.max(1, Math.round(layer.source.h));
+  const sprite = createCanvas(width, height);
+  const spriteCtx = sprite ? context2d(sprite) : null;
+  if (!sprite || !spriteCtx) return undefined;
+
+  spriteCtx.clearRect(0, 0, width, height);
+  spriteCtx.imageSmoothingEnabled = true;
+  spriteCtx.imageSmoothingQuality = 'high';
+  spriteCtx.drawImage(image, 0, 0, width, height);
+
+  const tintMix = clamp01(layer.tintMix ?? 0);
+  if (tintMix > 0 && layer.tint && layer.tint.toLowerCase() !== '#ffffff') {
+    spriteCtx.globalCompositeOperation = 'source-atop';
+    spriteCtx.globalAlpha = tintMix;
+    spriteCtx.fillStyle = layer.tint;
+    spriteCtx.fillRect(0, 0, width, height);
+    spriteCtx.globalAlpha = 1;
+    spriteCtx.globalCompositeOperation = 'source-over';
+  }
+  return sprite;
+}
+
+function drawLayer(
+  ctx: CanvasRenderingContext2D,
+  loaded: LoadedPixelSceneLayer,
+  worldScaleX: number,
+  worldScaleY: number,
+  offsetX: number,
+  offsetY: number,
+): void {
+  const { layer, sprite } = loaded;
+  const width = Math.max(1, Math.round(layer.source.w));
+  const height = Math.max(1, Math.round(layer.source.h));
+  ctx.save();
+  ctx.translate((layer.x + offsetX) * worldScaleX, (layer.y + offsetY) * worldScaleY);
+  ctx.rotate((layer.rotation * Math.PI) / 180);
+  ctx.scale((layer.scaleX || 1) * worldScaleX, (layer.scaleY || 1) * worldScaleY);
+  ctx.globalAlpha = clamp01(layer.opacity ?? 1);
+  ctx.drawImage(sprite, 0, 0, width, height);
+  ctx.restore();
+}
+
 function renderManifest(
   manifestUrl: string,
   manifest: StarshipPixelSceneManifest,
@@ -98,43 +171,56 @@ function renderManifest(
   ).then((loaded) => {
     if (loaded.some(({ layer, image }) => layer.visible && !image)) return undefined;
 
+    const prepared: LoadedPixelSceneLayer[] = [];
+    for (const { layer, image } of loaded) {
+      if (!layer.visible || !image) continue;
+      const sprite = prepareSprite(image, layer);
+      if (!sprite) return undefined;
+      prepared.push({ layer, sprite });
+    }
+
     ctx.clearRect(0, 0, manifest.width, manifest.height);
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
 
-    for (const { layer, image } of loaded) {
-      if (!layer.visible || !image) continue;
-      const width = Math.max(1, Math.round(layer.source.w));
-      const height = Math.max(1, Math.round(layer.source.h));
-      const sprite = createCanvas(width, height);
-      const spriteCtx = sprite ? context2d(sprite) : null;
-      if (!sprite || !spriteCtx) return undefined;
-
-      spriteCtx.clearRect(0, 0, width, height);
-      spriteCtx.imageSmoothingEnabled = true;
-      spriteCtx.imageSmoothingQuality = 'high';
-      spriteCtx.drawImage(image, 0, 0, width, height);
-
-      const tintMix = clamp01(layer.tintMix ?? 0);
-      if (tintMix > 0 && layer.tint && layer.tint.toLowerCase() !== '#ffffff') {
-        spriteCtx.globalCompositeOperation = 'source-atop';
-        spriteCtx.globalAlpha = tintMix;
-        spriteCtx.fillStyle = layer.tint;
-        spriteCtx.fillRect(0, 0, width, height);
-        spriteCtx.globalAlpha = 1;
-        spriteCtx.globalCompositeOperation = 'source-over';
-      }
-
-      ctx.save();
-      ctx.translate(layer.x, layer.y);
-      ctx.rotate((layer.rotation * Math.PI) / 180);
-      ctx.scale(layer.scaleX || 1, layer.scaleY || 1);
-      ctx.globalAlpha = clamp01(layer.opacity ?? 1);
-      ctx.drawImage(sprite, 0, 0, width, height);
-      ctx.restore();
+    for (const loadedLayer of prepared) {
+      if (loadedLayer.layer.motion) continue;
+      drawLayer(ctx, loadedLayer, 1, 1, 0, 0);
     }
 
-    return { width: manifest.width, height: manifest.height, artwork, manifest };
+    const animatedLayers = prepared.filter(({ layer }) => Boolean(layer.motion));
+    const drawAnimatedLayers = (
+      target: CanvasRenderingContext2D,
+      timeSec: number,
+      worldScaleX: number,
+      worldScaleY: number,
+      alecWorking: boolean,
+    ): void => {
+      for (const loadedLayer of animatedLayers) {
+        const motion = loadedLayer.layer.motion;
+        if (!motion) continue;
+        const active = motion.activeWhen === 'always' || (motion.activeWhen === 'alec-working' && alecWorking);
+        const offset = active
+          ? Math.sin(timeSec * motion.speed + motion.phase) * motion.amplitude
+          : 0;
+        drawLayer(
+          target,
+          loadedLayer,
+          worldScaleX,
+          worldScaleY,
+          motion.axis === 'x' ? offset : 0,
+          motion.axis === 'y' ? offset : 0,
+        );
+      }
+    };
+
+    return {
+      width: manifest.width,
+      height: manifest.height,
+      artwork,
+      manifest,
+      drawAnimatedLayers,
+    };
   });
 }
 

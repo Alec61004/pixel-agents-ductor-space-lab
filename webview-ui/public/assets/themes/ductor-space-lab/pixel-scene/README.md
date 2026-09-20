@@ -11,3 +11,6 @@ This directory is the runtime counterpart of the standalone layer editor.
 Layer coordinates are top-left anchors in source pixels. Edit `x` and `y` for exact movement; `z` changes draw order; `scaleX`, `scaleY`, `rotation`, `opacity`, `visible`, `tint`, and `tintMix` are also supported. The original scene remains pixel-identical while every layer is at its authored transform.
 
 The cut boundaries are hand-traced ownership masks. They preserve every source pixel but cannot reveal background that was hidden behind an object after it is moved. The editor bundle and verification report remain in the Library for offline editing and exact reconstruction checks.
+
+
+The four Alec column layers support `motion: { axis, amplitude, speed, phase, activeWhen }`. Their repair layers remain underneath at the original slot; this keeps the source editable while animated movement reveals a filled desk surface.

@@ -2260,6 +2260,106 @@
       "pixelCount": 4124
     },
     {
+      "id": "alec-column-left-repair",
+      "name": "Phục hồi nền · Cột sáng Alec · trái",
+      "group": "alec-column-repair",
+      "source": {
+        "x": 633,
+        "y": 329,
+        "w": 10,
+        "h": 45
+      },
+      "x": 633,
+      "y": 329,
+      "z": 32.5,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/alec-column-repair-left.png",
+      "maskPolygon": null,
+      "maskQuality": "repair-patch-for-runtime-motion",
+      "pixelCount": 450
+    },
+    {
+      "id": "alec-column-center-repair",
+      "name": "Phục hồi nền · Cột sáng Alec · giữa",
+      "group": "alec-column-repair",
+      "source": {
+        "x": 654,
+        "y": 308,
+        "w": 11,
+        "h": 67
+      },
+      "x": 654,
+      "y": 308,
+      "z": 32.5,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/alec-column-repair-center.png",
+      "maskPolygon": null,
+      "maskQuality": "repair-patch-for-runtime-motion",
+      "pixelCount": 732
+    },
+    {
+      "id": "alec-column-right-repair",
+      "name": "Phục hồi nền · Cột sáng Alec · phải",
+      "group": "alec-column-repair",
+      "source": {
+        "x": 669,
+        "y": 327,
+        "w": 11,
+        "h": 47
+      },
+      "x": 669,
+      "y": 327,
+      "z": 32.5,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/alec-column-repair-right.png",
+      "maskPolygon": null,
+      "maskQuality": "repair-patch-for-runtime-motion",
+      "pixelCount": 517
+    },
+    {
+      "id": "alec-column-side-repair",
+      "name": "Phục hồi nền · Cột sáng Alec · cụm phải",
+      "group": "alec-column-repair",
+      "source": {
+        "x": 818,
+        "y": 315,
+        "w": 12,
+        "h": 60
+      },
+      "x": 818,
+      "y": 315,
+      "z": 32.5,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/alec-column-repair-side.png",
+      "maskPolygon": null,
+      "maskQuality": "repair-patch-for-runtime-motion",
+      "pixelCount": 720
+    },
+    {
       "id": "alec-column-left",
       "name": "Cột sáng Alec · trái",
       "group": "alec-columns",
@@ -2299,7 +2399,14 @@
         ]
       ],
       "maskQuality": "manual-region-not-semantic-ground-truth",
-      "pixelCount": 450
+      "pixelCount": 450,
+      "motion": {
+        "axis": "y",
+        "amplitude": 5,
+        "speed": 1.15,
+        "phase": 0,
+        "activeWhen": "alec-working"
+      }
     },
     {
       "id": "alec-column-center",
@@ -2341,7 +2448,14 @@
         ]
       ],
       "maskQuality": "manual-region-not-semantic-ground-truth",
-      "pixelCount": 732
+      "pixelCount": 732,
+      "motion": {
+        "axis": "y",
+        "amplitude": 5,
+        "speed": 1.15,
+        "phase": 1.3,
+        "activeWhen": "alec-working"
+      }
     },
     {
       "id": "alec-column-right",
@@ -2383,7 +2497,14 @@
         ]
       ],
       "maskQuality": "manual-region-not-semantic-ground-truth",
-      "pixelCount": 517
+      "pixelCount": 517,
+      "motion": {
+        "axis": "y",
+        "amplitude": 5,
+        "speed": 1.15,
+        "phase": 2.6,
+        "activeWhen": "alec-working"
+      }
     },
     {
       "id": "alec-column-side",
@@ -2425,7 +2546,14 @@
         ]
       ],
       "maskQuality": "manual-region-not-semantic-ground-truth",
-      "pixelCount": 720
+      "pixelCount": 720,
+      "motion": {
+        "axis": "y",
+        "amplitude": 5,
+        "speed": 1.15,
+        "phase": 0.7,
+        "activeWhen": "alec-working"
+      }
     },
     {
       "id": "airlock-strip",
@@ -2680,5 +2808,10 @@
       "pixelCount": 765
     }
   ],
-  "sourceAsset": "scene-reference.png"
+  "sourceAsset": "scene-reference.png",
+  "motion": {
+    "enabledWhen": "alec-working",
+    "units": "native-source-pixels",
+    "note": "Four command lights move vertically with a repaired backing patch; desk and hologram working lighting remains in the runtime pass."
+  }
 }
