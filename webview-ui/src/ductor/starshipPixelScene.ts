@@ -169,9 +169,8 @@ function drawPrepared(ctx: Context, p: Prepared, time: number, working: boolean)
   else if (effect.kind === 'light-column' && p.backing && p.light) {
     ctx.drawImage(p.backing,0,0);
     ctx.globalCompositeOperation='lighter';
-    const columnPulse = 0.5 + 0.5 * Math.sin(time * effect.speed + effect.phase);
     const offset = Math.sin(time*effect.speed+effect.phase)*(effect.amplitude ?? 8);
-    ctx.globalAlpha=Math.min(1, l.opacity * (0.78 + 0.42 * columnPulse) * effect.intensity);
+    ctx.globalAlpha=l.opacity*(0.85+0.15*Math.sin(time*effect.speed+effect.phase));
     ctx.drawImage(p.light,0,offset);
   } else {
     // Modify the layer's source pixels in its own local coordinates, not stage coordinates.
@@ -181,22 +180,15 @@ function drawPrepared(ctx: Context, p: Prepared, time: number, working: boolean)
     for(let y=0;y<h;y++) for(let x=0;x<w;x++) {
       const i=(y*w+x)*4;
       if(!d[i+3]) continue;
-      const cyan = Math.max(0,Math.min(1,(Math.min(d[i+1],d[i+2])-d[i]*0.55-10)/55));
-      const amber = Math.max(0,Math.min(1,(d[i]-d[i+2]-28)/82));
-      // Give the dark metallic desk a restrained moving reflection too. This
-      // keeps the whole authored desk alive instead of only recolouring the
-      // brightest LEDs, while remaining inside the layer's own alpha mask.
-      const surface = Math.max(0, Math.min(1, (Math.max(d[i], d[i+1], d[i+2]) - 18) / 190)) * 0.22;
-      const emissive = Math.max(cyan, amber);
+      const cyan = Math.max(0,Math.min(1,(Math.min(d[i+1],d[i+2])-d[i]*0.55-16)/70));
+      const amber = Math.max(0,Math.min(1,(d[i]-d[i+2]-35)/100));
       const distance=Math.abs(x/w-scan);
-      const sweep=Math.max(0,1-Math.min(distance,1-distance)/0.23);
-      const pulse=0.5+0.5*Math.sin(time*3.2+effect.phase+x/w*5);
-      const response=Math.max(emissive, surface);
-      const amount=Math.min(1,effect.intensity*(0.24+pulse*0.32+sweep*0.78)*response);
+      const sweep=Math.max(0,1-Math.min(distance,1-distance)/0.16);
+      const pulse=0.5+0.5*Math.sin(time*3+effect.phase+x/w*5);
+      const amount=Math.min(0.9,effect.intensity*(0.18+pulse*0.25+sweep*0.6));
       for(let c=0;c<3;c++) {
-        const target=cyan >= amber ? [95,235,255][c] : amber > 0 ? [255,190,70][c] : [34,126,156][c];
-        d[i+c]=Math.min(255, Math.round(d[i+c]+(target-d[i+c])*amount));
-        if (emissive > 0) d[i+c]=Math.min(255, Math.round(d[i+c]*(1 + emissive * (0.12 + pulse*0.18))));
+        const target=cyan >= amber ? [95,235,255][c] : [255,190,70][c];
+        d[i+c]=Math.round(d[i+c]+(target-d[i+c])*Math.max(cyan,amber)*amount);
       }
     }
     e.putImageData(pixels,0,0); ctx.drawImage(p.effect,0,0);

@@ -568,9 +568,9 @@
       "pixelCount": 68284,
       "working": {
         "kind": "console",
-        "speed": 0.42,
+        "speed": 0.28,
         "phase": 0,
-        "intensity": 1.45
+        "intensity": 1
       }
     },
     {
@@ -1280,9 +1280,9 @@
       "pixelCount": 9553,
       "working": {
         "kind": "console",
-        "speed": 0.42,
+        "speed": 0.28,
         "phase": 0.3,
-        "intensity": 1.45
+        "intensity": 1
       }
     },
     {
@@ -1368,9 +1368,9 @@
       "pixelCount": 8619,
       "working": {
         "kind": "console",
-        "speed": 0.42,
+        "speed": 0.28,
         "phase": 0.65,
-        "intensity": 1.45
+        "intensity": 1
       }
     },
     {
@@ -2323,7 +2323,7 @@
         "amplitude": 8,
         "speed": 2.1,
         "phase": 0,
-        "intensity": 1.25
+        "intensity": 1
       }
     },
     {
@@ -2372,7 +2372,7 @@
         "amplitude": 8,
         "speed": 2.1,
         "phase": 1.3,
-        "intensity": 1.25
+        "intensity": 1
       }
     },
     {
@@ -2421,7 +2421,7 @@
         "amplitude": 8,
         "speed": 2.1,
         "phase": 2.6,
-        "intensity": 1.25
+        "intensity": 1
       }
     },
     {
@@ -2470,7 +2470,7 @@
         "amplitude": 8,
         "speed": 2.1,
         "phase": 0.7,
-        "intensity": 1.25
+        "intensity": 1
       }
     },
     {
