@@ -1,5 +1,5 @@
 import { getPixelSceneGroupDelta, loadStarshipPixelScene, PIXEL_SCENE_MANIFEST } from './starshipPixelScene.js';
-import type { StarshipPixelScene, StarshipPixelSceneManifest } from './starshipPixelScene.js';
+import type { StarshipPixelSceneManifest } from './starshipPixelScene.js';
 
 const el = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const status = el<HTMLDivElement>('status');
