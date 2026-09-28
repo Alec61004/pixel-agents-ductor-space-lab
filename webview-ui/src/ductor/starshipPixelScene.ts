@@ -10,6 +10,8 @@ export interface StarshipPixelSceneLayer {
   tint?: string; tintMix?: number;
   asset: string;
   group?: string;
+  /** Named polygons in layer-local pixels. Only enabled details may animate. */
+  details?: { id: string; label: string; polygon: [number, number][]; animate: boolean }[];
   working?: {
     kind: 'light-column' | 'console';
     amplitude?: number;
@@ -43,6 +45,8 @@ interface Prepared {
   backing?: Surface;
   light?: Surface;
   tintKey?: string;
+  maskKey?: string;
+  mask?: Uint8ClampedArray;
 }
 export interface StarshipPixelScene {
   readonly width: number;
@@ -89,6 +93,12 @@ function validate(m: StarshipPixelSceneManifest): void {
         l.scaleX <= 0 || l.scaleY <= 0 || l.opacity < 0 || l.opacity > 1 || typeof l.visible !== 'boolean') throw new Error(`Invalid transform: ${l.id}`);
     if (l.tint !== undefined && !/^#[\da-f]{6}$/i.test(l.tint)) throw new Error(`Invalid tint: ${l.id}`);
     if (l.tintMix !== undefined && (!Number.isFinite(l.tintMix) || l.tintMix < 0 || l.tintMix > 1)) throw new Error(`Invalid tint mix: ${l.id}`);
+    if (l.details && (!Array.isArray(l.details) || l.details.some(detail =>
+      !detail.id || typeof detail.animate !== 'boolean' || !Array.isArray(detail.polygon) ||
+      detail.polygon.length < 3 || detail.polygon.some(point =>
+        !Array.isArray(point) || point.length !== 2 || !point.every(Number.isFinite))))) {
+      throw new Error(`Invalid detail mask: ${l.id}`);
+    }
     if (l.working && (!['console','light-column'].includes(l.working.kind) || ![l.working.speed,l.working.phase,l.working.intensity,l.working.amplitude ?? 0].every(Number.isFinite))) throw new Error(`Invalid working effect: ${l.id}`);
   }
   if (m.groups) {
@@ -164,14 +174,34 @@ function drawPrepared(ctx: Context, p: Prepared, time: number, working: boolean)
   if (!l.visible || !l.opacity) return;
   refreshTint(p);
   const {w,h} = l.source;
+  // Missing detail masks fail closed: never brighten an entire broad crop.
+  const maskKey = JSON.stringify(l.details ?? []);
+  if (p.maskKey !== maskKey) {
+    const mask = canvas(w,h), m = context(mask);
+    for (const detail of l.details ?? []) {
+      if (!detail.animate || detail.polygon.length < 3) continue;
+      m.beginPath();
+      detail.polygon.forEach(([x,y],i) => i ? m.lineTo(x,y) : m.moveTo(x,y));
+      m.closePath(); m.fillStyle = '#fff'; m.fill();
+    }
+    p.mask = m.getImageData(0,0,w,h).data; p.maskKey = maskKey;
+  }
   ctx.save(); ctx.translate(l.x,l.y); ctx.rotate(l.rotation*Math.PI/180); ctx.scale(l.scaleX,l.scaleY); ctx.globalAlpha=l.opacity;
-  if (!working || !effect) ctx.drawImage(p.sprite,0,0);
+  if (!working || !effect || !l.details?.some(detail => detail.animate)) ctx.drawImage(p.sprite,0,0);
   else if (effect.kind === 'light-column' && p.backing && p.light) {
-    ctx.drawImage(p.backing,0,0);
-    ctx.globalCompositeOperation='lighter';
+    const e = context(p.effect); e.clearRect(0,0,w,h); e.drawImage(p.backing,0,0);
+    e.globalCompositeOperation='lighter';
     const offset = Math.sin(time*effect.speed+effect.phase)*(effect.amplitude ?? 8);
-    ctx.globalAlpha=l.opacity*(0.85+0.15*Math.sin(time*effect.speed+effect.phase));
-    ctx.drawImage(p.light,0,offset);
+    e.globalAlpha=0.85+0.15*Math.sin(time*effect.speed+effect.phase);
+    e.drawImage(p.light,0,offset);
+    e.globalAlpha=1; e.globalCompositeOperation='source-over';
+    const original = context(p.sprite).getImageData(0,0,w,h);
+    const pixels = e.getImageData(0,0,w,h);
+    for(let i=0;i<pixels.data.length;i+=4) {
+      if (p.mask![i+3] !== 255) for(let c=0;c<4;c++) pixels.data[i+c]=original.data[i+c];
+      pixels.data[i+3]=original.data[i+3];
+    }
+    e.putImageData(pixels,0,0); ctx.drawImage(p.effect,0,0);
   } else {
     // Modify the layer's source pixels in its own local coordinates, not stage coordinates.
     const e = context(p.effect); e.clearRect(0,0,w,h); e.drawImage(p.sprite,0,0);
@@ -179,7 +209,7 @@ function drawPrepared(ctx: Context, p: Prepared, time: number, working: boolean)
     const scan = ((time*effect.speed+effect.phase)%1+1)%1;
     for(let y=0;y<h;y++) for(let x=0;x<w;x++) {
       const i=(y*w+x)*4;
-      if(!d[i+3]) continue;
+      if(!d[i+3] || p.mask![i+3] !== 255) continue;
       const cyan = Math.max(0,Math.min(1,(Math.min(d[i+1],d[i+2])-d[i]*0.55-16)/70));
       const amber = Math.max(0,Math.min(1,(d[i]-d[i+2]-35)/100));
       const distance=Math.abs(x/w-scan);

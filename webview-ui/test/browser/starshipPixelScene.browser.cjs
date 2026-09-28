@@ -57,7 +57,17 @@ fs.mkdirSync(out,{recursive:true});
  const a=await frame('working-a',0.5,true),b=await frame('working-b',1.8,true);
  let diff=0,motion=0,desk=0,holes=0;
  for(let i=0;i<a.length;i+=4){if(a[i+3]!==255)holes++;if(a[i]!==idle[i]||a[i+1]!==idle[i+1]||a[i+2]!==idle[i+2]){diff++;const x=(i/4)%1926,y=Math.floor(i/4/1926);if(x>370&&x<960&&y>320&&y<533)desk++;}if(a[i]!==b[i]||a[i+1]!==b[i+1]||a[i+2]!==b[i+2])motion++;}
- check('working visibly changes desk-owned pixels',desk>3000);check('animation changes across frames',motion>3000);check('no transparent gaps while working',holes===0);
+ check('working changes isolated desk details',desk>100);check('animation changes across frames',motion>100);check('no transparent gaps while working',holes===0);
+ const manifest=JSON.parse(fs.readFileSync(path.join(assets,'scene.json'),'utf8'));
+ const polygons=manifest.layers.filter(l=>l.working).flatMap(l=>(l.details||[]).filter(d=>d.animate).map(d=>d.polygon.map(([x,y])=>[x+l.x,y+l.y])));
+ function inside(x,y,p) {let yes=false;for(let i=0,j=p.length-1;i<p.length;j=i++){const [xi,yi]=p[i],[xj,yj]=p[j];if((yi>y)!==(yj>y)&&x<(xj-xi)*(y-yi)/(yj-yi)+xi)yes=!yes;}return yes;}
+ let escaped=0;
+ for(const data of [a,b])for(let i=0;i<data.length;i+=4) {
+   if(data[i]===idle[i]&&data[i+1]===idle[i+1]&&data[i+2]===idle[i+2])continue;
+   const x=(i/4)%1926+.5,y=Math.floor(i/4/1926)+.5;
+   if(!polygons.some(p=>inside(x,y,p)))escaped++;
+ }
+ check('zero changed pixels outside named desk detail masks',escaped===0);
  check('working to idle restores original',idle.equals(await frame('idle-restored',20,false)));
  check('failed manifest load rejects and retry recovers',await page.evaluate(async()=>{let rejected=false;try{await module.loadStarshipPixelScene('/retry/scene.json')}catch{rejected=true}return rejected&&Boolean(await module.loadStarshipPixelScene('/retry/scene.json'));}));
  check('failed image load rejects and retry recovers',await page.evaluate(async()=>{let rejected=false;try{await module.loadStarshipPixelScene('/assets/themes/ductor-space-lab/pixel-scene/bad-layer.json')}catch{rejected=true}return rejected&&Boolean(await module.loadStarshipPixelScene('/assets/themes/ductor-space-lab/pixel-scene/bad-layer.json'));}));

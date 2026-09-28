@@ -13,6 +13,7 @@
   <main>
     <section>
       <nav><button id="idle" aria-pressed="true">Idle</button><button id="working" aria-pressed="false">Alec working</button><button id="pause">Tạm dừng</button><button id="focus">Phóng to bàn Alec</button><button id="all">Toàn cảnh</button><label class="check"><input id="anchors" type="checkbox" checked> Hiện anchor</label></nav>
+      <label class="check"><input id="details" type="checkbox" checked> Ranh giới chi tiết: xanh = thân bàn, vàng = vùng hiệu ứng</label>
       <canvas id="scene" width="1926" height="816" aria-label="Preview scene layers"></canvas>
       <div id="status" role="status">Đang tải layer…</div>
       <small>Idle giữ ảnh gốc. Anchor màu vàng là điểm mà agent và vùng occlusion dùng trong app; di chuyển nhóm Alec sẽ cập nhật cả cụm theo cùng hệ tọa độ.</small>

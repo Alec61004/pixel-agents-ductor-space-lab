@@ -48,6 +48,20 @@ async function start() {
   const message = (mode: string) => { status.dataset.error = 'false'; status.textContent = `${scene.manifest.layers.length} layers đã tải · ${mode} · renderer dùng chung với app`; };
   const setMode = (active: boolean) => { working = active; time = 0; el('idle').setAttribute('aria-pressed', String(!active)); el('working').setAttribute('aria-pressed', String(active)); message(active ? 'WORKING' : 'IDLE'); };
   function drawAnchor(): void {
+    if (el<HTMLInputElement>('details').checked) {
+      ctx.save();
+      if(crop) { ctx.scale(canvas.width/crop.w,canvas.height/crop.h); ctx.translate(-crop.x,-crop.y); }
+      for(const layer of scene.manifest.layers) {
+        if(!layer.visible) continue;
+        ctx.save();ctx.translate(layer.x,layer.y);ctx.rotate(layer.rotation*Math.PI/180);ctx.scale(layer.scaleX,layer.scaleY);
+        for(const detail of layer.details ?? []) {
+          ctx.beginPath(); detail.polygon.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.closePath();
+          ctx.strokeStyle=detail.animate?'#ffcc55':'#67ffb0';ctx.lineWidth=0.8;ctx.stroke();
+        }
+        ctx.restore();
+      }
+      ctx.restore();
+    }
     if (!el<HTMLInputElement>('anchors').checked) return;
     const group = scene.manifest.groups?.['alec-command-bay']; if (!group) return;
     const delta = getPixelSceneGroupDelta(scene.manifest, group.id);
