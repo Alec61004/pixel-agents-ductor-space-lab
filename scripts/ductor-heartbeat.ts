@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { randomBytes } from 'node:crypto';
+import * as path from 'node:path';
 
 import {
   type CloudPublisherState,
@@ -36,6 +37,7 @@ async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const statusFile = takeOption(args, '--file');
   const configFile = takeOption(args, '--config');
+  const suppliedObservationFile = takeOption(args, '--observation-file');
   const intervalRaw = takeOption(args, '--interval-ms') ?? '5000';
   const once = takeFlag(args, '--once');
   const intervalMs = Number(intervalRaw);
@@ -51,6 +53,7 @@ async function main(): Promise<void> {
   }
 
   const repositoryRoot = process.cwd();
+  const observationFile = suppliedObservationFile ?? path.join(path.dirname(statusFile), 'observation.json');
   const config = loadCloudPublisherConfig(repositoryRoot, configFile);
   let stopped = false;
   let pendingTimer: NodeJS.Timeout | null = null;
@@ -74,6 +77,7 @@ async function main(): Promise<void> {
         repositoryRoot,
         state,
         statusFile,
+        observationFile,
       });
       failures = 0;
       if (once) return;

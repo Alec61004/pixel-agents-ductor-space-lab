@@ -9,6 +9,18 @@ export type DuctorStatusProvenance =
   | 'stale-cloud-heartbeat'
   | 'cloud-unavailable';
 
+export type DuctorObservationTab = 'code' | 'terminal' | 'browser';
+
+export interface DuctorObservationFeed {
+  title: string;
+  content: string;
+  updatedAt: string;
+}
+
+export interface DuctorRoleObservation {
+  feeds: Partial<Record<DuctorObservationTab, DuctorObservationFeed>>;
+}
+
 export interface DuctorRoleStatus {
   name: DuctorRoleName;
   presence: 'online' | 'offline';
@@ -17,6 +29,8 @@ export interface DuctorRoleStatus {
   updatedAt: string;
   derived: boolean;
   provenance?: DuctorStatusProvenance;
+  /** Explicitly shared live code, terminal, or browser evidence. */
+  observation?: DuctorRoleObservation;
 }
 
 export interface DuctorStatusSnapshot {
@@ -166,7 +180,7 @@ function isDuctorRoleStatus(
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const role = value as Record<string, unknown>;
   const roleKeys = isCloud
-    ? new Set(['name', 'presence', 'state', 'taskLabel', 'updatedAt', 'derived', 'provenance'])
+    ? new Set(['name', 'presence', 'state', 'taskLabel', 'updatedAt', 'derived', 'provenance', 'observation'])
     : new Set(['name', 'presence', 'state', 'taskLabel', 'updatedAt', 'derived']);
   if (Object.keys(role).some((key) => !roleKeys.has(key))) return false;
   const state = role['state'];
@@ -189,6 +203,37 @@ function isDuctorRoleStatus(
   return (
     typeof provenance === 'string' &&
     PROVENANCE.has(provenance as DuctorStatusProvenance) &&
-    (provenance === 'operator-agent-reported') !== derived
+    (provenance === 'operator-agent-reported') !== derived &&
+    isDuctorObservation(role['observation'])
   );
+}
+
+function isDuctorObservation(value: unknown): value is DuctorRoleObservation | undefined {
+  if (value === undefined) return true;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const observation = value as Record<string, unknown>;
+  if (Object.keys(observation).length !== 1 || !('feeds' in observation)) return false;
+  const feeds = observation['feeds'];
+  if (!feeds || typeof feeds !== 'object' || Array.isArray(feeds)) return false;
+  const allowedTabs = new Set<DuctorObservationTab>(['code', 'terminal', 'browser']);
+  const entries = Object.entries(feeds);
+  if (entries.length === 0 || entries.some(([tab]) => !allowedTabs.has(tab as DuctorObservationTab))) {
+    return false;
+  }
+  return entries.every(([, feed]) => {
+    if (!feed || typeof feed !== 'object' || Array.isArray(feed)) return false;
+    const candidate = feed as Record<string, unknown>;
+    return (
+      Object.keys(candidate).length === 3 &&
+      typeof candidate['title'] === 'string' &&
+      candidate['title'].length > 0 &&
+      candidate['title'].length <= 96 &&
+      candidate['title'].trim() === candidate['title'] &&
+      typeof candidate['content'] === 'string' &&
+      candidate['content'].length > 0 &&
+      candidate['content'].length <= 1_536 &&
+      !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(candidate['content']) &&
+      isCanonicalTimestamp(candidate['updatedAt'])
+    );
+  });
 }

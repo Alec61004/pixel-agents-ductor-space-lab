@@ -42,6 +42,7 @@ export function AgentObservationPanel({
   const [viewAll, setViewAll] = useState(false);
   const selected = snapshot?.roles.find((entry) => entry.name === role);
   const color = observationColor(role);
+  const feed = selected?.observation?.feeds[tab];
   const lastSeen = useMemo(() => {
     if (!selected?.updatedAt) return 'No signal yet';
     return new Intl.DateTimeFormat(undefined, {
@@ -69,7 +70,7 @@ export function AgentObservationPanel({
         .observation-feed { display: flex; flex-direction: column; }
         .observation-feed-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid rgba(109,167,182,.22); color: #a9d4df; font-size: 10px; }
         .observation-live-dot { width: 7px; height: 7px; border-radius: 50%; background: ${color}; box-shadow: 0 0 9px ${color}; }
-        .observation-empty { display: grid; place-items: center; flex: 1; padding: 30px; text-align: center; color: #8ba9b5; font-size: 11px; line-height: 1.7; background: repeating-linear-gradient(0deg, rgba(84,186,205,.025) 0 1px, transparent 1px 4px); }
+        .observation-empty { display: grid; place-items: center; flex: 1; padding: 30px; text-align: center; color: #8ba9b5; font-size: 11px; line-height: 1.7; background: repeating-linear-gradient(0deg, rgba(84,186,205,.025) 0 1px, transparent 1px 4px); }\n        .observation-content { margin: 0; min-height: 0; flex: 1; overflow: auto; padding: 14px; color: #d7eef1; font: 11px/1.55 'JetBrains Mono', monospace; white-space: pre; tab-size: 2; background: repeating-linear-gradient(0deg, rgba(84,186,205,.025) 0 1px, transparent 1px 4px); }
         .observation-empty strong { color: #d5f4f8; }
         .observation-meta { padding: 12px; overflow: auto; }
         .observation-meta h3 { margin: 0 0 14px; color: #9fdfea; font-size: 10px; letter-spacing: 1px; }
@@ -115,13 +116,17 @@ export function AgentObservationPanel({
           </div>
           <div className="observation-body">
             <div className="observation-feed">
-              <div className="observation-feed-head"><span>{tabTitle(tab)} FEED</span><span className="observation-live-dot" /></div>
-              <div className="observation-empty"><div><strong>Waiting for the {tabTitle(tab).toLowerCase()} mirror.</strong><br />The current heartbeat truthfully publishes presence, state and task only. The session bridge will populate this pane when it receives a real agent event.</div></div>
+              <div className="observation-feed-head"><span>{feed?.title ?? `${tabTitle(tab)} FEED`}</span><span className="observation-live-dot" /></div>
+              {feed ? (
+                <pre className="observation-content">{feed.content}</pre>
+              ) : (
+                <div className="observation-empty"><div><strong>Waiting for the {tabTitle(tab).toLowerCase()} mirror.</strong><br />This panel only renders an explicitly shared live feed; it never invents code, terminal output, or browser activity.</div></div>
+              )}
             </div>
             <aside className="observation-meta">
               <h3>SESSION EVIDENCE</h3>
               <div className="observation-metric"><span>STATE</span><b>{selected?.state?.toUpperCase() ?? 'OFFLINE'}</b></div>
-              <div className="observation-metric"><span>LAST SIGNAL</span><b>{lastSeen}</b></div>
+              <div className="observation-metric"><span>{feed ? 'FEED UPDATED' : 'LAST SIGNAL'}</span><b>{feed ? new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(new Date(feed.updatedAt)) : lastSeen}</b></div>
               <div className="observation-metric"><span>PROVENANCE</span><b>{selected?.provenance ?? 'No cloud evidence'}</b></div>
             </aside>
           </div>
