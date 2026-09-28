@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 
 import type { DuctorRoleName, DuctorStatusSnapshot } from './ductorLabModel.js';
 import { ductorAssetUrl } from './ductorLabModel.js';
+import { AgentObservationPanel } from './AgentObservationPanel.js';
+import { getObservationStationAt } from './agentObservation.js';
 import { loadStarshipImage } from './starshipImageLoader.js';
 import {
   ALEC_SEATED_ASSET,
@@ -184,6 +186,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
   const [speedMult, setSpeedMult] = useState(1);
   const [showStations, setShowStations] = useState(false);
   const [rosterCollapsed, setRosterCollapsed] = useState(true);
+  const [observedRole, setObservedRole] = useState<DuctorRoleName | null>(null);
   const [logText, setLogText] = useState('Bridge systems online. Crew assigned to stations.');
 
   const speedMultRef = useRef(speedMult);
@@ -254,6 +257,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
         );
       }
       pushLog(`Focus lock: ${a.name} [${a.currentStation || a.role}].`);
+      setObservedRole(a.name);
     }
   };
 
@@ -266,6 +270,13 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
     const { scale, offX, offY } = lastTransformRef.current;
     const px = (mx - offX) / (scale || 1);
     const py = (my - offY) / (scale || 1);
+    const observationStation = getObservationStationAt({ x: px, y: py });
+    if (observationStation) {
+      setObservedRole(observationStation.role);
+      setRosterCollapsed(true);
+      pushLog(`Observation opened: ${observationStation.label}.`);
+      return;
+    }
     const hotspot = getStarshipSceneHotspotAt({ x: px, y: py });
     if (hotspot) {
       pushLog(hotspot.statusLabel);
@@ -614,6 +625,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
         .starship-stat b { color: var(--cyan); font-weight: 600; }
         .starship-main { flex: 1 1 auto; position: relative; display: flex; min-height: 0; width: 100%; height: 100%; overflow: hidden; }
         .starship-stage-wrap { flex: 1 1 auto; position: relative; width: 100%; height: 100%; min-width: 0; background: #000; touch-action: none; }
+        .starship-main.observation-open .starship-stage-wrap { flex: 0 1 38%; }
         .starship-stage {
           display: block; width: 100%; height: 100%;
           image-rendering: auto; cursor: crosshair;
@@ -740,6 +752,8 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
           .starship-stat-cell { min-width: 72px; padding: 4px 6px; }
           .starship-stat-cell.sync { display: none; }
           .starship-aside { top: 8px; right: 8px; width: min(280px, calc(100vw - 16px)); max-width: calc(100vw - 16px); }
+          .starship-main.observation-open { flex-direction: column; overflow: auto; }
+          .starship-main.observation-open .starship-stage-wrap { flex: 0 0 auto; min-height: 240px; height: 38vh; }
           .starship-footer { padding: 8px 12px; font-size: 9px; flex-wrap: wrap; gap: 8px; }
         }
         @media (max-width: 480px) {
@@ -786,7 +800,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
         </div>
       </header>
 
-      <main className="starship-main">
+      <main className={`starship-main ${observedRole ? 'observation-open' : ''}`}>
         <div id="stage-wrap" ref={stageWrapRef} className="starship-stage-wrap">
           <canvas
             id="stage"
@@ -825,7 +839,16 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
           </div>
         </div>
 
-        <aside ref={rosterRef} className={`starship-aside ${rosterCollapsed ? 'collapsed' : ''}`}>
+        {observedRole ? (
+          <AgentObservationPanel
+            role={observedRole}
+            snapshot={snapshot}
+            onSelectRole={(role) => setObservedRole(role)}
+            onClose={() => setObservedRole(null)}
+          />
+        ) : null}
+
+        {!observedRole ? <aside ref={rosterRef} className={`starship-aside ${rosterCollapsed ? 'collapsed' : ''}`}>
           <button
             type="button"
             className="starship-roster-head"
@@ -967,7 +990,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
                 Signals marked derived are presence-based; no message, prompt, or token is read.
               </div>
           </div>
-        </aside>
+        </aside> : null}
       </main>
 
       <footer className="starship-footer">
