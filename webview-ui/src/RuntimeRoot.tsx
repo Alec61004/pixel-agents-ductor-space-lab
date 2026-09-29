@@ -4,8 +4,6 @@ import { useDuctorLabStatus } from './ductor/useDuctorLabStatus.js';
 
 const FALLBACK_DUCTOR_STATUS: DuctorStatusSnapshot = {
   theme: 'ductor-space-lab',
-  stale: true,
-  publishedAt: new Date(0).toISOString(),
   roles: [
     {
       name: 'Alec',
@@ -14,7 +12,6 @@ const FALLBACK_DUCTOR_STATUS: DuctorStatusSnapshot = {
       taskLabel: null,
       updatedAt: new Date(0).toISOString(),
       derived: true,
-      provenance: 'cloud-unavailable',
     },
     {
       name: 'Kevin',
@@ -23,7 +20,6 @@ const FALLBACK_DUCTOR_STATUS: DuctorStatusSnapshot = {
       taskLabel: null,
       updatedAt: new Date(0).toISOString(),
       derived: true,
-      provenance: 'cloud-unavailable',
     },
     {
       name: 'Benjamin',
@@ -32,7 +28,6 @@ const FALLBACK_DUCTOR_STATUS: DuctorStatusSnapshot = {
       taskLabel: null,
       updatedAt: new Date(0).toISOString(),
       derived: true,
-      provenance: 'cloud-unavailable',
     },
   ],
 };
