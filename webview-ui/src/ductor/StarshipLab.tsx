@@ -327,8 +327,9 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
       if (!disposed) benjaminQAReady = ready;
     });
 
-    // Only the background and original sheet are required. Optional sprite
-    // failures must neither block the scene nor replace a complete character.
+    // V7 is the authoritative room renderer. The Canvas background is retained
+    // only as a compatibility fallback if the V7 manifest cannot load.
+    // Agent sprites still require the original sheet.
     void Promise.all([
       loadStarshipImage(bgImg, resolvedBgUrl),
       loadStarshipImage(sheetImg, resolvedSheetUrl),
