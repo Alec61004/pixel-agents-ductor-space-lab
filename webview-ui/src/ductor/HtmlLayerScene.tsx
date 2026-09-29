@@ -24,7 +24,6 @@ interface SceneManifest {
 export interface HtmlLayerSceneProps {
   manifestUrl: string;
   sceneRef: RefObject<HTMLDivElement | null>;
-  activity: Readonly<Record<'Alec' | 'Kevin' | 'Benjamin', boolean>>;
   onReady: (ready: boolean) => void;
 }
 
@@ -38,7 +37,6 @@ export interface HtmlLayerSceneProps {
 export function HtmlLayerScene({
   manifestUrl,
   sceneRef,
-  activity,
   onReady,
 }: HtmlLayerSceneProps) {
   const [manifest, setManifest] = useState<SceneManifest | null>(null);
@@ -85,20 +83,11 @@ export function HtmlLayerScene({
     >
       {manifest.layers.map((layer) => {
         if (!layer.visible) return null;
-        const effect =
-          /^agent-alec-v7-.*(skyline|tiny-lights)/.test(layer.id) && activity.Alec
-            ? 'alec'
-            : layer.id === 'agent-kevin-v7-hologram-orbit' && activity.Kevin
-              ? 'kevin'
-              : /^agent-benjamin-v7-.*(brain-hologram|hud-panel|tiny-lights)/.test(layer.id) &&
-                  activity.Benjamin
-                ? 'benjamin'
-                : '';
         const assetUrl = new URL(layer.asset, manifestBase).href;
         return (
           <span
             key={layer.id}
-            className={`starship-v7-layer${effect ? ` starship-v7-layer--${effect}` : ''}`}
+            className="starship-v7-layer"
             data-layer-id={layer.id}
             data-layer-name={layer.name}
             style={{
