@@ -51,7 +51,7 @@ export function HtmlLayerScene({ manifestUrl, sceneRef, onReady, onError }: Html
           }}
         >
           <img
-            className={effectClass(layer.id, activity)}
+            className="starship-v7-layer-image"
             src={new URL(layer.asset, manifestUrl).href}
             alt=""
             draggable={false}
