@@ -28,6 +28,7 @@ import { drawStarshipExterior } from './starshipExterior.js';
 import { drawBridgeMaterialPass, drawBridgeLightPass } from './starshipSceneV2.js';
 import { getPixelSceneGroupDelta } from './starshipPixelScene.js';
 import type { StarshipPixelScene, StarshipPixelSceneManifest } from './starshipPixelScene.js';
+import { drawInRoomAgentWorkstations } from './starshipInRoomWorkstations.js';
 
 export const SHEET_COLS = 16;
 export const SHEET_ROWS = 8;
@@ -2360,7 +2361,10 @@ export function drawStage(
     qa: qaActive,
   });
   drawFloorMarkers(ctx, showStations);
-  if (livingArtwork) drawHologramTopGlow(ctx, agents, timeSec);
+  if (livingArtwork) {
+    drawInRoomAgentWorkstations(ctx, agents, timeSec);
+    drawHologramTopGlow(ctx, agents, timeSec);
+  }
   const mapOperator = agents.find((agent) => agent.name === 'Kevin');
   if (livingArtwork && mapOperator) drawKevinStarMapControl(ctx, mapOperator);
 
