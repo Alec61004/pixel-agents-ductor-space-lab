@@ -2364,7 +2364,7 @@ export function drawStage(
     navigation: agents.some(a => a.name === 'Kevin' && isKevinUsingStarMap(a)),
     qa: qaActive,
   });
-  drawFloorMarkers(ctx, showStations);
+  if (!roomInDom) drawFloorMarkers(ctx, showStations);
   if (livingArtwork) drawHologramTopGlow(ctx, agents, timeSec);
   const mapOperator = agents.find((agent) => agent.name === 'Kevin');
   if (livingArtwork && mapOperator) drawKevinStarMapControl(ctx, mapOperator);
@@ -2444,7 +2444,7 @@ export function drawStage(
   // repaint the background over their lower bodies: that made walking sprites
   // appear to lose their torso and legs during station transitions.
 
-  drawWorkstationLabels(ctx, agents, !!livingArtwork);
+  if (!roomInDom) drawWorkstationLabels(ctx, agents, !!livingArtwork);
 
   ctx.restore();
 
