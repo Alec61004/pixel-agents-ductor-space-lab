@@ -836,11 +836,6 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
           <HtmlLayerScene
             manifestUrl={htmlSceneManifestUrl}
             sceneRef={htmlSceneRef}
-            activity={{
-              alec: Boolean(agentsList.find((agent) => agent.name === 'Alec' && isAgentWorkingAtAssignedStation(agent))),
-              kevin: Boolean(agentsList.find((agent) => agent.name === 'Kevin' && isAgentWorkingAtAssignedStation(agent))),
-              benjamin: Boolean(agentsList.find((agent) => agent.name === 'Benjamin' && isAgentWorkingAtAssignedStation(agent))),
-            }}
             onReady={onHtmlSceneReady}
             onError={onHtmlSceneError}
           />
