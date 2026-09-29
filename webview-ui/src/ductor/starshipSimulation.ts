@@ -28,7 +28,6 @@ import { drawStarshipExterior } from './starshipExterior.js';
 import { drawBridgeMaterialPass, drawBridgeLightPass } from './starshipSceneV2.js';
 import { getPixelSceneGroupDelta } from './starshipPixelScene.js';
 import type { StarshipPixelScene, StarshipPixelSceneManifest } from './starshipPixelScene.js';
-import { drawInRoomAgentWorkstations } from './starshipInRoomWorkstations.js';
 
 export const SHEET_COLS = 16;
 export const SHEET_ROWS = 8;
@@ -2305,6 +2304,8 @@ export function drawStage(
   kevinStarMapImg?: HTMLImageElement,
   benjaminQAImg?: HTMLImageElement,
   pixelScene?: StarshipPixelScene,
+  /** V7 room is independently rendered as DOM layers behind this canvas. */
+  roomInDom: boolean = false,
 ): { scale: number; offX: number; offY: number } {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, rect.width, rect.height);
@@ -2318,27 +2319,30 @@ export function drawStage(
 
   const commander = agents.find((agent) => agent.name === 'Alec');
   const seated = !!commander && isAgentWorkingAtAssignedStation(commander);
-  const livingArtwork = pixelScene?.render(commander?.commandTime ?? timeSec, seated) ?? getLivingRoomArtwork(livingRoomImg);
+  const livingArtwork = roomInDom
+    ? undefined
+    : pixelScene?.render(commander?.commandTime ?? timeSec, seated) ?? getLivingRoomArtwork(livingRoomImg);
   const background = livingArtwork ?? bgImg;
   const chairArtwork = livingArtwork;
   // V2 scene uses the existing authored room as geometry, but the final
   // presentation is rebuilt with a cleaner contrast curve and dedicated
   // material/light passes. This keeps character routing and device anchors
   // stable while we progressively replace the old baked look.
-  ctx.save();
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
-  // The production artwork is already graded; preserve its highlight rolloff.
-  ctx.filter = 'none';
-  ctx.drawImage(background, offX, offY, drawW, drawH);
-  ctx.restore();
+  if (!roomInDom) {
+    ctx.save();
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.filter = 'none';
+    ctx.drawImage(background, offX, offY, drawW, drawH);
+    ctx.restore();
+  }
 
   ctx.save();
   ctx.translate(offX, offY);
   ctx.scale(scale, scale);
 
   if (livingArtwork) drawBridgeMaterialPass(ctx, timeSec);
-  drawStarshipExterior(ctx, background, timeSec, !!livingArtwork, bgImg);
+  if (!roomInDom) drawStarshipExterior(ctx, background, timeSec, !!livingArtwork, bgImg);
   // Alec's activity is rendered by the original command-bay practical lights.
   // Keep the baked room artwork intact and do not add a second screen layer.
   // Keep QA telemetry, then apply the shared glass accents below the crew.
@@ -2350,7 +2354,7 @@ export function drawStage(
     qaTime: qaOperator?.qaTime,
     navigation: agents.some(a => a.name === 'Kevin' && isKevinUsingStarMap(a)),
   }, livingArtwork);
-  else drawWorkstationScreens(
+  else if (!roomInDom) drawWorkstationScreens(
     ctx,
     agents.filter((agent) => agent.name === 'Benjamin'),
     timeSec,
@@ -2361,10 +2365,7 @@ export function drawStage(
     qa: qaActive,
   });
   drawFloorMarkers(ctx, showStations);
-  if (livingArtwork) {
-    drawInRoomAgentWorkstations(ctx, agents, timeSec);
-    drawHologramTopGlow(ctx, agents, timeSec);
-  }
+  if (livingArtwork) drawHologramTopGlow(ctx, agents, timeSec);
   const mapOperator = agents.find((agent) => agent.name === 'Kevin');
   if (livingArtwork && mapOperator) drawKevinStarMapControl(ctx, mapOperator);
 
@@ -2426,7 +2427,7 @@ export function drawStage(
         a.y,
         bodyHeight,
       );
-      drawQAContact(ctx, a.qaTime ?? 0, a.x, a.y, getDepthScale(a.y), a.animFrame);
+      if (!roomInDom) drawQAContact(ctx, a.qaTime ?? 0, a.x, a.y, getDepthScale(a.y), a.animFrame);
       drawAgentStatusBubble(ctx, a, bodyHeight, -4);
       continue;
     }

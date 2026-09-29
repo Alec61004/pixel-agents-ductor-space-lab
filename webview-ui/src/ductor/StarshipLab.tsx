@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { DuctorRoleName, DuctorStatusSnapshot } from './ductorLabModel.js';
 import { ductorAssetUrl } from './ductorLabModel.js';
 import { AgentObservationPanel } from './AgentObservationPanel.js';
+import { HtmlLayerScene } from './HtmlLayerScene.js';
 import { getObservationStationAt } from './agentObservation.js';
 import { loadStarshipImage } from './starshipImageLoader.js';
 import {
@@ -178,11 +179,13 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
   const stageWrapRef = useRef<HTMLDivElement | null>(null);
   const stageCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const starsCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const htmlSceneRef = useRef<HTMLDivElement | null>(null);
   const rosterRef = useRef<HTMLElement | null>(null);
 
   const agentsRef = useRef<StarshipAgent[]>(createInitialCrew(snapshot));
   const [agentsList, setAgentsList] = useState<StarshipAgent[]>(agentsRef.current);
   const [loaded, setLoaded] = useState(false);
+  const [htmlSceneReady, setHtmlSceneReady] = useState(false);
   const [speedMult, setSpeedMult] = useState(1);
   const [showStations, setShowStations] = useState(false);
   const [rosterCollapsed, setRosterCollapsed] = useState(true);
@@ -202,6 +205,17 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
     null,
   );
   const logQueueRef = useRef<string[]>(['Bridge systems online. Crew assigned to stations.']);
+
+  const htmlSceneManifestUrl = ductorAssetUrl(
+    typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL ? import.meta.env.BASE_URL : './',
+    'themes/ductor-space-lab/pixel-scene-v7/scene.json',
+  );
+  const onHtmlSceneReady = useCallback(() => setHtmlSceneReady(true), []);
+  const onHtmlSceneError = useCallback((error: unknown) => {
+    console.error('[Space Lab] V7 HTML scene failed; retaining canvas fallback.', error);
+    setHtmlSceneReady(false);
+  }, []);
+
 
   const pushLog = (msg: string) => {
     logQueueRef.current.push(msg);
@@ -501,7 +515,12 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
             kevinStarMapReady ? kevinStarMapImg : undefined,
             benjaminQAReady ? benjaminQAImg : undefined,
             pixelSceneReady ? pixelScene : undefined,
+            htmlSceneReady,
           );
+          if (htmlSceneReady && htmlSceneRef.current) {
+            const { scale, offX, offY } = lastTransformRef.current;
+            htmlSceneRef.current.style.transform = `matrix(${scale * CW / 1926}, 0, 0, ${scale * CH / 816}, ${offX}, ${offY})`;
+          }
         }
       }
 
@@ -543,7 +562,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
       }
       cancelAnimationFrame(animId);
     };
-  }, [resolvedBgUrl, resolvedSheetUrl, resolvedWalkUrl]);
+  }, [htmlSceneReady, resolvedBgUrl, resolvedSheetUrl, resolvedWalkUrl]);
 
   const isCloud = Boolean(snapshot?.publishedAt);
   const isStale = Boolean(snapshot?.stale);
@@ -625,9 +644,21 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
         .starship-stat b { color: var(--cyan); font-weight: 600; }
         .starship-main { flex: 1 1 auto; position: relative; display: flex; min-height: 0; width: 100%; height: 100%; overflow: hidden; }
         .starship-stage-wrap { flex: 1 1 auto; position: relative; width: 100%; height: 100%; min-width: 0; background: #000; touch-action: none; }
+        .starship-html-scene {
+          position: absolute; left: 0; top: 0; width: 1926px; height: 816px; overflow: visible;
+          transform-origin: 0 0; pointer-events: none; z-index: 1; contain: layout paint style;
+        }
+        .starship-html-layer { position: absolute; top: 0; left: 0; display: block; transform-origin: 0 0; }
+        .starship-html-layer img { display: block; width: 100%; height: 100%; image-rendering: auto; }
+        .starship-html-layer img.alec-working { animation: v7-alec-signal 1.8s ease-in-out infinite; }
+        .starship-html-layer img.kevin-working { animation: v7-kevin-orbit 2.5s ease-in-out infinite; }
+        .starship-html-layer img.benjamin-working { animation: v7-benjamin-scan 1.45s ease-in-out infinite; }
+        @keyframes v7-alec-signal { 0%,100% { opacity:.68; filter:brightness(.9); } 50% { opacity:1; filter:brightness(1.28) saturate(1.25); } }
+        @keyframes v7-kevin-orbit { 0%,100% { opacity:.72; transform:translateY(0); filter:brightness(.95); } 50% { opacity:1; transform:translateY(-3px); filter:brightness(1.3) saturate(1.2); } }
+        @keyframes v7-benjamin-scan { 0%,100% { opacity:.68; filter:brightness(.88); } 50% { opacity:1; filter:brightness(1.34) saturate(1.24); } }
         .starship-main.observation-open .starship-stage-wrap { flex: 0 1 38%; }
         .starship-stage {
-          display: block; width: 100%; height: 100%;
+          position: absolute; inset: 0; z-index: 2; display: block; width: 100%; height: 100%;
           image-rendering: auto; cursor: crosshair;
         }
         .starship-scanline {
@@ -639,7 +670,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
           position: absolute; inset: 0; pointer-events: none;
           box-shadow: inset 0 0 96px 18px rgba(2,11,17,0.20);
         }
-        .starship-starfield { position: absolute; inset: 0; pointer-events: none; }
+        .starship-starfield { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
         .starship-loading {
           position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
           flex-direction: column; gap: 10px; background: var(--void); z-index: 5;
@@ -739,7 +770,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
         .starship-btn:hover { border-color: var(--cyan); color: #fff; }
         .starship-btn.active { border-color: var(--cyan); color: var(--cyan); box-shadow: inset 0 -2px rgba(119,245,229,.18); }
         @media (prefers-reduced-motion: reduce) {
-          .starship-dot, .starship-spinner { animation: none; }
+          .starship-dot, .starship-spinner, .starship-html-layer img { animation: none; }
           .starship-card, .starship-aside { transition: none; }
         }
         .starship-btn:focus-visible {
@@ -802,6 +833,17 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
 
       <main className={`starship-main ${observedRole ? 'observation-open' : ''}`}>
         <div id="stage-wrap" ref={stageWrapRef} className="starship-stage-wrap">
+          <HtmlLayerScene
+            manifestUrl={htmlSceneManifestUrl}
+            sceneRef={htmlSceneRef}
+            activity={{
+              alec: Boolean(agentsList.find((agent) => agent.name === 'Alec' && isAgentWorkingAtAssignedStation(agent))),
+              kevin: Boolean(agentsList.find((agent) => agent.name === 'Kevin' && isAgentWorkingAtAssignedStation(agent))),
+              benjamin: Boolean(agentsList.find((agent) => agent.name === 'Benjamin' && isAgentWorkingAtAssignedStation(agent))),
+            }}
+            onReady={onHtmlSceneReady}
+            onError={onHtmlSceneError}
+          />
           <canvas
             id="stage"
             ref={stageCanvasRef}
