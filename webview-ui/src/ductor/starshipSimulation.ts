@@ -2349,6 +2349,7 @@ export function drawStage(
   livingRoomImg?: HTMLImageElement,
   kevinStarMapImg?: HTMLImageElement,
   benjaminQAImg?: HTMLImageElement,
+  roomInDom: boolean = false,
 ): { scale: number; offX: number; offY: number } {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, rect.width, rect.height);
@@ -2360,27 +2361,26 @@ export function drawStage(
   const offX = (rect.width - drawW) / 2 + panX;
   const offY = (rect.height - drawH) / 2 + panY;
 
-  const livingArtwork = getLivingRoomArtwork(livingRoomImg);
+  // The V7 scene is rendered as native HTML image layers. Keep the Canvas
+  // transparent in that mode so old baked room art and HTML layers never overlap.
+  const livingArtwork = roomInDom ? undefined : getLivingRoomArtwork(livingRoomImg);
   const background = livingArtwork ?? bgImg;
   const chairArtwork = livingArtwork;
-  // V2 scene uses the existing authored room as geometry, but the final
-  // presentation is rebuilt with a cleaner contrast curve and dedicated
-  // material/light passes. This keeps character routing and device anchors
-  // stable while we progressively replace the old baked look.
-  ctx.save();
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
-  // The production artwork is already graded; preserve its highlight rolloff.
-  ctx.filter = 'none';
-  ctx.drawImage(background, offX, offY, drawW, drawH);
-  ctx.restore();
+  if (!roomInDom) {
+    ctx.save();
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.filter = 'none';
+    ctx.drawImage(background, offX, offY, drawW, drawH);
+    ctx.restore();
+  }
 
   ctx.save();
   ctx.translate(offX, offY);
   ctx.scale(scale, scale);
 
   if (livingArtwork) drawBridgeMaterialPass(ctx, timeSec);
-  drawStarshipExterior(ctx, background, timeSec, !!livingArtwork, bgImg);
+  if (!roomInDom) drawStarshipExterior(ctx, background, timeSec, !!livingArtwork, bgImg);
   const commander = agents.find((agent) => agent.name === 'Alec');
   const seated = !!commander && isAgentWorkingAtAssignedStation(commander);
   if (livingArtwork && seated) {
@@ -2399,7 +2399,7 @@ export function drawStage(
     qaTime: qaOperator?.qaTime,
     navigation: agents.some(a => a.name === 'Kevin' && isKevinUsingStarMap(a)),
   }, livingArtwork);
-  else drawWorkstationScreens(
+  else if (!roomInDom) drawWorkstationScreens(
     ctx,
     agents.filter((agent) => agent.name === 'Benjamin'),
     timeSec,
@@ -2411,7 +2411,7 @@ export function drawStage(
     navigation: agents.some(a => a.name === 'Kevin' && isKevinUsingStarMap(a)),
     qa: qaActive,
   });
-  drawFloorMarkers(ctx, showStations);
+  if (!roomInDom) drawFloorMarkers(ctx, showStations);
   if (livingArtwork) drawHologramTopGlow(ctx, agents, timeSec);
   const mapOperator = agents.find((agent) => agent.name === 'Kevin');
   if (livingArtwork && mapOperator) drawKevinStarMapControl(ctx, mapOperator);
@@ -2471,7 +2471,9 @@ export function drawStage(
         a.y,
         bodyHeight,
       );
-      drawQAContact(ctx, a.qaTime ?? 0, a.x, a.y, getDepthScale(a.y), a.animFrame);
+      if (!roomInDom) {
+        drawQAContact(ctx, a.qaTime ?? 0, a.x, a.y, getDepthScale(a.y), a.animFrame);
+      }
       drawAgentStatusBubble(ctx, a, bodyHeight, -4);
       continue;
     }
@@ -2488,7 +2490,7 @@ export function drawStage(
   // repaint the background over their lower bodies: that made walking sprites
   // appear to lose their torso and legs during station transitions.
 
-  drawWorkstationLabels(ctx, agents, !!livingArtwork);
+  if (!roomInDom) drawWorkstationLabels(ctx, agents, !!livingArtwork);
 
   ctx.restore();
 

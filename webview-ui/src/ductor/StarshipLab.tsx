@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { DuctorRoleName, DuctorStatusSnapshot } from './ductorLabModel.js';
 import { ductorAssetUrl } from './ductorLabModel.js';
 import { loadStarshipImage } from './starshipImageLoader.js';
+import { HtmlLayerScene } from './HtmlLayerScene.js';
 import {
   ALEC_SEATED_ASSET,
   ALEC_SEATED_ATLAS,
@@ -171,10 +172,18 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
       : './',
     'themes/ductor-space-lab/crew-walk.png?v=2',
   );
+  const v7SceneManifestUrl = ductorAssetUrl(
+    typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL
+      ? import.meta.env.BASE_URL
+      : './',
+    'themes/ductor-space-lab/pixel-scene-v7/scene.json',
+  );
 
   const stageWrapRef = useRef<HTMLDivElement | null>(null);
   const stageCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const starsCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const htmlSceneRef = useRef<HTMLDivElement | null>(null);
+  const htmlSceneReadyRef = useRef(false);
   const rosterRef = useRef<HTMLElement | null>(null);
 
   const agentsRef = useRef<StarshipAgent[]>(createInitialCrew(snapshot));
@@ -198,6 +207,9 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
     null,
   );
   const logQueueRef = useRef<string[]>(['Bridge systems online. Crew assigned to stations.']);
+  const handleV7SceneReady = useCallback((ready: boolean) => {
+    htmlSceneReadyRef.current = ready;
+  }, []);
 
   const pushLog = (msg: string) => {
     logQueueRef.current.push(msg);
@@ -315,8 +327,9 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
       if (!disposed) benjaminQAReady = ready;
     });
 
-    // Only the background and original sheet are required. Optional sprite
-    // failures must neither block the scene nor replace a complete character.
+    // V7 is the authoritative room renderer. The Canvas background is retained
+    // only as a compatibility fallback if the V7 manifest cannot load.
+    // Agent sprites still require the original sheet.
     void Promise.all([
       loadStarshipImage(bgImg, resolvedBgUrl),
       loadStarshipImage(sheetImg, resolvedSheetUrl),
@@ -456,6 +469,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
         if (ctx) {
           const rect = wrap.getBoundingClientRect();
           const dpr = window.devicePixelRatio || 1;
+          const roomInDom = htmlSceneReadyRef.current;
           lastTransformRef.current = drawStage(
             ctx,
             bgImg,
@@ -474,7 +488,13 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
             livingRoomReady ? livingRoomImg : undefined,
             kevinStarMapReady ? kevinStarMapImg : undefined,
             benjaminQAReady ? benjaminQAImg : undefined,
+            roomInDom,
           );
+          if (roomInDom && htmlSceneRef.current) {
+            const { scale, offX, offY } = lastTransformRef.current;
+            htmlSceneRef.current.style.transform =
+              `matrix(${(scale * CW) / 1926}, 0, 0, ${(scale * CH) / 816}, ${offX}, ${offY})`;
+          }
         }
       }
 
@@ -483,7 +503,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
         if (starsCtx) {
           const rect = wrap.getBoundingClientRect();
           const dpr = window.devicePixelRatio || 1;
-          if (livingRoomReady) {
+          if (livingRoomReady || htmlSceneReadyRef.current) {
             // Room V3 and the exterior pass already contain window stars. The
             // old full-screen layer placed duplicate stars on hull and floor.
             starsCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -597,11 +617,20 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
         .starship-stat-label { display: block; margin-bottom: 2px; font-size: 7.5px; letter-spacing: .8px; color: var(--dim); }
         .starship-stat b { color: var(--cyan); font-weight: 600; }
         .starship-main { flex: 1 1 auto; position: relative; display: flex; min-height: 0; width: 100%; height: 100%; overflow: hidden; }
-        .starship-stage-wrap { flex: 1 1 auto; position: relative; width: 100%; height: 100%; min-width: 0; background: #000; touch-action: none; }
+        .starship-stage-wrap { flex: 1 1 auto; position: relative; width: 100%; height: 100%; min-width: 0; overflow: hidden; background: #000; touch-action: none; }
         .starship-stage {
-          display: block; width: 100%; height: 100%;
+          position: absolute; inset: 0; z-index: 2; display: block; width: 100%; height: 100%;
           image-rendering: auto; cursor: crosshair;
         }
+        .starship-v7-room {
+          position: absolute; inset: 0 auto auto 0; z-index: 1; pointer-events: none;
+          transform-origin: 0 0; will-change: transform;
+        }
+        .starship-v7-layer {
+          position: absolute; display: block; transform-origin: 0 0;
+          pointer-events: none; will-change: transform, opacity;
+        }
+        .starship-v7-layer img { display: block; width: 100%; height: 100%; user-select: none; }
         .starship-scanline {
           position: absolute; inset: 0; pointer-events: none;
           background: repeating-linear-gradient(0deg, rgba(0,0,0,0.045) 0px, rgba(0,0,0,0.045) 1px, transparent 1px, transparent 3px);
@@ -611,7 +640,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
           position: absolute; inset: 0; pointer-events: none;
           box-shadow: inset 0 0 96px 18px rgba(2,11,17,0.20);
         }
-        .starship-starfield { position: absolute; inset: 0; pointer-events: none; }
+        .starship-starfield { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
         .starship-loading {
           position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
           flex-direction: column; gap: 10px; background: var(--void); z-index: 5;
@@ -772,6 +801,11 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
 
       <main className="starship-main">
         <div id="stage-wrap" ref={stageWrapRef} className="starship-stage-wrap">
+          <HtmlLayerScene
+            manifestUrl={v7SceneManifestUrl}
+            sceneRef={htmlSceneRef}
+            onReady={handleV7SceneReady}
+          />
           <canvas
             id="stage"
             ref={stageCanvasRef}
