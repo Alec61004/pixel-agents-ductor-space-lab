@@ -75,8 +75,10 @@ export function AgentObservationPanel({
   const [tab, setTab] = useState<ObservationTab>('code');
   const [viewAll, setViewAll] = useState(false);
   const selected = snapshot?.roles.find((entry) => entry.name === role);
-  const feed = selected?.observation?.feeds[tab];
-  const terminalFeed = selected?.observation?.feeds.terminal;
+  // The live heartbeat stays status-only until the next audited mirror transport.
+  // This visual shell must never fabricate code, terminal, or browser contents.
+  const feed: { title: string; content: string; updatedAt: string } | undefined = undefined;
+  const terminalFeed: { content: string } | undefined = undefined;
   const workstation = WORKSTATION[role];
   const accent = observationColor(role);
   const progress = stateProgress(selected?.state);

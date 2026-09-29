@@ -8,11 +8,6 @@ import {
   type CloudPublishSnapshot,
 } from '../../../../../api/_lib/ductorCloud.js';
 import { type DuctorStatusFile, readDuctorStatusFile } from './ductorStatusFile.js';
-import {
-  DUCTOR_OBSERVATION_TABS,
-  type DuctorObservationFile,
-  readDuctorObservationFile,
-} from './ductorObservationFile.js';
 
 const CONFIG_MAX_BYTES = 4 * 1024;
 const CLOUD_KEEPALIVE_MS = 30 * 60_000;
@@ -106,30 +101,9 @@ export function loadCloudPublisherConfig(
   return { origin: origin.origin, writeSecret, protectionBypassSecret };
 }
 
-function buildCloudObservation(
-  observations: DuctorObservationFile | null | undefined,
-  name: (typeof CLOUD_ROLE_NAMES)[number],
-  now: Date,
-): CloudPublishSnapshot['roles'][number]['observation'] {
-  const source = observations?.roles[name];
-  if (!source) return undefined;
-  const feeds: NonNullable<CloudPublishSnapshot['roles'][number]['observation']>['feeds'] = {};
-  for (const tab of DUCTOR_OBSERVATION_TABS) {
-    const feed = source[tab];
-    if (!feed) continue;
-    const observedAt = Date.parse(feed.updatedAt);
-    if (now.getTime() - observedAt > CLOUD_STALE_MS || observedAt - now.getTime() > 60_000) {
-      continue;
-    }
-    feeds[tab] = { ...feed };
-  }
-  return Object.keys(feeds).length > 0 ? { feeds } : undefined;
-}
-
 export function buildCloudPublishSnapshot(
   status: DuctorStatusFile | null,
   now: Date,
-  observations?: DuctorObservationFile | null,
 ): CloudPublishSnapshot {
   const publishedAt = now.toISOString();
   return {
@@ -160,8 +134,6 @@ export function buildCloudPublishSnapshot(
           provenance: 'stale-local-report' as const,
         };
       }
-      const observation =
-        report.state === 'offline' ? undefined : buildCloudObservation(observations, name, now);
       return {
         name,
         presence: report.state === 'offline' ? ('offline' as const) : ('online' as const),
@@ -170,7 +142,6 @@ export function buildCloudPublishSnapshot(
         updatedAt: report.updatedAt,
         derived: false,
         provenance: 'operator-agent-reported' as const,
-        ...(observation ? { observation } : {}),
       };
     }),
   };
@@ -248,13 +219,9 @@ export async function runCloudPublisherCycle(input: {
   repositoryRoot: string;
   state: CloudPublisherState;
   statusFile: string;
-  observationFile?: string;
 }): Promise<CloudPublisherState> {
   const status = readDuctorStatusFile(input.repositoryRoot, input.statusFile);
-  const observations = input.observationFile
-    ? readDuctorObservationFile(input.repositoryRoot, input.observationFile)
-    : null;
-  const snapshot = buildCloudPublishSnapshot(status, input.now, observations);
+  const snapshot = buildCloudPublishSnapshot(status, input.now);
   const fingerprint = snapshotFingerprint(snapshot);
   if (
     !shouldPublishCloudSnapshot(

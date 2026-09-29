@@ -98,7 +98,7 @@
     "build": "npm run compile",
     "ductor:lab": "PIXEL_AGENTS_DUCTOR_LAB=1 PIXEL_AGENTS_DUCTOR_STATUS_FILE=.ductor-space-lab/status.json node dist/cli.js --host 127.0.0.1 --port 3100",
     "ductor:status": "tsx scripts/ductor-statusctl.ts --file .ductor-space-lab/status.json",
-    "ductor:publish": "tsx scripts/ductor-heartbeat.ts --file .ductor-space-lab/status.json",\n    "ductor:observe": "tsx scripts/ductor-observe.ts --file .ductor-space-lab/observation.json",
+    "ductor:publish": "tsx scripts/ductor-heartbeat.ts --file .ductor-space-lab/status.json",
     "watch": "npm-run-all -p watch:*",
     "watch:esbuild": "node esbuild.js --watch",
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",

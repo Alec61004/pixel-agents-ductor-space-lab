@@ -12,30 +12,16 @@ export const CLOUD_ROLE_STATES = [
 
 export const CLOUD_STATUS_MAX_BYTES = 16 * 1024;
 export const CLOUD_TASK_LABEL_MAX_CHARS = 120;
-export const CLOUD_OBSERVATION_TITLE_MAX_CHARS = 96;
-export const CLOUD_OBSERVATION_CONTENT_MAX_CHARS = 1_536;
-export const CLOUD_OBSERVATION_TABS = ['code', 'terminal', 'browser'] as const;
 export const CLOUD_REQUEST_FRESH_MS = 60_000;
 export const CLOUD_MIN_WRITE_INTERVAL_MS = 1_000;
 export const CLOUD_STALE_MS = 45 * 60_000;
 
 export type CloudRoleName = (typeof CLOUD_ROLE_NAMES)[number];
 export type CloudRoleState = (typeof CLOUD_ROLE_STATES)[number];
-export type CloudObservationTab = (typeof CLOUD_OBSERVATION_TABS)[number];
 export type CloudPublishProvenance =
   'operator-agent-reported' | 'local-status-file-fallback' | 'stale-local-report';
 export type CloudPublicProvenance =
   CloudPublishProvenance | 'stale-cloud-heartbeat' | 'cloud-unavailable';
-
-export interface CloudObservationFeed {
-  title: string;
-  content: string;
-  updatedAt: string;
-}
-
-export interface CloudRoleObservation {
-  feeds: Partial<Record<CloudObservationTab, CloudObservationFeed>>;
-}
 
 export interface CloudRoleStatus {
   name: CloudRoleName;
@@ -45,8 +31,6 @@ export interface CloudRoleStatus {
   updatedAt: string;
   derived: boolean;
   provenance: CloudPublicProvenance;
-  /** Present only when an operator explicitly shares a bounded observation feed. */
-  observation?: CloudRoleObservation;
 }
 
 export interface CloudPublishSnapshot {
@@ -79,10 +63,7 @@ const ROLE_KEYS = new Set([
   'updatedAt',
   'derived',
   'provenance',
-  'observation',
 ]);
-const OBSERVATION_KEYS = new Set(['feeds']);
-const OBSERVATION_FEED_KEYS = new Set(['title', 'content', 'updatedAt']);
 const PUBLISH_PROVENANCE = new Set<CloudPublishProvenance>([
   'operator-agent-reported',
   'local-status-file-fallback',
@@ -116,40 +97,6 @@ function sanitizedTaskLabel(value: unknown): string | null | undefined {
   return sanitized === value && sanitized.length > 0 ? sanitized : undefined;
 }
 
-function isObservationText(value: unknown, maxChars: number, preserveLines: boolean): value is string {
-  if (typeof value !== 'string' || value.length === 0 || value.length > maxChars) return false;
-  if (!preserveLines && value.trim() !== value) return false;
-  return !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(value);
-}
-
-function parseCloudObservation(value: unknown): CloudRoleObservation | undefined {
-  if (value === undefined) return undefined;
-  if (!isRecord(value) || !hasOnlyKeys(value, OBSERVATION_KEYS) || !isRecord(value['feeds'])) {
-    throw new Error('invalid cloud status');
-  }
-  const feeds: CloudRoleObservation['feeds'] = {};
-  for (const [tab, candidate] of Object.entries(value['feeds'])) {
-    if (
-      !(CLOUD_OBSERVATION_TABS as readonly string[]).includes(tab) ||
-      !isRecord(candidate) ||
-      !hasOnlyKeys(candidate, OBSERVATION_FEED_KEYS) ||
-      !isObservationText(candidate['title'], CLOUD_OBSERVATION_TITLE_MAX_CHARS, false) ||
-      !isObservationText(candidate['content'], CLOUD_OBSERVATION_CONTENT_MAX_CHARS, true)
-    ) {
-      throw new Error('invalid cloud status');
-    }
-    const updatedAt = canonicalTimestamp(candidate['updatedAt']);
-    if (!updatedAt) throw new Error('invalid cloud status');
-    feeds[tab as CloudObservationTab] = {
-      title: candidate['title'],
-      content: candidate['content'],
-      updatedAt,
-    };
-  }
-  if (Object.keys(feeds).length === 0) throw new Error('invalid cloud status');
-  return { feeds };
-}
-
 function parseCloudRole(
   value: unknown,
   expectedName: CloudRoleName,
@@ -162,7 +109,6 @@ function parseCloudRole(
   const provenance = value['provenance'];
   const updatedAt = canonicalTimestamp(value['updatedAt']);
   const taskLabel = sanitizedTaskLabel(value['taskLabel']);
-  const observation = parseCloudObservation(value['observation']);
   if (
     value['name'] !== expectedName ||
     typeof state !== 'string' ||
@@ -191,7 +137,6 @@ function parseCloudRole(
     updatedAt,
     derived,
     provenance: provenance as CloudPublishProvenance,
-    ...(observation ? { observation } : {}),
   };
 }
 
