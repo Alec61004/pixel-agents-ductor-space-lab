@@ -2,29 +2,15 @@ import { useEffect, useMemo, useState, type RefObject } from 'react';
 
 import type { StarshipPixelSceneManifest } from './starshipPixelScene.js';
 
-export type HtmlSceneActivity = Readonly<{
-  alec: boolean;
-  kevin: boolean;
-  benjamin: boolean;
-}>;
-
 interface HtmlLayerSceneProps {
   manifestUrl: string;
   sceneRef: RefObject<HTMLDivElement | null>;
-  activity: HtmlSceneActivity;
   onReady: () => void;
   onError: (error: unknown) => void;
 }
 
-function effectClass(id: string, activity: HtmlSceneActivity): string {
-  if (activity.alec && /^agent-alec-v7-.*(skyline|tiny-lights)/.test(id)) return 'alec-working';
-  if (activity.kevin && /^agent-kevin-v7-hologram-orbit/.test(id)) return 'kevin-working';
-  if (activity.benjamin && /^agent-benjamin-v7-.*(brain-hologram|hud-panel|tiny-lights)/.test(id)) return 'benjamin-working';
-  return '';
-}
-
 /** Native V7 scene: each author-controlled PNG remains an addressable DOM element. */
-export function HtmlLayerScene({ manifestUrl, sceneRef, activity, onReady, onError }: HtmlLayerSceneProps) {
+export function HtmlLayerScene({ manifestUrl, sceneRef, onReady, onError }: HtmlLayerSceneProps) {
   const [manifest, setManifest] = useState<StarshipPixelSceneManifest | null>(null);
 
   useEffect(() => {
