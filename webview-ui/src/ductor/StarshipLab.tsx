@@ -630,12 +630,6 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
           pointer-events: none; will-change: transform, opacity;
         }
         .starship-v7-layer img { display: block; width: 100%; height: 100%; user-select: none; }
-        .starship-v7-layer--alec { animation: starship-v7-alec-signal 1.7s ease-in-out infinite; }
-        .starship-v7-layer--kevin { animation: starship-v7-kevin-orbit 2.3s linear infinite; }
-        .starship-v7-layer--benjamin { animation: starship-v7-benjamin-scan 1.35s ease-in-out infinite; }
-        @keyframes starship-v7-alec-signal { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
-        @keyframes starship-v7-kevin-orbit { to { filter: brightness(1.28) saturate(1.16); } }
-        @keyframes starship-v7-benjamin-scan { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
         .starship-scanline {
           position: absolute; inset: 0; pointer-events: none;
           background: repeating-linear-gradient(0deg, rgba(0,0,0,0.045) 0px, rgba(0,0,0,0.045) 1px, transparent 1px, transparent 3px);
@@ -745,7 +739,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
         .starship-btn:hover { border-color: var(--cyan); color: #fff; }
         .starship-btn.active { border-color: var(--cyan); color: var(--cyan); box-shadow: inset 0 -2px rgba(119,245,229,.18); }
         @media (prefers-reduced-motion: reduce) {
-          .starship-dot, .starship-spinner, .starship-v7-layer--alec, .starship-v7-layer--kevin, .starship-v7-layer--benjamin { animation: none; }
+          .starship-dot, .starship-spinner { animation: none; }
           .starship-card, .starship-aside { transition: none; }
         }
         .starship-btn:focus-visible {
@@ -809,11 +803,6 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
           <HtmlLayerScene
             manifestUrl={v7SceneManifestUrl}
             sceneRef={htmlSceneRef}
-            activity={{
-              Alec: Boolean(agentsList.find((agent) => agent.name === 'Alec' && isAgentWorkingAtAssignedStation(agent))),
-              Kevin: Boolean(agentsList.find((agent) => agent.name === 'Kevin' && isAgentWorkingAtAssignedStation(agent))),
-              Benjamin: Boolean(agentsList.find((agent) => agent.name === 'Benjamin' && isAgentWorkingAtAssignedStation(agent))),
-            }}
             onReady={handleV7SceneReady}
           />
           <canvas
