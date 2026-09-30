@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Space Lab V7 Exact</title>
+<style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#000}
+#viewport{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#000}
+#scene{position:relative;width:1926px;height:816px;transform-origin:center center}
+.layer{position:absolute;left:0;top:0;display:block;transform-origin:0 0;pointer-events:none}
+.layer img{display:block;width:100%;height:100%;image-rendering:auto}
+#status{position:fixed;left:8px;bottom:8px;z-index:9999;padding:5px 8px;background:#000a;color:#9fe;font:11px monospace;border:1px solid #367}
+</style>
+</head>
+<body>
+<div id="viewport"><div id="scene"></div></div>
+<div id="status">V7 exact loading…</div>
+<script>
+const MANIFEST='./assets/themes/ductor-space-lab/pixel-scene-v7/scene.json';
+const scene=document.getElementById('scene');
+const status=document.getElementById('status');
+function fit(){
+  const s=Math.min(innerWidth/1926,innerHeight/816);
+  scene.style.transform='scale('+s+')';
+}
+addEventListener('resize',fit); fit();
+fetch(MANIFEST,{cache:'no-store'}).then(r=>{
+  if(!r.ok) throw new Error('manifest '+r.status);
+  return r.json();
+}).then(m=>{
+  const layers=[...m.layers].filter(l=>l.visible&&l.opacity>0).sort((a,b)=>a.z-b.z);
+  for(const l of layers){
+    const el=document.createElement('span');
+    el.className='layer';
+    el.dataset.layerId=l.id;
+    el.style.width=l.source.w+'px';
+    el.style.height=l.source.h+'px';
+    el.style.opacity=String(l.opacity);
+    el.style.zIndex=String(l.z);
+    el.style.transform='translate3d('+l.x+'px,'+l.y+'px,0) rotate('+l.rotation+'deg) scale('+l.scaleX+','+l.scaleY+')';
+    const img=document.createElement('img');
+    img.src=new URL(l.asset,new URL(MANIFEST,location.href)).href;
+    img.alt='';
+    img.draggable=false;
+    el.appendChild(img);
+    scene.appendChild(el);
+  }
+  const ws=layers.filter(l=>/^agent-(alec|kevin|benjamin)-v7-/.test(l.id));
+  status.textContent='V7 exact · '+layers.length+' layers · '+ws.length+' workstation layers';
+}).catch(e=>{status.textContent='V7 ERROR: '+e.message;status.style.color='#f88';});
+</script>
+</body></html>
