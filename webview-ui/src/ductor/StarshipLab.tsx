@@ -206,10 +206,6 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
   );
   const logQueueRef = useRef<string[]>(['Bridge systems online. Crew assigned to stations.']);
 
-  const htmlSceneManifestUrl = ductorAssetUrl(
-    typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL ? import.meta.env.BASE_URL : './',
-    'themes/ductor-space-lab/pixel-scene-v7/scene.json',
-  );
   const onHtmlSceneReady = useCallback(() => setHtmlSceneReady(true), []);
   const onHtmlSceneError = useCallback((error: unknown) => {
     console.error('[Space Lab] V7 HTML scene failed; retaining canvas fallback.', error);
@@ -828,7 +824,6 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
       <main className={`starship-main ${observedRole ? 'observation-open' : ''}`}>
         <div id="stage-wrap" ref={stageWrapRef} className="starship-stage-wrap">
           <HtmlLayerScene
-            manifestUrl={htmlSceneManifestUrl}
             sceneRef={htmlSceneRef}
             onReady={onHtmlSceneReady}
             onError={onHtmlSceneError}
