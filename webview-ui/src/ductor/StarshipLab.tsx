@@ -399,6 +399,11 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
 
     resize();
     window.addEventListener('resize', resize);
+    const stageResizeObserver =
+      typeof ResizeObserver !== 'undefined' && wrap
+        ? new ResizeObserver(() => resize())
+        : null;
+    if (stageResizeObserver && wrap) stageResizeObserver.observe(wrap);
 
     const wrap = stageWrapRef.current;
     const onTouchStart = (e: TouchEvent) => {
@@ -550,6 +555,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
     return () => {
       disposed = true;
       window.removeEventListener('resize', resize);
+      stageResizeObserver?.disconnect();
       if (wrap) {
         wrap.removeEventListener('touchstart', onTouchStart);
         wrap.removeEventListener('touchmove', onTouchMove);
@@ -646,7 +652,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
         }
         .starship-html-layer { position: absolute; top: 0; left: 0; display: block; transform-origin: 0 0; }
         .starship-html-layer img { display: block; width: 100%; height: 100%; image-rendering: auto; }
-        .starship-main.observation-open .starship-stage-wrap { flex: 1 1 auto; width: 100%; }
+        .starship-main.observation-open .starship-stage-wrap { flex: 0 1 38%; }
         .starship-stage {
           position: absolute; inset: 0; z-index: 3; display: block; width: 100%; height: 100%;
           image-rendering: auto; cursor: crosshair;
