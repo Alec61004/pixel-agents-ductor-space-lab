@@ -17,7 +17,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#000}
 <div id="viewport"><div id="scene"></div></div>
 <div id="status">V7 exact loading…</div>
 <script>
-const MANIFEST='./assets/themes/ductor-space-lab/pixel-scene-v7/scene.json';
+const MANIFEST='/assets/themes/ductor-space-lab/pixel-scene-v7/scene.json';
 const scene=document.getElementById('scene');
 const status=document.getElementById('status');
 function fit(){
@@ -40,7 +40,7 @@ fetch(MANIFEST,{cache:'no-store'}).then(r=>{
     el.style.zIndex=String(l.z);
     el.style.transform='translate3d('+l.x+'px,'+l.y+'px,0) rotate('+l.rotation+'deg) scale('+l.scaleX+','+l.scaleY+')';
     const img=document.createElement('img');
-    img.src=new URL(l.asset,new URL(MANIFEST,location.href)).href;
+    const manifestUrl=new URL(MANIFEST,location.origin);\n    img.src=new URL(l.asset,manifestUrl).href;
     img.alt='';
     img.draggable=false;
     el.appendChild(img);
