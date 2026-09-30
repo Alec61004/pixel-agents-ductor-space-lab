@@ -397,6 +397,7 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
       stars = seedStars(rect);
     };
 
+    const wrap = stageWrapRef.current;
     resize();
     window.addEventListener('resize', resize);
     const stageResizeObserver =
@@ -405,7 +406,6 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
         : null;
     if (stageResizeObserver && wrap) stageResizeObserver.observe(wrap);
 
-    const wrap = stageWrapRef.current;
     const onTouchStart = (e: TouchEvent) => {
       if (e.touches.length === 1) {
         touchStateRef.current = {
