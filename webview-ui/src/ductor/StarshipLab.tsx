@@ -267,7 +267,12 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
         );
       }
       pushLog(`Focus lock: ${a.name} [${a.currentStation || a.role}].`);
-      setObservedRole(a.name);
+      if (isAgentWorkingAtAssignedStation(a)) {
+        setObservedRole(a.name);
+      } else {
+        setObservedRole(null);
+        pushLog(`Observation unavailable: ${a.name} is not actively working at the assigned station.`);
+      }
     }
   };
 
@@ -282,9 +287,15 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
     const py = (my - offY) / (scale || 1);
     const observationStation = getObservationStationAt({ x: px, y: py });
     if (observationStation) {
-      setObservedRole(observationStation.role);
-      setRosterCollapsed(true);
-      pushLog(`Observation opened: ${observationStation.label}.`);
+      const stationAgent = agentsRef.current.find((agent) => agent.name === observationStation.role);
+      if (stationAgent && isAgentWorkingAtAssignedStation(stationAgent)) {
+        setObservedRole(observationStation.role);
+        setRosterCollapsed(true);
+        pushLog(`Observation opened: ${observationStation.label}.`);
+      } else {
+        setObservedRole(null);
+        pushLog(`Observation unavailable: ${observationStation.role} is not actively working at this station.`);
+      }
       return;
     }
     const hotspot = getStarshipSceneHotspotAt({ x: px, y: py });
@@ -299,6 +310,14 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
   const handleSpeedToggle = () => {
     setSpeedMult((prev) => (prev === 1 ? 2.5 : prev === 2.5 ? 0.4 : 1));
   };
+
+  useEffect(() => {
+    if (!observedRole) return;
+    const observedAgent = agentsList.find((agent) => agent.name === observedRole);
+    if (!observedAgent || !isAgentWorkingAtAssignedStation(observedAgent)) {
+      setObservedRole(null);
+    }
+  }, [agentsList, observedRole]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof Image === 'undefined') return;
