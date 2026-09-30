@@ -15,7 +15,7 @@ export function HtmlLayerScene({ manifestUrl, sceneRef, onReady, onError }: Html
 
   useEffect(() => {
     const controller = new AbortController();
-    void fetch(manifestUrl, { signal: controller.signal, cache: 'force-cache' })
+    const manifestHref = new URL(manifestUrl, window.location.href);\n    void fetch(manifestHref, { signal: controller.signal, cache: 'no-store' })
       .then(async (response) => {
         if (!response.ok) throw new Error(`V7 scene manifest failed: ${response.status}`);
         return response.json() as Promise<StarshipPixelSceneManifest>;
@@ -52,7 +52,7 @@ export function HtmlLayerScene({ manifestUrl, sceneRef, onReady, onError }: Html
         >
           <img
             className="starship-v7-layer-image"
-            src={new URL(layer.asset, manifestUrl).href}
+            src={new URL(layer.asset, new URL(manifestUrl, window.location.href)).href}
             alt=""
             draggable={false}
           />
