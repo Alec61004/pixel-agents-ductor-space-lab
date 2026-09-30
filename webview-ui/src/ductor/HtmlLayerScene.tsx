@@ -15,7 +15,8 @@ export function HtmlLayerScene({ manifestUrl, sceneRef, onReady, onError }: Html
 
   useEffect(() => {
     const controller = new AbortController();
-    const manifestHref = new URL(manifestUrl, window.location.href);\n    void fetch(manifestHref, { signal: controller.signal, cache: 'no-store' })
+    const manifestHref = new URL(manifestUrl, window.location.href);
+    void fetch(manifestHref, { signal: controller.signal, cache: 'no-store' })
       .then(async (response) => {
         if (!response.ok) throw new Error(`V7 scene manifest failed: ${response.status}`);
         return response.json() as Promise<StarshipPixelSceneManifest>;
