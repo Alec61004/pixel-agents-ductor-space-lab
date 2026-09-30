@@ -831,6 +831,11 @@ export function StarshipLab({ snapshot, bgUrl, sheetUrl }: StarshipLabProps) {
         <div id="stage-wrap" ref={stageWrapRef} className="starship-stage-wrap">
           <HtmlLayerScene
             sceneRef={htmlSceneRef}
+            activity={{
+              Alec: agentsList.some((agent) => agent.name === 'Alec' && isAgentWorkingAtAssignedStation(agent)),
+              Kevin: agentsList.some((agent) => agent.name === 'Kevin' && isAgentWorkingAtAssignedStation(agent)),
+              Benjamin: agentsList.some((agent) => agent.name === 'Benjamin' && isAgentWorkingAtAssignedStation(agent)),
+            }}
             onReady={onHtmlSceneReady}
             onError={onHtmlSceneError}
           />
