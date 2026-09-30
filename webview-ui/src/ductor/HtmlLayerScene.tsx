@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState, type RefObject } from 'react';
+import { useEffect, useMemo, type RefObject } from 'react';
 
 import type { StarshipPixelSceneManifest } from './starshipPixelScene.js';
+import v7SceneManifestRaw from './v7SceneManifest.json?raw';
 
 interface HtmlLayerSceneProps {
   manifestUrl: string;
@@ -9,36 +10,49 @@ interface HtmlLayerSceneProps {
   onError: (error: unknown) => void;
 }
 
-/** Native V7 scene: each author-controlled PNG remains an addressable DOM element. */
+function parseBundledManifest(): StarshipPixelSceneManifest | null {
+  try {
+    const next = JSON.parse(v7SceneManifestRaw) as StarshipPixelSceneManifest;
+    if (next.width !== 1926 || next.height !== 816 || !Array.isArray(next.layers)) {
+      return null;
+    }
+    return next;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Native V7 scene.
+ *
+ * The manifest is bundled by Vite at build time so protected Vercel previews
+ * never need to fetch scene.json at runtime. PNG assets remain addressable
+ * DOM images using the exact V7 layer transforms.
+ */
 export function HtmlLayerScene({ manifestUrl, sceneRef, onReady, onError }: HtmlLayerSceneProps) {
-  const [manifest, setManifest] = useState<StarshipPixelSceneManifest | null>(null);
+  const manifest = useMemo(() => parseBundledManifest(), []);
 
   useEffect(() => {
-    const controller = new AbortController();
-    const manifestHref = new URL(manifestUrl, window.location.href);
-    void fetch(manifestHref, { signal: controller.signal, cache: 'no-store' })
-      .then(async (response) => {
-        if (!response.ok) throw new Error(`V7 scene manifest failed: ${response.status}`);
-        return response.json() as Promise<StarshipPixelSceneManifest>;
-      })
-      .then((next) => {
-        if (next.width !== 1926 || next.height !== 816 || !Array.isArray(next.layers)) {
-          throw new Error('Invalid V7 HTML scene');
-        }
-        setManifest(next);
-        onReady();
-      })
-      .catch((error: unknown) => {
-        if ((error as DOMException).name !== 'AbortError') onError(error);
-      });
-    return () => controller.abort();
-  }, [manifestUrl, onError, onReady]);
+    if (!manifest) {
+      onError(new Error('Bundled V7 scene manifest is invalid'));
+      return;
+    }
+    onReady();
+  }, [manifest, onError, onReady]);
 
   const layers = useMemo(
-    () => manifest ? [...manifest.layers].filter((layer) => layer.visible && layer.opacity > 0).sort((a, b) => a.z - b.z) : [],
+    () =>
+      manifest
+        ? [...manifest.layers]
+            .filter((layer) => layer.visible && layer.opacity > 0)
+            .sort((a, b) => a.z - b.z)
+        : [],
     [manifest],
   );
+
   if (!manifest) return null;
+
+  const manifestHref = new URL(manifestUrl, window.location.href);
 
   return (
     <div ref={sceneRef} className="starship-html-scene" aria-hidden="true">
@@ -47,13 +61,16 @@ export function HtmlLayerScene({ manifestUrl, sceneRef, onReady, onError }: Html
           key={layer.id}
           className="starship-html-layer"
           style={{
-            width: `${layer.source.w}px`, height: `${layer.source.h}px`, opacity: layer.opacity, zIndex: layer.z,
+            width: `${layer.source.w}px`,
+            height: `${layer.source.h}px`,
+            opacity: layer.opacity,
+            zIndex: layer.z,
             transform: `translate3d(${layer.x}px, ${layer.y}px, 0) rotate(${layer.rotation}deg) scale(${layer.scaleX}, ${layer.scaleY})`,
           }}
         >
           <img
             className="starship-v7-layer-image"
-            src={new URL(layer.asset, new URL(manifestUrl, window.location.href)).href}
+            src={new URL(layer.asset, manifestHref).href}
             alt=""
             draggable={false}
           />
