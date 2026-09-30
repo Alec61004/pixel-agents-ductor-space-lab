@@ -52,7 +52,7 @@ export function AgentObservationPanel({
   return (
     <section className="observation-panel" aria-label={`${role} live observation`}>
       <style>{`
-        .observation-panel { position: absolute; top: 0; right: 0; width: min(760px, 62vw); min-width: min(690px, 62vw); height: 100%; z-index: 20; display: flex; flex-direction: column; overflow: hidden; border-left: 1px solid rgba(119,245,229,.36); background: linear-gradient(145deg, rgba(7,22,33,.985), rgba(2,9,15,.985) 68%); color: #d9edf4; font-family: 'JetBrains Mono', monospace; box-shadow: -18px 0 38px rgba(0,0,0,.45); }
+        .observation-panel { flex: 0 1 62%; min-width: min(690px, 62vw); display: flex; flex-direction: column; overflow: hidden; border-left: 1px solid rgba(119,245,229,.36); background: linear-gradient(145deg, #071621, #02090f 68%); color: #d9edf4; font-family: 'JetBrains Mono', monospace; }
         .observation-head { display: flex; gap: 14px; align-items: center; padding: 15px 18px; border-bottom: 1px solid rgba(119,245,229,.26); background: rgba(5,21,31,.82); }
         .observation-title { min-width: 0; flex: 1; }
         .observation-kicker { color: #8daab6; font-size: 9px; letter-spacing: 1.4px; text-transform: uppercase; }
@@ -83,7 +83,7 @@ export function AgentObservationPanel({
         .observation-all-card strong { display:block; color: var(--agent-color); font-size: 11px; }
         .observation-all-card span { display:block; margin-top: 6px; color:#99b4be; font-size: 9px; line-height:1.45; }
         @media (max-width: 1050px) { .observation-panel { min-width: 56vw; } .observation-body { grid-template-columns: 1fr; } .observation-meta { display:none; } }
-        @media (max-width: 760px) { .observation-panel { min-width:0; width:100%; } .observation-all { grid-template-columns: 1fr; } }
+        @media (max-width: 760px) { .observation-panel { flex: 0 0 auto; min-width:0; width:100%; } .observation-all { grid-template-columns: 1fr; } }
       `}</style>
 
       <div className="observation-head">
