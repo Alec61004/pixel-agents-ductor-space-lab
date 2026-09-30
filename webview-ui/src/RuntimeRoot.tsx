@@ -1,16 +1,23 @@
+import { useEffect } from 'react';
+
 export function RuntimeRoot() {
+  useEffect(() => {
+    window.location.replace('/v7-exact.html');
+  }, []);
+
   return (
-    <iframe
-      title="Space Lab V7 Exact"
-      src="/v7-exact.html"
+    <div
       style={{
         position: 'fixed',
         inset: 0,
-        width: '100vw',
-        height: '100vh',
-        border: 0,
+        display: 'grid',
+        placeItems: 'center',
         background: '#000',
+        color: '#9fe',
+        fontFamily: 'monospace',
       }}
-    />
+    >
+      Loading V7 exact…
+    </div>
   );
 }
