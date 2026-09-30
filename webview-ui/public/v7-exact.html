@@ -40,7 +40,8 @@ fetch(MANIFEST,{cache:'no-store'}).then(r=>{
     el.style.zIndex=String(l.z);
     el.style.transform='translate3d('+l.x+'px,'+l.y+'px,0) rotate('+l.rotation+'deg) scale('+l.scaleX+','+l.scaleY+')';
     const img=document.createElement('img');
-    const manifestUrl=new URL(MANIFEST,location.origin);\n    img.src=new URL(l.asset,manifestUrl).href;
+    const manifestUrl=new URL(MANIFEST,location.origin);
+    img.src=new URL(l.asset,manifestUrl).href;
     img.alt='';
     img.draggable=false;
     el.appendChild(img);
