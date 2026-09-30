@@ -1,40 +1,29 @@
 import { useEffect, useMemo, type RefObject } from 'react';
 
-import type { StarshipPixelSceneManifest } from './starshipPixelScene.js';
-import v7SceneManifestRaw from './v7SceneManifest.json?raw';
+import { V7_SOURCE_PROJECT } from './v7Source.js';
 
 interface HtmlLayerSceneProps {
-  manifestUrl: string;
   sceneRef: RefObject<HTMLDivElement | null>;
   onReady: () => void;
   onError: (error: unknown) => void;
 }
 
-function parseBundledManifest(): StarshipPixelSceneManifest | null {
-  try {
-    const next = JSON.parse(v7SceneManifestRaw) as StarshipPixelSceneManifest;
-    if (next.width !== 1926 || next.height !== 816 || !Array.isArray(next.layers)) {
-      return null;
-    }
-    return next;
-  } catch {
-    return null;
-  }
-}
-
 /**
- * Native V7 scene.
- *
- * The manifest is bundled by Vite at build time so protected Vercel previews
- * never need to fetch scene.json at runtime. PNG assets remain addressable
- * DOM images using the exact V7 layer transforms.
+ * Native V7 scene sourced directly from the uploaded V7 HTML.
+ * Every layer image uses the exact embedded dataURL from SPACE_LAB_PROJECT,
+ * so runtime rendering cannot drift from the authored workstation pixels.
  */
-export function HtmlLayerScene({ manifestUrl, sceneRef, onReady, onError }: HtmlLayerSceneProps) {
-  const manifest = useMemo(() => parseBundledManifest(), []);
+export function HtmlLayerScene({ sceneRef, onReady, onError }: HtmlLayerSceneProps) {
+  const manifest = V7_SOURCE_PROJECT;
 
   useEffect(() => {
-    if (!manifest) {
-      onError(new Error('Bundled V7 scene manifest is invalid'));
+    if (
+      manifest.width !== 1926 ||
+      manifest.height !== 816 ||
+      !Array.isArray(manifest.layers) ||
+      manifest.layers.length === 0
+    ) {
+      onError(new Error('Exact V7 source project is invalid'));
       return;
     }
     onReady();
@@ -42,17 +31,11 @@ export function HtmlLayerScene({ manifestUrl, sceneRef, onReady, onError }: Html
 
   const layers = useMemo(
     () =>
-      manifest
-        ? [...manifest.layers]
-            .filter((layer) => layer.visible && layer.opacity > 0)
-            .sort((a, b) => a.z - b.z)
-        : [],
+      [...manifest.layers]
+        .filter((layer) => layer.visible && layer.opacity > 0 && layer.dataURL)
+        .sort((a, b) => a.z - b.z),
     [manifest],
   );
-
-  if (!manifest) return null;
-
-  const manifestHref = new URL(manifestUrl, window.location.href);
 
   return (
     <div ref={sceneRef} className="starship-html-scene" aria-hidden="true">
@@ -60,6 +43,7 @@ export function HtmlLayerScene({ manifestUrl, sceneRef, onReady, onError }: Html
         <span
           key={layer.id}
           className="starship-html-layer"
+          data-v7-layer={layer.id}
           style={{
             width: `${layer.source.w}px`,
             height: `${layer.source.h}px`,
@@ -70,7 +54,7 @@ export function HtmlLayerScene({ manifestUrl, sceneRef, onReady, onError }: Html
         >
           <img
             className="starship-v7-layer-image"
-            src={new URL(layer.asset, manifestHref).href}
+            src={layer.dataURL}
             alt=""
             draggable={false}
           />
