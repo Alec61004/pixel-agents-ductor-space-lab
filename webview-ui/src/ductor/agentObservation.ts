@@ -11,27 +11,26 @@ export interface AgentObservationStation {
 }
 
 /**
- * Canonical pick targets for the three in-room projections.  Keep these in
- * world coordinates so panning, zooming, resizing and high-DPI displays all
- * resolve the same physical workstation.
+ * V10 semantic workstation bounds remapped from the authored 1926×816 scene
+ * into the 1600×678 simulation world used by StarshipLab.
  */
 export const AGENT_OBSERVATION_STATIONS: readonly AgentObservationStation[] = [
   {
     role: 'Alec',
-    label: 'Alec command glass',
-    bounds: { x: 455, y: 302, w: 255, h: 110 },
+    label: 'Alec command alcove',
+    bounds: { x: 243, y: 241, w: 424, h: 187 },
     hitShape: 'rect',
   },
   {
     role: 'Kevin',
     label: 'Kevin star map',
-    bounds: { x: 500, y: 409, w: 145, h: 72 },
+    bounds: { x: 282, y: 424, w: 449, h: 191 },
     hitShape: 'ellipse',
   },
   {
     role: 'Benjamin',
-    label: 'Benjamin QA scanner',
-    bounds: { x: 978, y: 462, w: 145, h: 95 },
+    label: 'Benjamin analysis station',
+    bounds: { x: 889, y: 374, w: 415, h: 233 },
     hitShape: 'ellipse',
   },
 ] as const;

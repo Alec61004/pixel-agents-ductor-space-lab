@@ -295,53 +295,29 @@ test('defines 3 fixed workstations (Alec, Kevin, Benjamin) with correct labels a
   assert.ok(WORKSTATIONS.Kevin);
   assert.ok(WORKSTATIONS.Benjamin);
 
-  // New device-anchored coordinates matching actual painted devices in starship-bg.png
-  assert.deepEqual(WORKSTATIONS.Alec.approachPoint, { x: 552, y: 500 });
-  assert.deepEqual(WORKSTATIONS.Alec.interactionPoint, { x: 552, y: 450 });
+  // V10 semantic workstation coordinates in the 1600×678 simulation world.
+  assert.deepEqual(WORKSTATIONS.Alec.approachPoint, { x: 455, y: 515 });
+  assert.deepEqual(WORKSTATIONS.Alec.interactionPoint, { x: 455, y: 465 });
   assert.equal(WORKSTATIONS.Alec.facing, 'back');
-  assert.deepEqual(WORKSTATIONS.Alec.displayBounds, {
-    x: 455,
-    y: 302,
-    w: 255,
-    h: 110,
-  });
-  assert.deepEqual(WORKSTATIONS.Alec.displayAreas, [
-    { x: 465, y: 312, w: 49, h: 25 },
-    { x: 560, y: 312, w: 48, h: 25 },
-    { x: 650, y: 312, w: 49, h: 25 },
-  ]);
-  assert.deepEqual(WORKSTATIONS.Alec.occlusionBounds, {
-    x: 442,
-    y: 389,
-    w: 72,
-    h: 60,
-  });
+  assert.deepEqual(WORKSTATIONS.Alec.displayBounds, { x: 243, y: 241, w: 424, h: 187 });
+  assert.deepEqual(WORKSTATIONS.Alec.displayAreas, [{ x: 243, y: 241, w: 424, h: 187 }]);
+  assert.deepEqual(WORKSTATIONS.Alec.occlusionBounds, { x: 420, y: 330, w: 75, h: 95 });
   assert.equal(WORKSTATIONS.Alec.label, 'Alec — Strategy');
 
-  assert.deepEqual(WORKSTATIONS.Kevin.approachPoint, STAR_MAP_WORKSTATION.approachPoint);
-  assert.deepEqual(WORKSTATIONS.Kevin.interactionPoint, STAR_MAP_WORKSTATION.interactionPoint);
+  assert.deepEqual(WORKSTATIONS.Kevin.approachPoint, { x: 530, y: 650 });
+  assert.deepEqual(WORKSTATIONS.Kevin.interactionPoint, { x: 530, y: 610 });
   assert.equal(WORKSTATIONS.Kevin.facing, 'back');
-  assert.deepEqual(WORKSTATIONS.Kevin.displayBounds, STAR_MAP_WORKSTATION.displayBounds);
-  assert.deepEqual(WORKSTATIONS.Kevin.displayAreas, STAR_MAP_WORKSTATION.displayAreas);
-  assert.deepEqual(WORKSTATIONS.Kevin.occlusionBounds, STAR_MAP_WORKSTATION.occlusionBounds);
+  assert.deepEqual(WORKSTATIONS.Kevin.displayBounds, { x: 282, y: 424, w: 449, h: 191 });
+  assert.deepEqual(WORKSTATIONS.Kevin.displayAreas, [{ x: 360, y: 445, w: 330, h: 145 }]);
+  assert.deepEqual(WORKSTATIONS.Kevin.occlusionBounds, { x: 360, y: 535, w: 330, h: 80 });
   assert.equal(WORKSTATIONS.Kevin.label, 'Kevin — Build');
 
-  assert.deepEqual(WORKSTATIONS.Benjamin.approachPoint, { x: 1060, y: 650 });
-  assert.deepEqual(WORKSTATIONS.Benjamin.interactionPoint, { x: 1060, y: 630 });
+  assert.deepEqual(WORKSTATIONS.Benjamin.approachPoint, { x: 1095, y: 650 });
+  assert.deepEqual(WORKSTATIONS.Benjamin.interactionPoint, { x: 1095, y: 610 });
   assert.equal(WORKSTATIONS.Benjamin.facing, 'back');
-  assert.deepEqual(WORKSTATIONS.Benjamin.displayBounds, {
-    x: 1010,
-    y: 520,
-    w: 110,
-    h: 55,
-  });
-  assert.deepEqual(WORKSTATIONS.Benjamin.displayAreas, [{ x: 1010, y: 520, w: 110, h: 55 }]);
-  assert.deepEqual(WORKSTATIONS.Benjamin.occlusionBounds, {
-    x: 1010,
-    y: 570,
-    w: 120,
-    h: 55,
-  });
+  assert.deepEqual(WORKSTATIONS.Benjamin.displayBounds, { x: 889, y: 374, w: 415, h: 233 });
+  assert.deepEqual(WORKSTATIONS.Benjamin.displayAreas, [{ x: 930, y: 395, w: 330, h: 155 }]);
+  assert.deepEqual(WORKSTATIONS.Benjamin.occlusionBounds, { x: 960, y: 525, w: 285, h: 82 });
   assert.equal(WORKSTATIONS.Benjamin.label, 'Benjamin — QA');
 
   assert.equal(typeof drawWorkstationLabels, 'function');
@@ -366,10 +342,10 @@ test('keeps the original Alec and Kevin computer bays in one debug configuration
   assert.equal(ORIGINAL_COMPUTER_BAY_ASSETS.consoleTile, 'themes/ductor-space-lab/console-neon.png');
   assert.equal(ORIGINAL_COMPUTER_BAYS.Alec.bayId, 'central-command');
   assert.equal(ORIGINAL_COMPUTER_BAYS.Kevin.bayId, 'port-build');
-  assert.deepEqual(WORKSTATIONS.Alec.interactionPoint, ORIGINAL_COMPUTER_BAYS.Alec.interactionPoint);
-  assert.deepEqual(WORKSTATIONS.Kevin.interactionPoint, STAR_MAP_WORKSTATION.interactionPoint);
-  assert.deepEqual(WORKSTATIONS.Alec.displayAreas, ORIGINAL_COMPUTER_BAYS.Alec.displayAreas);
-  assert.deepEqual(WORKSTATIONS.Kevin.displayAreas, STAR_MAP_WORKSTATION.displayAreas);
+  assert.deepEqual(ORIGINAL_COMPUTER_BAYS.Alec.interactionPoint, { x: 552, y: 450 });
+  assert.deepEqual(STAR_MAP_WORKSTATION.interactionPoint, { x: 569, y: 638 });
+  assert.notDeepEqual(WORKSTATIONS.Alec.interactionPoint, ORIGINAL_COMPUTER_BAYS.Alec.interactionPoint);
+  assert.notDeepEqual(WORKSTATIONS.Kevin.interactionPoint, STAR_MAP_WORKSTATION.interactionPoint);
 });
 
 test('clamps viewport pan so focusing an agent cannot expose empty canvas space', () => {

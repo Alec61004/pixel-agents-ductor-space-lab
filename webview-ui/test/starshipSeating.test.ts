@@ -64,14 +64,11 @@ test('Alec uses the measured production-room chair geometry for every overlay', 
     ALEC_SEAT.feetY - ALEC_SEAT.height < ALEC_COMMAND_STATION.chair.backTopY,
     'the head and shoulders must remain visible above the rear-facing chair shell',
   );
-  assert.equal(
-    WORKSTATIONS.Alec.approachPoint.x,
-    ALEC_COMMAND_STATION.chair.centerX,
-  );
-  assert.equal(
-    WORKSTATIONS.Alec.interactionPoint.x,
-    ALEC_COMMAND_STATION.chair.centerX,
-  );
+  // The V3 chair geometry remains available for the legacy fallback, while
+  // the live V10 room routes Alec to the remapped command alcove.
+  assert.equal(WORKSTATIONS.Alec.approachPoint.x, 455);
+  assert.equal(WORKSTATIONS.Alec.interactionPoint.x, 455);
+  assert.notEqual(WORKSTATIONS.Alec.interactionPoint.x, ALEC_COMMAND_STATION.chair.centerX);
   const calls: unknown[][] = [];
   const ctx = new Proxy({}, {
     get: (_, key) => (...args: unknown[]) => calls.push([key, ...args]),

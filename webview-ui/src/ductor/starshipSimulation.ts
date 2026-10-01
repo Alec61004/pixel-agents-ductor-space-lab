@@ -65,9 +65,9 @@ export const STATION_SLOTS = [
 ] as const;
 
 export const ATTENTION_POINTS: Record<DuctorRoleName, { x: number; y: number }> = {
-  Alec: { x: 360, y: 510 },
-  Kevin: { x: 800, y: 510 },
-  Benjamin: { x: 1240, y: 510 },
+  Alec: { x: 455, y: 500 },
+  Kevin: { x: 530, y: 600 },
+  Benjamin: { x: 1095, y: 600 },
 };
 
 export interface DeviceBounds {
@@ -96,22 +96,35 @@ export const WORKSTATIONS: Record<DuctorRoleName, WorkstationConfig> = {
   Alec: {
     agentName: 'Alec',
     ...ORIGINAL_COMPUTER_BAYS.Alec,
+    // V10 command alcove center; route stays on the walkable floor below it.
+    approachPoint: { x: 455, y: 515 },
+    interactionPoint: { x: 455, y: 465 },
+    displayBounds: { x: 243, y: 241, w: 424, h: 187 },
+    displayAreas: [{ x: 243, y: 241, w: 424, h: 187 }],
+    occlusionBounds: { x: 420, y: 330, w: 75, h: 95 },
   },
   Kevin: {
     agentName: 'Kevin',
     ...ORIGINAL_COMPUTER_BAYS.Kevin,
     ...STAR_MAP_WORKSTATION,
+    // V10 lower-left star-map table.
+    approachPoint: { x: 530, y: 650 },
+    interactionPoint: { x: 530, y: 610 },
+    displayBounds: { x: 282, y: 424, w: 449, h: 191 },
+    displayAreas: [{ x: 360, y: 445, w: 330, h: 145 }],
+    occlusionBounds: { x: 360, y: 535, w: 330, h: 80 },
   },
   Benjamin: {
     agentName: 'Benjamin',
     label: 'Benjamin — QA',
     roleDescription: 'QA',
-    approachPoint: { x: 1060, y: 650 },
-    interactionPoint: { x: 1060, y: 630 },
+    // V10 lower-right analysis table.
+    approachPoint: { x: 1095, y: 650 },
+    interactionPoint: { x: 1095, y: 610 },
     facing: 'back',
-    displayBounds: { x: 1010, y: 520, w: 110, h: 55 },
-    displayAreas: [{ x: 1010, y: 520, w: 110, h: 55 }],
-    occlusionBounds: { x: 1010, y: 570, w: 120, h: 55 },
+    displayBounds: { x: 889, y: 374, w: 415, h: 233 },
+    displayAreas: [{ x: 930, y: 395, w: 330, h: 155 }],
+    occlusionBounds: { x: 960, y: 525, w: 285, h: 82 },
     stationIndex: 5,
   },
 };

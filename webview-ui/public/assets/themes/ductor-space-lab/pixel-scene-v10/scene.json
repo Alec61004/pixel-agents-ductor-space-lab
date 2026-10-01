@@ -1,0 +1,259 @@
+{
+  "format": "space-lab-pixel-layers",
+  "version": 2,
+  "width": 1926,
+  "height": 816,
+  "sourceSHA256": "scene-v10-semantic-nonoverlap",
+  "limitations": "Scene V10 uses non-overlapping semantic masks. Every source pixel belongs to exactly one layer: no duplicated background and no stacked alpha pixels at the default layout.",
+  "sourceEditor": "Space_Lab_Layer_Editor_agents_v10_SEMANTIC_LAYERS.html",
+  "runtime": "v10-semantic-external-png",
+  "layers": [
+    {
+      "id": "hull-base",
+      "name": "Vỏ tàu · nền cảnh mới",
+      "group": "hull-base",
+      "source": {
+        "x": 0,
+        "y": 0,
+        "w": 1926,
+        "h": 816
+      },
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/hull-base.png",
+      "maskPolygon": null,
+      "maskQuality": "semantic-non-overlap",
+      "pixelCount": 1571616
+    },
+    {
+      "id": "window-left",
+      "name": "Cửa sổ trái · không gian và tàu",
+      "group": "space-window",
+      "source": {
+        "x": 440,
+        "y": 90,
+        "w": 480,
+        "h": 230
+      },
+      "x": 440,
+      "y": 90,
+      "z": 1,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/window-left.png",
+      "maskPolygon": null,
+      "maskQuality": "semantic-non-overlap",
+      "pixelCount": 110400
+    },
+    {
+      "id": "window-center",
+      "name": "Cửa sổ giữa · hố đen",
+      "group": "space-window",
+      "source": {
+        "x": 990,
+        "y": 90,
+        "w": 530,
+        "h": 375
+      },
+      "x": 990,
+      "y": 90,
+      "z": 2,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/window-center.png",
+      "maskPolygon": null,
+      "maskQuality": "semantic-non-overlap",
+      "pixelCount": 198750
+    },
+    {
+      "id": "window-right",
+      "name": "Cửa sổ phải · tàu ngoài hành tinh",
+      "group": "space-window",
+      "source": {
+        "x": 1560,
+        "y": 90,
+        "w": 290,
+        "h": 360
+      },
+      "x": 1560,
+      "y": 90,
+      "z": 3,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/window-right.png",
+      "maskPolygon": null,
+      "maskQuality": "semantic-non-overlap",
+      "pixelCount": 104400
+    },
+    {
+      "id": "alec-station",
+      "name": "Alec · Command Alcove",
+      "group": "Alec workstation",
+      "source": {
+        "x": 292,
+        "y": 290,
+        "w": 510,
+        "h": 225
+      },
+      "x": 292,
+      "y": 290,
+      "z": 4,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/alec-station.png",
+      "maskPolygon": null,
+      "maskQuality": "semantic-non-overlap",
+      "pixelCount": 114750
+    },
+    {
+      "id": "bio-pedestal",
+      "name": "Bể sinh học · bệ thấp",
+      "group": "specimen-tank",
+      "source": {
+        "x": 810,
+        "y": 390,
+        "w": 285,
+        "h": 140
+      },
+      "x": 810,
+      "y": 390,
+      "z": 5,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/bio-pedestal.png",
+      "maskPolygon": null,
+      "maskQuality": "semantic-non-overlap",
+      "pixelCount": 39900
+    },
+    {
+      "id": "kevin-station",
+      "name": "Kevin · trạm bản đồ sao",
+      "group": "agent-workstation-kevin",
+      "source": {
+        "x": 340,
+        "y": 510,
+        "w": 540,
+        "h": 230
+      },
+      "x": 340,
+      "y": 510,
+      "z": 6,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/kevin-station.png",
+      "maskPolygon": null,
+      "maskQuality": "semantic-non-overlap",
+      "pixelCount": 124200
+    },
+    {
+      "id": "benjamin-station",
+      "name": "Benjamin · trạm phân tích",
+      "group": "agent-workstation-benjamin",
+      "source": {
+        "x": 1070,
+        "y": 450,
+        "w": 500,
+        "h": 280
+      },
+      "x": 1070,
+      "y": 450,
+      "z": 7,
+      "scaleX": 1,
+      "scaleY": 1,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "tint": "#ffffff",
+      "tintMix": 0,
+      "asset": "layers/benjamin-station.png",
+      "maskPolygon": null,
+      "maskQuality": "semantic-non-overlap",
+      "pixelCount": 140000
+    }
+  ],
+  "groups": {
+    "alec-v10-station": {
+      "id": "alec-v10-station",
+      "layerIds": [
+        "alec-station"
+      ],
+      "anchorLayer": "alec-station",
+      "baseAnchor": {
+        "x": 292,
+        "y": 290
+      },
+      "worldScale": {
+        "x": 0.8307372793354102,
+        "y": 0.8308823529411765
+      }
+    },
+    "kevin-v10-station": {
+      "id": "kevin-v10-station",
+      "layerIds": [
+        "kevin-station"
+      ],
+      "anchorLayer": "kevin-station",
+      "baseAnchor": {
+        "x": 340,
+        "y": 510
+      },
+      "worldScale": {
+        "x": 0.8307372793354102,
+        "y": 0.8308823529411765
+      }
+    },
+    "benjamin-v10-station": {
+      "id": "benjamin-v10-station",
+      "layerIds": [
+        "benjamin-station"
+      ],
+      "anchorLayer": "benjamin-station",
+      "baseAnchor": {
+        "x": 1070,
+        "y": 450
+      },
+      "worldScale": {
+        "x": 0.8307372793354102,
+        "y": 0.8308823529411765
+      }
+    }
+  }
+}
