@@ -21,6 +21,9 @@ const CENTER_Y = 54.2;
 const Y_SCALE = 0.32;
 const MAP_RADIUS = 148;
 
+type MovingPlanetId = Exclude<KevinAuthoredObjectId, 'sun' | 'marker_star'>;
+type PlanetStyle = 'rocky' | 'gas_banded' | 'ringed_gas' | 'icy' | 'moon';
+
 const MOVING_PLANETS = new Set<KevinAuthoredObjectId>([
   'planet_orange',
   'planet_gold_small',
@@ -39,67 +42,123 @@ interface PlanetMotionConfig {
   donorAngle: number;
 }
 
-const PLANET_MOTION: Readonly<Record<
-  Exclude<KevinAuthoredObjectId, 'sun' | 'marker_star'>,
-  PlanetMotionConfig
->> = {
+interface PlanetVisualSpec {
+  style: PlanetStyle;
+  radius: number;
+  primary: string;
+  secondary: string;
+  highlight: string;
+  accent?: string;
+  ring?: string;
+  tilt: number;
+}
+
+const PLANET_MOTION: Readonly<Record<MovingPlanetId, PlanetMotionConfig>> = {
   planet_orange: {
-    angularAmplitude: 0.095,
-    radialAmplitude: 1.7,
-    speed: 0.92,
+    angularAmplitude: 0.13,
+    radialAmplitude: 2.2,
+    speed: 1.15,
     phase: 0.4,
-    scaleAmplitude: 0.026,
+    scaleAmplitude: 0.03,
     feather: 7,
     donorAngle: 0.42,
   },
   planet_gold_small: {
-    angularAmplitude: 0.115,
-    radialAmplitude: 1.25,
-    speed: 0.78,
+    angularAmplitude: 0.14,
+    radialAmplitude: 1.6,
+    speed: 0.96,
     phase: 2.1,
-    scaleAmplitude: 0.022,
+    scaleAmplitude: 0.025,
     feather: 6,
     donorAngle: 0.5,
   },
   planet_cyan: {
-    angularAmplitude: 0.085,
-    radialAmplitude: 1.9,
-    speed: 0.66,
+    angularAmplitude: 0.12,
+    radialAmplitude: 2.4,
+    speed: 0.82,
     phase: 3.7,
-    scaleAmplitude: 0.03,
+    scaleAmplitude: 0.034,
     feather: 8,
     donorAngle: 0.36,
   },
   planet_white: {
-    angularAmplitude: 0.07,
-    radialAmplitude: 1.6,
-    speed: 0.54,
+    angularAmplitude: 0.095,
+    radialAmplitude: 2.0,
+    speed: 0.68,
     phase: 5.2,
-    scaleAmplitude: 0.032,
+    scaleAmplitude: 0.036,
     feather: 9,
     donorAngle: 0.31,
   },
   planet_purple_small: {
-    angularAmplitude: 0.12,
-    radialAmplitude: 1.05,
-    speed: 1.02,
+    angularAmplitude: 0.16,
+    radialAmplitude: 1.25,
+    speed: 1.28,
     phase: 1.25,
-    scaleAmplitude: 0.024,
+    scaleAmplitude: 0.026,
     feather: 6,
     donorAngle: 0.47,
   },
 };
 
+const PLANET_VISUALS: Readonly<Record<MovingPlanetId, PlanetVisualSpec>> = {
+  planet_orange: {
+    style: 'gas_banded',
+    radius: 7.5,
+    primary: '#c7814c',
+    secondary: '#6f3f2c',
+    highlight: '#f1c891',
+    accent: '#9c5635',
+    tilt: -0.12,
+  },
+  planet_gold_small: {
+    style: 'rocky',
+    radius: 5.4,
+    primary: '#c9a85a',
+    secondary: '#70552f',
+    highlight: '#f2dfa3',
+    accent: '#8f713a',
+    tilt: 0.15,
+  },
+  planet_cyan: {
+    style: 'icy',
+    radius: 8.5,
+    primary: '#68bde4',
+    secondary: '#235a86',
+    highlight: '#d4f4ff',
+    accent: '#4c95ba',
+    tilt: -0.08,
+  },
+  planet_white: {
+    style: 'ringed_gas',
+    radius: 9.5,
+    primary: '#d9d2c3',
+    secondary: '#8e8577',
+    highlight: '#fff8e8',
+    accent: '#b5aa99',
+    ring: 'rgba(232,220,196,0.72)',
+    tilt: -0.28,
+  },
+  planet_purple_small: {
+    style: 'moon',
+    radius: 5.2,
+    primary: '#9d75c7',
+    secondary: '#4b3567',
+    highlight: '#dac8f4',
+    accent: '#6d4d8e',
+    tilt: 0.22,
+  },
+};
+
 interface PlanetPatch {
-  id: Exclude<KevinAuthoredObjectId, 'sun' | 'marker_star'>;
+  id: MovingPlanetId;
   canvas: HTMLCanvasElement;
-  centerX: number;
-  centerY: number;
   localCenterX: number;
   localCenterY: number;
   orbitRadius: number;
   orbitTheta: number;
   config: PlanetMotionConfig;
+  visual: PlanetVisualSpec;
 }
 
 function loadImage(url: string): Promise<HTMLImageElement> {
@@ -213,8 +272,6 @@ function donorSample(
     return sampleBilinear(source, sx, sy, channel);
   };
 
-  // Average both angular directions so orbit-line texture survives while
-  // local planet color is suppressed.
   return (
     sampleAt(theta + donorAngle) +
     sampleAt(theta - donorAngle)
@@ -265,8 +322,210 @@ function planetCentroid(mask: Uint8Array): { x: number; y: number } {
   return { x: sumX / count, y: sumY / count };
 }
 
+function makePlanetSprite(spec: PlanetVisualSpec): HTMLCanvasElement {
+  const padding = spec.style === 'ringed_gas' ? 18 : 11;
+  const size = Math.ceil((spec.radius + padding) * 2);
+  const cx = size / 2;
+  const cy = size / 2;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Kevin realistic planet requires a 2D canvas');
+
+  ctx.clearRect(0, 0, size, size);
+
+  // A subtle atmosphere only, avoiding the neon-dot look from earlier versions.
+  const atmosphere = ctx.createRadialGradient(
+    cx - spec.radius * 0.25,
+    cy - spec.radius * 0.25,
+    spec.radius * 0.25,
+    cx,
+    cy,
+    spec.radius * 1.45,
+  );
+  atmosphere.addColorStop(0, 'rgba(255,255,255,0.06)');
+  atmosphere.addColorStop(0.64, 'rgba(150,220,255,0.025)');
+  atmosphere.addColorStop(1, 'rgba(100,190,255,0)');
+  ctx.fillStyle = atmosphere;
+  ctx.beginPath();
+  ctx.arc(cx, cy, spec.radius * 1.45, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (spec.style === 'ringed_gas' && spec.ring) {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(spec.tilt);
+    ctx.strokeStyle = 'rgba(70,62,54,0.38)';
+    ctx.lineWidth = 4.0;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, spec.radius * 2.05, spec.radius * 0.62, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = spec.ring;
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, spec.radius * 2.05, spec.radius * 0.62, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,247,229,0.32)';
+    ctx.lineWidth = 0.65;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, spec.radius * 2.28, spec.radius * 0.75, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, spec.radius, 0, Math.PI * 2);
+  ctx.clip();
+
+  const body = ctx.createRadialGradient(
+    cx - spec.radius * 0.42,
+    cy - spec.radius * 0.38,
+    spec.radius * 0.08,
+    cx + spec.radius * 0.2,
+    cy + spec.radius * 0.1,
+    spec.radius * 1.22,
+  );
+  body.addColorStop(0, spec.highlight);
+  body.addColorStop(0.34, spec.primary);
+  body.addColorStop(0.78, spec.secondary);
+  body.addColorStop(1, '#11131a');
+  ctx.fillStyle = body;
+  ctx.fillRect(
+    cx - spec.radius - 2,
+    cy - spec.radius - 2,
+    spec.radius * 2 + 4,
+    spec.radius * 2 + 4,
+  );
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(spec.tilt);
+  ctx.translate(-cx, -cy);
+
+  if (spec.style === 'gas_banded' || spec.style === 'ringed_gas') {
+    const bandCount = spec.style === 'gas_banded' ? 6 : 5;
+    for (let band = -bandCount; band <= bandCount; band += 1) {
+      const y = cy + band * (spec.radius * 0.16);
+      const thickness = spec.radius * (band % 3 === 0 ? 0.105 : 0.07);
+      ctx.globalAlpha = band % 2 === 0 ? 0.28 : 0.16;
+      ctx.fillStyle =
+        band % 3 === 0
+          ? (spec.accent ?? spec.secondary)
+          : band % 2 === 0
+            ? spec.highlight
+            : spec.secondary;
+      ctx.beginPath();
+      ctx.ellipse(
+        cx,
+        y,
+        spec.radius * 1.05,
+        thickness,
+        0,
+        0,
+        Math.PI * 2,
+      );
+      ctx.fill();
+    }
+
+    if (spec.style === 'gas_banded') {
+      ctx.globalAlpha = 0.34;
+      ctx.fillStyle = spec.accent ?? '#8d4e35';
+      ctx.beginPath();
+      ctx.ellipse(
+        cx + spec.radius * 0.28,
+        cy + spec.radius * 0.18,
+        spec.radius * 0.22,
+        spec.radius * 0.11,
+        -0.12,
+        0,
+        Math.PI * 2,
+      );
+      ctx.fill();
+    }
+  } else if (spec.style === 'rocky' || spec.style === 'moon') {
+    const craterCount = spec.style === 'rocky' ? 9 : 6;
+    for (let i = 0; i < craterCount; i += 1) {
+      const angle = i * 2.17 + spec.tilt;
+      const radial = spec.radius * (0.18 + (i % 4) * 0.13);
+      const px = cx + Math.cos(angle) * radial;
+      const py = cy + Math.sin(angle * 1.31) * radial * 0.72;
+      const craterRadius =
+        spec.radius * (0.055 + (i % 3) * 0.027);
+      ctx.globalAlpha = 0.24 + (i % 2) * 0.08;
+      ctx.fillStyle = i % 2 === 0 ? spec.secondary : (spec.accent ?? spec.secondary);
+      ctx.beginPath();
+      ctx.arc(px, py, craterRadius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 0.12;
+      ctx.strokeStyle = spec.highlight;
+      ctx.lineWidth = 0.55;
+      ctx.beginPath();
+      ctx.arc(px - craterRadius * 0.2, py - craterRadius * 0.2, craterRadius, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  } else if (spec.style === 'icy') {
+    for (let i = -3; i <= 3; i += 1) {
+      ctx.globalAlpha = 0.11 + (i % 2 === 0 ? 0.07 : 0);
+      ctx.strokeStyle = i % 2 === 0 ? spec.highlight : (spec.accent ?? spec.primary);
+      ctx.lineWidth = 0.65;
+      ctx.beginPath();
+      ctx.moveTo(
+        cx - spec.radius * 0.86,
+        cy + i * spec.radius * 0.18,
+      );
+      ctx.quadraticCurveTo(
+        cx,
+        cy + i * spec.radius * 0.12 - spec.radius * 0.08,
+        cx + spec.radius * 0.88,
+        cy + i * spec.radius * 0.16,
+      );
+      ctx.stroke();
+    }
+  }
+
+  ctx.restore();
+
+  // Terminator: one side falls naturally into shadow instead of glowing uniformly.
+  const terminator = ctx.createLinearGradient(
+    cx - spec.radius,
+    cy,
+    cx + spec.radius,
+    cy,
+  );
+  terminator.addColorStop(0, 'rgba(255,255,255,0.12)');
+  terminator.addColorStop(0.38, 'rgba(255,255,255,0)');
+  terminator.addColorStop(0.68, 'rgba(0,0,0,0.12)');
+  terminator.addColorStop(1, 'rgba(0,0,0,0.58)');
+  ctx.fillStyle = terminator;
+  ctx.fillRect(
+    cx - spec.radius,
+    cy - spec.radius,
+    spec.radius * 2,
+    spec.radius * 2,
+  );
+
+  ctx.restore();
+
+  // Thin directional rim light, not a full neon ring.
+  ctx.strokeStyle = 'rgba(224,244,255,0.34)';
+  ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  ctx.arc(
+    cx,
+    cy,
+    spec.radius - 0.4,
+    Math.PI * 0.64,
+    Math.PI * 1.58,
+  );
+  ctx.stroke();
+
+  return canvas;
+}
+
 function buildPlanetPatch(
-  source: Uint8ClampedArray,
   definition: KevinAuthoredObjectDefinition,
   mask: Uint8Array,
   config: PlanetMotionConfig,
@@ -280,60 +539,21 @@ function buildPlanetPatch(
   }
 
   const id = definition.id;
-  const points = maskCoordinates(mask);
   const centroid = planetCentroid(mask);
-  const padding = Math.ceil(config.feather + 2);
-  const x0 = Math.max(0, definition.bounds.x - padding);
-  const y0 = Math.max(0, definition.bounds.y - padding);
-  const x1 = Math.min(
-    WIDTH,
-    definition.bounds.x + definition.bounds.w + padding,
-  );
-  const y1 = Math.min(
-    HEIGHT,
-    definition.bounds.y + definition.bounds.h + padding,
-  );
-  const patchWidth = x1 - x0;
-  const patchHeight = y1 - y0;
-  const patchCanvas = document.createElement('canvas');
-  patchCanvas.width = patchWidth;
-  patchCanvas.height = patchHeight;
-  const patchCtx = patchCanvas.getContext('2d');
-  if (!patchCtx) throw new Error('Kevin planet patch requires a 2D canvas');
-  const patchData = new ImageData(patchWidth, patchHeight);
-
-  for (let localY = 0; localY < patchHeight; localY += 1) {
-    for (let localX = 0; localX < patchWidth; localX += 1) {
-      const sourceX = x0 + localX;
-      const sourceY = y0 + localY;
-      const distance = distanceToMask(sourceX, sourceY, points);
-      const weight = patchWeight(distance, config.feather);
-      if (weight <= 0) continue;
-
-      const sourceOffset = (sourceY * WIDTH + sourceX) * 4;
-      const patchOffset = (localY * patchWidth + localX) * 4;
-      patchData.data[patchOffset] = source[sourceOffset]!;
-      patchData.data[patchOffset + 1] = source[sourceOffset + 1]!;
-      patchData.data[patchOffset + 2] = source[sourceOffset + 2]!;
-      patchData.data[patchOffset + 3] = Math.round(255 * weight);
-    }
-  }
-
-  patchCtx.putImageData(patchData, 0, 0);
-
   const u = centroid.x - CENTER_X;
   const v = (centroid.y - CENTER_Y) / Y_SCALE;
+  const visual = PLANET_VISUALS[id];
+  const sprite = makePlanetSprite(visual);
 
   return {
     id,
-    canvas: patchCanvas,
-    centerX: centroid.x,
-    centerY: centroid.y,
-    localCenterX: centroid.x - x0,
-    localCenterY: centroid.y - y0,
+    canvas: sprite,
+    localCenterX: sprite.width / 2,
+    localCenterY: sprite.height / 2,
     orbitRadius: Math.hypot(u, v),
     orbitTheta: Math.atan2(v, u),
     config,
+    visual,
   };
 }
 
@@ -372,9 +592,10 @@ function erasePlanetFromBase(
           config.donorAngle,
           channel,
         );
+        const eraseStrength = weight * 0.86;
         base[offset + channel] = Math.round(
           source[offset + channel]! +
-            (donor - source[offset + channel]!) * weight,
+            (donor - source[offset + channel]!) * eraseStrength,
         );
       }
       base[offset + 3] = source[offset + 3]!;
@@ -410,7 +631,7 @@ function buildSourceAndCleanBase(
 
     const config = PLANET_MOTION[definition.id];
     const mask = decodeKevinAuthoredMask(definition);
-    patches.push(buildPlanetPatch(source, definition, mask, config));
+    patches.push(buildPlanetPatch(definition, mask, config));
     erasePlanetFromBase(source, cleanBaseData.data, definition, mask, config);
   }
 
@@ -457,15 +678,12 @@ function countEllipseDiff(
 }
 
 /**
- * Hybrid Kevin motion.
+ * Kevin V10 planet visual v2.
  *
- * The authored orbit lines, particles, glass texture and sun stay almost
- * completely still. Only five authored planet patches move a few pixels around
- * their existing orbital positions. Each patch includes its own source glow via
- * a feathered mask; scale/brightness vary by only ~1-2% for subtle depth.
- *
- * This avoids both previous failure modes: rotating the whole map like a disc,
- * and sliding hard-edged planet stickers across a static background.
+ * The authored map/orbits/sun remain as the scene's physical source of truth.
+ * Only the five small moving bodies are redesigned as compact, shaded planets
+ * with directional light, surface structure and restrained atmosphere. Motion
+ * remains tied to the original measured orbital positions.
  */
 export async function loadKevinPixelMotion(
   assetUrl: string,
@@ -491,7 +709,7 @@ export async function loadKevinPixelMotion(
 
   const frameCanvas = createTransparentCanvas();
   const frameCtx = frameCanvas.getContext('2d');
-  if (!frameCtx) throw new Error('Kevin hybrid motion requires a 2D canvas');
+  if (!frameCtx) throw new Error('Kevin planet visual v2 requires a 2D canvas');
 
   return {
     width: WIDTH,
@@ -500,8 +718,8 @@ export async function loadKevinPixelMotion(
     render(timeSec: number, working: boolean): HTMLCanvasElement {
       if (timeSec <= 0.0001) return sourceEllipse;
 
-      const intro = smoothstep(0, 0.8, timeSec);
-      const activityBoost = working ? 1.22 : 1;
+      const intro = smoothstep(0, 0.65, timeSec);
+      const activityBoost = working ? 1.24 : 1;
 
       frameCtx.save();
       frameCtx.setTransform(1, 0, 0, 1, 0, 0);
@@ -511,49 +729,86 @@ export async function loadKevinPixelMotion(
       frameCtx.filter = 'none';
       frameCtx.drawImage(cleanBase, 0, 0);
 
-      const sorted = patches
+      const states = patches
         .map((patch) => {
           const config = patch.config;
-          const wave =
-            0.78 * Math.sin(timeSec * config.speed * activityBoost + config.phase) +
-            0.22 * Math.sin(
-              timeSec * config.speed * 0.47 * activityBoost +
-                config.phase * 2.31,
-            );
-          const radialWave =
-            Math.sin(
-              timeSec * config.speed * 0.71 * activityBoost +
-                config.phase * 1.73,
-            );
+          const primaryWave =
+            0.76 *
+              Math.sin(
+                timeSec * config.speed * activityBoost + config.phase,
+              ) +
+            0.24 *
+              Math.sin(
+                timeSec *
+                  config.speed *
+                  0.49 *
+                  activityBoost +
+                  config.phase * 2.27,
+              );
+          const radialWave = Math.sin(
+            timeSec *
+              config.speed *
+              0.74 *
+              activityBoost +
+              config.phase * 1.67,
+          );
           const theta =
-            patch.orbitTheta + config.angularAmplitude * wave * intro;
+            patch.orbitTheta +
+            config.angularAmplitude * primaryWave * intro;
           const radius =
             patch.orbitRadius +
             config.radialAmplitude * radialWave * intro;
           const x = CENTER_X + Math.cos(theta) * radius;
-          const y = CENTER_Y + Math.sin(theta) * radius * Y_SCALE;
+          const y =
+            CENTER_Y + Math.sin(theta) * radius * Y_SCALE;
           const depth = Math.sin(theta);
-          return { patch, theta, x, y, depth };
+          return { patch, x, y, depth };
         })
         .sort((a, b) => a.depth - b.depth);
 
-      for (const state of sorted) {
+      for (const state of states) {
         const { patch, x, y, depth } = state;
         const config = patch.config;
+        const visual = patch.visual;
         const scale =
           1 + config.scaleAmplitude * depth * intro;
         const opacity =
-          0.965 + (depth + 1) * 0.0175;
+          0.94 + (depth + 1) * 0.03;
         const brightness =
-          0.975 +
-          (depth + 1) * 0.018 +
-          Math.sin(timeSec * 0.9 + config.phase) * 0.012;
+          0.96 +
+          (depth + 1) * 0.03 +
+          Math.sin(timeSec * 1.05 + config.phase) * 0.018;
 
         frameCtx.save();
         frameCtx.translate(x, y);
         frameCtx.scale(scale, scale);
+
+        const halo = frameCtx.createRadialGradient(
+          0,
+          0,
+          visual.radius * 0.65,
+          0,
+          0,
+          visual.radius * 1.85,
+        );
+        halo.addColorStop(0, 'rgba(190,225,255,0.07)');
+        halo.addColorStop(0.58, 'rgba(120,200,255,0.025)');
+        halo.addColorStop(1, 'rgba(90,170,255,0)');
+        frameCtx.fillStyle = halo;
+        frameCtx.globalAlpha = 0.85;
+        frameCtx.beginPath();
+        frameCtx.arc(
+          0,
+          0,
+          visual.radius * 1.85,
+          0,
+          Math.PI * 2,
+        );
+        frameCtx.fill();
+
         frameCtx.globalAlpha = opacity;
-        frameCtx.filter = `brightness(${brightness.toFixed(3)})`;
+        frameCtx.filter =
+          `brightness(${brightness.toFixed(3)})`;
         frameCtx.drawImage(
           patch.canvas,
           -patch.localCenterX,
@@ -562,8 +817,6 @@ export async function loadKevinPixelMotion(
         frameCtx.restore();
       }
 
-      // Cross-fade from the exact authored frame during startup so there is no
-      // visual pop when the clean plate takes over.
       if (intro < 1) {
         frameCtx.globalAlpha = 1 - intro;
         frameCtx.filter = 'none';
