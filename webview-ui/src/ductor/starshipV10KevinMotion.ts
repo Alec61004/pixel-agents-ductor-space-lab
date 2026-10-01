@@ -1113,7 +1113,8 @@ export async function loadKevinPixelMotion(
       frameCtx.drawImage(cleanBase, 0, 0);
 
       // Context is ported from the original Kevin star-map renderer and mapped
-      // into the exact V10 ellipse, so it shares the same center as the planets.
+      // into the exact physical V10 glass. The solar system keeps its authored
+      // Sun focus inside that glass; these are intentionally separate centers.
       drawLegacyMapContext(frameCtx, timeSec, working);
 
       const states = patches
@@ -1153,6 +1154,21 @@ export async function loadKevinPixelMotion(
         })
         .sort((a, b) => a.depth - b.depth);
 
+      // Planet sprites belong to the holographic glass as well. Clip them to
+      // the authored disc so rings/glow can never float over the metal table.
+      frameCtx.save();
+      frameCtx.beginPath();
+      frameCtx.ellipse(
+        KEVIN_DISC.cx,
+        KEVIN_DISC.cy,
+        KEVIN_DISC.rx,
+        KEVIN_DISC.ry,
+        0,
+        0,
+        Math.PI * 2,
+      );
+      frameCtx.clip();
+
       for (const state of states) {
         const { patch, x, y, depth } = state;
         const config = patch.config;
@@ -1179,6 +1195,7 @@ export async function loadKevinPixelMotion(
         );
         frameCtx.restore();
       }
+      frameCtx.restore();
 
       if (intro < 1) {
         frameCtx.globalAlpha = 1 - intro;
