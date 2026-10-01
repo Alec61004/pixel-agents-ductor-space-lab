@@ -18,6 +18,12 @@ export interface StarshipPixelSceneLayer {
     speed: number;
     phase: number;
     intensity: number;
+    /** Optional source-pixel motion inside named detail masks. */
+    motion?: 'scan-x' | 'float-y' | 'orbit';
+    /** Pixel amplitude for scan/float, radians for orbit. */
+    amplitude?: number;
+    centerX?: number;
+    centerY?: number;
   };
 }
 export interface StarshipPixelSceneGroup {
@@ -48,6 +54,10 @@ interface Prepared {
   maskKey?: string;
   mask?: Uint8ClampedArray;
 }
+export type StarshipPixelWorkingState =
+  | boolean
+  | Readonly<Record<string, boolean>>;
+
 export interface StarshipPixelScene {
   readonly width: number;
   readonly height: number;
@@ -55,7 +65,7 @@ export interface StarshipPixelScene {
   readonly nativeArtwork: Surface;
   readonly manifest: StarshipPixelSceneManifest;
   /** Composite every layer in native space, respecting the same z-order in both states. */
-  render(timeSec: number, alecWorking: boolean): Surface;
+  render(timeSec: number, working: StarshipPixelWorkingState): Surface;
 }
 
 const cache = new Map<string, Promise<StarshipPixelScene>>();
@@ -99,7 +109,11 @@ function validate(m: StarshipPixelSceneManifest): void {
         !Array.isArray(point) || point.length !== 2 || !point.every(Number.isFinite))))) {
       throw new Error(`Invalid detail mask: ${l.id}`);
     }
-    if (l.working && (!['console','light-column'].includes(l.working.kind) || ![l.working.speed,l.working.phase,l.working.intensity,l.working.amplitude ?? 0].every(Number.isFinite))) throw new Error(`Invalid working effect: ${l.id}`);
+    if (l.working && (
+      !['console','light-column'].includes(l.working.kind) ||
+      ![l.working.speed,l.working.phase,l.working.intensity,l.working.amplitude ?? 0,l.working.centerX ?? 0,l.working.centerY ?? 0].every(Number.isFinite) ||
+      (l.working.motion !== undefined && !['scan-x','float-y','orbit'].includes(l.working.motion))
+    )) throw new Error(`Invalid working effect: ${l.id}`);
   }
   if (m.groups) {
     const ids = new Set(m.layers.map((layer) => layer.id));
@@ -203,19 +217,47 @@ function drawPrepared(ctx: Context, p: Prepared, time: number, working: boolean)
     }
     e.putImageData(pixels,0,0); ctx.drawImage(p.effect,0,0);
   } else {
-    // Modify the layer's source pixels in its own local coordinates, not stage coordinates.
+    // Modify source pixels only inside named local detail masks. This is not a DOM
+    // overlay: the compositor replaces the owned pixels in-place for this frame.
     const e = context(p.effect); e.clearRect(0,0,w,h); e.drawImage(p.sprite,0,0);
-    const pixels = e.getImageData(0,0,w,h), d=pixels.data;
-    const scan = ((time*effect.speed+effect.phase)%1+1)%1;
+    const original = context(p.sprite).getImageData(0,0,w,h);
+    const pixels = e.getImageData(0,0,w,h), d=pixels.data, src=original.data;
+    const phase = time*effect.speed+effect.phase;
+    const scan = ((phase)%1+1)%1;
+    const amp = effect.amplitude ?? 0;
+    const motion = effect.motion;
+    const shiftX = motion === 'scan-x' ? Math.round(Math.sin(phase)*amp) : 0;
+    const shiftY = motion === 'float-y' ? Math.round(Math.sin(phase)*amp) : 0;
+    const cx = effect.centerX ?? w/2, cy = effect.centerY ?? h/2;
+    const angle = motion === 'orbit' ? Math.sin(phase)*amp : 0;
+    const cos = Math.cos(-angle), sin = Math.sin(-angle);
+
     for(let y=0;y<h;y++) for(let x=0;x<w;x++) {
       const i=(y*w+x)*4;
       if(!d[i+3] || p.mask![i+3] !== 255) continue;
+
+      let sx=x-shiftX, sy=y-shiftY;
+      if (motion === 'orbit') {
+        const dx=x-cx, dy=y-cy;
+        sx=Math.round(cx+dx*cos-dy*sin);
+        sy=Math.round(cy+dx*sin+dy*cos);
+      }
+      const sourceX=Math.round(sx), sourceY=Math.round(sy);
+      if(sourceX>=0&&sourceX<w&&sourceY>=0&&sourceY<h) {
+        const si=(sourceY*w+sourceX)*4;
+        if(p.mask![si+3]===255) {
+          d[i]=src[si]; d[i+1]=src[si+1]; d[i+2]=src[si+2];
+          // Preserve destination alpha so semantic layer ownership never develops holes.
+          d[i+3]=src[i+3];
+        }
+      }
+
       const cyan = Math.max(0,Math.min(1,(Math.min(d[i+1],d[i+2])-d[i]*0.55-16)/70));
       const amber = Math.max(0,Math.min(1,(d[i]-d[i+2]-35)/100));
       const distance=Math.abs(x/w-scan);
       const sweep=Math.max(0,1-Math.min(distance,1-distance)/0.16);
       const pulse=0.5+0.5*Math.sin(time*3+effect.phase+x/w*5);
-      const amount=Math.min(0.9,effect.intensity*(0.18+pulse*0.25+sweep*0.6));
+      const amount=Math.min(0.9,effect.intensity*(0.12+pulse*0.2+sweep*0.45));
       for(let c=0;c<3;c++) {
         const target=cyan >= amber ? [95,235,255][c] : [255,190,70][c];
         d[i+c]=Math.round(d[i+c]+(target-d[i+c])*Math.max(cyan,amber)*amount);
@@ -239,14 +281,20 @@ async function build(url: string, manifest: StarshipPixelSceneManifest): Promise
   // Existing glass/occlusion samplers use 1600×678 source coordinates.
   const artwork=canvas(1600,678), world=context(artwork);
   let lastKey='';
-  const render=(timeSec:number,working:boolean): Surface => {
+  const render=(timeSec:number,working:StarshipPixelWorkingState): Surface => {
     // 24 fps effect updates; agents retain their normal frame rate. Edits invalidate the cache.
-    const tick=working?Math.floor(timeSec*24)/24:0;
+    const anyWorking = typeof working === 'boolean'
+      ? working
+      : Object.values(working).some(Boolean);
+    const tick=anyWorking?Math.floor(timeSec*24)/24:0;
     const key=JSON.stringify([working,tick,manifest.layers]);
     if(key===lastKey) return artwork;
     ctx.clearRect(0,0,manifest.width,manifest.height);
     ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
-    for(const p of [...prepared].sort((a,b)=>a.layer.z-b.layer.z)) drawPrepared(ctx,p,tick,working);
+    for(const p of [...prepared].sort((a,b)=>a.layer.z-b.layer.z)) {
+      const layerWorking = typeof working === 'boolean' ? working : Boolean(working[p.layer.id]);
+      drawPrepared(ctx,p,tick,layerWorking);
+    }
     world.clearRect(0,0,1600,678); world.imageSmoothingEnabled=true; world.imageSmoothingQuality='high';
     world.drawImage(nativeArtwork,0,0,1600,678);
     lastKey=key; return artwork;
