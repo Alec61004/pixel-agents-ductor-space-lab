@@ -5,6 +5,7 @@ import {
   loadStarshipPixelScene,
   type StarshipPixelScene,
 } from './starshipPixelScene.js';
+import { drawV10RoomMotion } from './starshipV10Motion.js';
 
 const V10_SCENE_MANIFEST = 'themes/ductor-space-lab/pixel-scene-v10/scene.json';
 
@@ -21,33 +22,24 @@ interface HtmlLayerSceneProps {
   onError: (error: unknown) => void;
 }
 
-const V10_ACTIVITY_LAYER: Record<keyof WorkstationActivity, string> = {
-  Alec: 'alec-station',
-  Kevin: 'kevin-station',
-  Benjamin: 'benjamin-station',
-};
-
 /**
  * Render the authored V10 room from eight external, non-overlapping PNG layers.
  *
- * The source editor stays at 1926 × 816. StarshipLab applies the existing
- * 1926×816 -> 1600×678 world transform to this DOM canvas, so the room remains
- * pixel-identical while agent routing/click targets stay in simulation space.
- *
- * Active workstation effects are generated inside the native compositor. Only
- * pixels covered by explicit detail masks are changed; workstation crops never
- * translate as whole layers and no extra DOM image is stacked above the room.
+ * The PNGs remain the physical room. A same-canvas procedural pass paints only
+ * live content inside authored device/window interiors: space motion, fluid,
+ * radar, orbital maps and QA holograms. No workstation PNG is translated and
+ * no extra image layer is stacked over the room.
  */
 export function HtmlLayerScene({ sceneRef, activity, onReady, onError }: HtmlLayerSceneProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const runtimeSceneRef = useRef<StarshipPixelScene | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const activityRef = useRef(activity);
-  const restartAnimationRef = useRef<(() => void) | null>(null);
   activityRef.current = activity;
 
   useEffect(() => {
     let disposed = false;
+    let lastDrawMs = -Infinity;
     const manifestUrl = ductorAssetUrl(
       import.meta.env?.BASE_URL ?? './',
       V10_SCENE_MANIFEST,
@@ -55,43 +47,38 @@ export function HtmlLayerScene({ sceneRef, activity, onReady, onError }: HtmlLay
 
     const drawFrame = (timeMs: number) => {
       if (disposed) return;
+
+      // Keep the room alive continuously, but 30 fps is enough for the authored
+      // pixel scene and avoids needlessly repainting a 1926×816 canvas at 60 fps.
+      if (timeMs - lastDrawMs < 1000 / 30) {
+        animationFrameRef.current = requestAnimationFrame(drawFrame);
+        return;
+      }
+      lastDrawMs = timeMs;
+
       const scene = runtimeSceneRef.current;
       const canvas = canvasRef.current;
-      if (!scene || !canvas) return;
-
-      const active = activityRef.current;
-      const workingByLayer = {
-        [V10_ACTIVITY_LAYER.Alec]: active.Alec,
-        [V10_ACTIVITY_LAYER.Kevin]: active.Kevin,
-        [V10_ACTIVITY_LAYER.Benjamin]: active.Benjamin,
-      };
-
-      scene.render(timeMs / 1000, workingByLayer);
+      if (!scene || !canvas) {
+        animationFrameRef.current = requestAnimationFrame(drawFrame);
+        return;
+      }
 
       const ctx = canvas.getContext('2d');
       if (!ctx) throw new Error('V10 compositor requires a 2D canvas');
+
+      // V10 base remains pixel-identical to the authored PNG composition.
+      scene.render(0, false);
+
       ctx.save();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, scene.width, scene.height);
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(scene.nativeArtwork, 0, 0);
+      drawV10RoomMotion(ctx, timeMs / 1000, activityRef.current);
       ctx.restore();
 
-      if (active.Alec || active.Kevin || active.Benjamin) {
-        animationFrameRef.current = requestAnimationFrame(drawFrame);
-      } else {
-        animationFrameRef.current = null;
-      }
+      animationFrameRef.current = requestAnimationFrame(drawFrame);
     };
-
-    const restartAnimation = () => {
-      if (animationFrameRef.current !== null) {
-        cancelAnimationFrame(animationFrameRef.current);
-        animationFrameRef.current = null;
-      }
-      drawFrame(performance.now());
-    };
-    restartAnimationRef.current = restartAnimation;
 
     void loadStarshipPixelScene(manifestUrl)
       .then((scene) => {
@@ -105,7 +92,7 @@ export function HtmlLayerScene({ sceneRef, activity, onReady, onError }: HtmlLay
         canvas.width = scene.width;
         canvas.height = scene.height;
         runtimeSceneRef.current = scene;
-        restartAnimation();
+        drawFrame(performance.now());
         onReady();
       })
       .catch((error: unknown) => {
@@ -114,7 +101,6 @@ export function HtmlLayerScene({ sceneRef, activity, onReady, onError }: HtmlLay
 
     return () => {
       disposed = true;
-      restartAnimationRef.current = null;
       runtimeSceneRef.current = null;
       if (animationFrameRef.current !== null) {
         cancelAnimationFrame(animationFrameRef.current);
@@ -122,10 +108,6 @@ export function HtmlLayerScene({ sceneRef, activity, onReady, onError }: HtmlLay
       }
     };
   }, [onError, onReady]);
-
-  useEffect(() => {
-    restartAnimationRef.current?.();
-  }, [activity]);
 
   return (
     <div ref={sceneRef} className="starship-html-scene" aria-hidden="true">
