@@ -5,7 +5,6 @@ import {
   loadStarshipPixelScene,
   type StarshipPixelScene,
 } from './starshipPixelScene.js';
-import { drawV10RoomMotion } from './starshipV10Motion.js';
 
 const V10_SCENE_MANIFEST = 'themes/ductor-space-lab/pixel-scene-v10/scene.json';
 
@@ -74,10 +73,12 @@ export function HtmlLayerScene({ sceneRef, activity, onReady, onError }: HtmlLay
       ctx.clearRect(0, 0, scene.width, scene.height);
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(scene.nativeArtwork, 0, 0);
-      drawV10RoomMotion(ctx, scene.nativeArtwork, timeMs / 1000, activityRef.current);
       ctx.restore();
 
-      animationFrameRef.current = requestAnimationFrame(drawFrame);
+      // Pixel-extraction work is intentionally gated: keep V10 exact and static
+      // until source-pixel masks pass reconstruction QA. Do not paint provisional
+      // motion over the authored room.
+      animationFrameRef.current = null;
     };
 
     void loadStarshipPixelScene(manifestUrl)
