@@ -177,7 +177,17 @@ export async function loadKevinPixelMotion(assetUrl: string): Promise<KevinPixel
 
       vec4 originalColor = texture2D(u_texture, originalUv);
       vec4 warpedColor = texture2D(u_texture, warpedUv);
-      gl_FragColor = mix(originalColor, warpedColor, gate);
+
+      // The authored PNG silhouette is immutable. Never let a warped opaque
+      // texel spill into a source-transparent pixel, which would turn the
+      // 540x230 crop into a visible rectangular overlay.
+      float originalValid = step(0.01, originalColor.a);
+      float warpedValid = step(0.01, warpedColor.a);
+      float effectiveGate = gate * originalValid * warpedValid;
+      vec3 color = mix(originalColor.rgb, warpedColor.rgb, effectiveGate);
+
+      // Preserve the exact authored alpha at this pixel.
+      gl_FragColor = vec4(color, originalColor.a);
     }
   `;
 
