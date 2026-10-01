@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Kevin V10 Pixel QA</title>
+<style>
+:root{color-scheme:dark;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#071018;color:#dff8ff}
+body{margin:0;padding:20px;background:#071018}
+h1{font-size:18px;margin:0 0 6px}.sub{color:#8fb8c7;font-size:12px;margin-bottom:16px}
+.status{display:flex;gap:14px;flex-wrap:wrap;margin:12px 0 16px;padding:10px 12px;border:1px solid #1e5268;background:#0a1822}
+.good{color:#76ffc8}.bad{color:#ff7373}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(540px,1fr));gap:14px}
+.card{border:1px solid #193f52;background:#09141d;padding:10px;overflow:auto}
+.card h2{font-size:12px;margin:0 0 8px;color:#9deeff}
+canvas{width:540px;height:230px;image-rendering:pixelated;background:#02070b;border:1px solid #204b60;max-width:100%}
+.controls{display:flex;gap:9px;flex-wrap:wrap;margin:12px 0}
+label{font-size:11px;padding:6px 8px;border:1px solid #204b60;background:#0b1b26}
+code{color:#ffd98d}
+</style>
+</head>
+<body>
+<h1>Kevin V10 — source-pixel QA</h1>
+<div class="sub">No animation. Every selected pixel below is copied byte-for-byte from the authored 540×230 V10 Kevin PNG.</div>
+<div id="status" class="status">Loading exact source…</div>
+<div id="controls" class="controls"></div>
+<div class="grid">
+  <section class="card"><h2>01 · Authored source</h2><canvas id="source" width="540" height="230"></canvas></section>
+  <section class="card"><h2>02 · Semantic mask overlay</h2><canvas id="overlay" width="540" height="230"></canvas></section>
+  <section class="card"><h2>03 · Exact remainder after selected pixels are removed</h2><canvas id="remainder" width="540" height="230"></canvas></section>
+  <section class="card"><h2>04 · Exact reconstruction (remainder + selected pixel layers)</h2><canvas id="reconstruction" width="540" height="230"></canvas></section>
+</div>
+<script>
+const W=540,H=230;
+const sourceUrl='./assets/themes/ductor-space-lab/pixel-scene-v10/layers/kevin-station.png';
+const objects={
+sun:{color:[255,74,61],runs:[[23524,8],[24062,13],[24601,16],[25140,18],[25679,20],[26218,22],[26757,23],[27297,24],[27837,24],[28377,24],[28917,25],[29457,25],[29997,25],[30537,25],[31077,25],[31617,25],[32157,24],[32698,23],[33239,21],[33780,19],[34321,17],[34862,14],[35404,10]]},
+planet_orange:{color:[255,145,36],runs:[[30472,7],[31011,9],[31550,11],[32089,13],[32629,14],[33169,15],[33709,14],[34252,10],[34793,8]]},
+planet_gold_small:{color:[255,231,69],runs:[[21829,3],[22367,6],[22906,8],[23445,9],[23985,9],[24526,8],[25066,7],[25607,5]]},
+planet_cyan:{color:[50,220,255],runs:[[30068,5],[30607,7],[31147,11],[31686,13],[32225,14],[32764,15],[33303,16],[33843,16],[34383,16],[34923,16],[35463,16],[36004,15],[36545,10],[37086,8],[37628,6],[38170,4],[38712,1]]},
+planet_white:{color:[245,245,245],runs:[[36041,1],[36580,2],[37120,2],[37655,7],[38194,9],[38733,11],[39272,13],[39811,15],[40351,15],[40891,16],[41431,16],[41971,16],[42511,16],[43051,16],[43592,14],[44133,13],[44674,11],[45216,8]]},
+marker_star:{color:[70,255,120],runs:[[13841,2],[14380,3],[14917,9],[15456,11],[15996,11],[16539,8],[17080,3],[17620,2]]},
+planet_purple_small:{color:[228,80,255],runs:[[19698,1],[20237,5],[20776,7],[21315,9],[21856,7],[22397,5]]}
+};
+const enabled=new Set(Object.keys(objects));
+const maskOf=(o)=>{const m=new Uint8Array(W*H);for(const [s,n] of o.runs)for(let i=s;i<s+n;i++)m[i]=1;return m};
+for(const o of Object.values(objects))o.mask=maskOf(o);
+function ctx(id){return document.getElementById(id).getContext('2d',{willReadFrequently:true})}
+function draw(){
+ const s=ctx('source'),o=ctx('overlay'),r=ctx('remainder'),q=ctx('reconstruction');
+ const src=s.getImageData(0,0,W,H);
+ const over=new ImageData(new Uint8ClampedArray(src.data),W,H);
+ const rem=new ImageData(new Uint8ClampedArray(src.data),W,H);
+ const layers=[];
+ let selected=0;
+ for(const [name,obj] of Object.entries(objects)){
+   if(!enabled.has(name))continue;
+   const layer=new Uint8ClampedArray(src.data.length);
+   for(let p=0;p<W*H;p++){
+     if(!obj.mask[p])continue; selected++;
+     const i=p*4;
+     layer[i]=src.data[i];layer[i+1]=src.data[i+1];layer[i+2]=src.data[i+2];layer[i+3]=src.data[i+3];
+     over.data[i]=Math.round(src.data[i]*.25+obj.color[0]*.75);
+     over.data[i+1]=Math.round(src.data[i+1]*.25+obj.color[1]*.75);
+     over.data[i+2]=Math.round(src.data[i+2]*.25+obj.color[2]*.75);
+     rem.data[i]=0;rem.data[i+1]=0;rem.data[i+2]=0;rem.data[i+3]=0;
+   }
+   layers.push(layer);
+ }
+ const rec=new ImageData(new Uint8ClampedArray(rem.data),W,H);
+ for(const layer of layers)for(let i=0;i<layer.length;i+=4)if(layer[i+3]){
+   rec.data[i]=layer[i];rec.data[i+1]=layer[i+1];rec.data[i+2]=layer[i+2];rec.data[i+3]=layer[i+3];
+ }
+ let diff=0;
+ for(let i=0;i<src.data.length;i+=4)if(src.data[i]!==rec.data[i]||src.data[i+1]!==rec.data[i+1]||src.data[i+2]!==rec.data[i+2]||src.data[i+3]!==rec.data[i+3])diff++;
+ o.putImageData(over,0,0);r.putImageData(rem,0,0);q.putImageData(rec,0,0);
+ document.getElementById('status').innerHTML=
+   '<span>selected pixels: <code>'+selected+'</code></span>'+
+   '<span>objects: <code>'+enabled.size+'</code></span>'+
+   '<span class="'+(diff===0?'good':'bad')+'">reconstruction RGBA diff: <b>'+diff+' pixels</b></span>';
+}
+const img=new Image();
+img.onload=()=>{
+ const s=ctx('source');s.clearRect(0,0,W,H);s.drawImage(img,0,0);
+ const controls=document.getElementById('controls');
+ for(const name of Object.keys(objects)){
+   const label=document.createElement('label');
+   const box=document.createElement('input');box.type='checkbox';box.checked=true;
+   box.onchange=()=>{box.checked?enabled.add(name):enabled.delete(name);draw()};
+   label.append(box,' '+name+' · '+objects[name].mask.reduce((a,b)=>a+b,0)+' px');
+   controls.append(label);
+ }
+ draw();
+};
+img.onerror=()=>document.getElementById('status').innerHTML='<span class="bad">Could not load '+sourceUrl+'</span>';
+img.src=sourceUrl;
+</script>
+</body>
+</html>
