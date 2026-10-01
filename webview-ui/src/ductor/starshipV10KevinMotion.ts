@@ -1,6 +1,7 @@
 import {
   KEVIN_AUTHORED_OBJECTS,
   KEVIN_DISC,
+  KEVIN_STAR_MAP_POLYGON,
   decodeKevinAuthoredMask,
   type KevinAuthoredObjectDefinition,
   type KevinAuthoredObjectId,
@@ -20,8 +21,12 @@ const HEIGHT = 230;
 // 1) the physical star-map glass/disc, measured by the semantic atlas;
 // 2) the solar-system focus, measured from the authored Sun pixels.
 // Never use the Sun as the clipping center of the physical map.
-const SUN_X = 308.7;
-const SUN_Y = 54.2;
+const SOURCE_SUN_X = 308.7;
+const SOURCE_SUN_Y = 54.2;
+
+// Reference composition mapped into the authored 540x230 Kevin glass.
+const SUN_X = 270;
+const SUN_Y = 74;
 const ORBIT_Y_SCALE = KEVIN_DISC.ry / KEVIN_DISC.rx;
 const KEPLER_REFERENCE_RADIUS = 60;
 const KEPLER_REFERENCE_PERIOD_SEC = 18;
@@ -36,6 +41,30 @@ const MOVING_PLANETS = new Set<KevinAuthoredObjectId>([
   'planet_white',
   'planet_purple_small',
 ]);
+
+const REFERENCE_ORBITS: Readonly<Record<MovingPlanetId, { radius: number; theta: number }>> = {
+  // Target centers at t≈0 after the intro morph:
+  // white ≈ (218,46), purple ≈ (311,56), cyan ≈ (369,79),
+  // gold ≈ (318,122), orange ≈ (185,121).
+  planet_purple_small: { radius: 58, theta: -0.78 },
+  planet_white: { radius: 82, theta: -2.25 },
+  planet_cyan: { radius: 100, theta: 0.12 },
+  planet_gold_small: { radius: 118, theta: 1.15 },
+  planet_orange: { radius: 136, theta: 2.25 },
+};
+
+const REFERENCE_STAR_NODES = [
+  [145, 82, 0.72],
+  [164, 49, 0.54],
+  [194, 31, 0.62],
+  [236, 23, 0.48],
+  [332, 27, 0.56],
+  [393, 76, 0.74],
+  [375, 104, 0.50],
+  [341, 131, 0.62],
+  [250, 133, 0.48],
+  [174, 119, 0.58],
+] as const;
 
 interface PlanetMotionConfig {
   angularAmplitude: number;
@@ -160,6 +189,8 @@ interface PlanetPatch {
   canvas: HTMLCanvasElement;
   localCenterX: number;
   localCenterY: number;
+  sourceCenterX: number;
+  sourceCenterY: number;
   orbitRadius: number;
   orbitTheta: number;
   config: PlanetMotionConfig;
@@ -297,129 +328,116 @@ function drawLegacyMapStar(
   ctx.fill();
 }
 
-function drawLegacyMapContext(
+function clipKevinMapSurface(ctx: CanvasRenderingContext2D): void {
+  const first = KEVIN_STAR_MAP_POLYGON[0]!;
+  ctx.beginPath();
+  ctx.moveTo(first[0], first[1]);
+  for (let i = 1; i < KEVIN_STAR_MAP_POLYGON.length; i += 1) {
+    const point = KEVIN_STAR_MAP_POLYGON[i]!;
+    ctx.lineTo(point[0], point[1]);
+  }
+  ctx.closePath();
+  ctx.clip();
+}
+
+function deterministicUnit(index: number, salt: number): number {
+  const value = Math.sin(index * 91.713 + salt * 37.117) * 43758.5453;
+  return value - Math.floor(value);
+}
+
+function drawGalaxyCluster(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  radius: number,
+  timeSec: number,
+  phase: number,
+  magenta: boolean,
+): void {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(1, 0.42);
+  ctx.rotate(timeSec * 0.025 + phase);
+  ctx.globalCompositeOperation = 'screen';
+
+  const haze = ctx.createRadialGradient(0, 0, 0, 0, 0, radius * 1.6);
+  haze.addColorStop(0, magenta ? 'rgba(242,210,255,0.50)' : 'rgba(220,248,255,0.54)');
+  haze.addColorStop(0.22, magenta ? 'rgba(200,70,255,0.23)' : 'rgba(90,205,255,0.24)');
+  haze.addColorStop(1, magenta ? 'rgba(120,20,220,0)' : 'rgba(20,120,255,0)');
+  ctx.fillStyle = haze;
+  ctx.beginPath();
+  ctx.arc(0, 0, radius * 1.6, 0, Math.PI * 2);
+  ctx.fill();
+
+  for (let arm = 0; arm < 2; arm += 1) {
+    ctx.beginPath();
+    for (let step = 0; step <= 24; step += 1) {
+      const t = step / 24;
+      const rr = radius * (0.15 + 0.95 * t);
+      const angle = arm * Math.PI + t * Math.PI * 2.15;
+      const px = Math.cos(angle) * rr;
+      const py = Math.sin(angle) * rr * 0.72;
+      if (step === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.strokeStyle = magenta
+      ? 'rgba(220,120,255,0.36)'
+      : 'rgba(140,225,255,0.38)';
+    ctx.lineWidth = 0.9;
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawReferenceAsteroidBelt(
   ctx: CanvasRenderingContext2D,
   timeSec: number,
   working: boolean,
 ): void {
-  ctx.save();
-  ctx.beginPath();
-  ctx.ellipse(
-    KEVIN_DISC.cx,
-    KEVIN_DISC.cy,
-    KEVIN_DISC.rx,
-    KEVIN_DISC.ry,
-    0,
-    0,
-    Math.PI * 2,
-  );
-  ctx.clip();
+  const count = 46;
+  const rotation = timeSec * keplerAngularSpeed(68, 0.72);
 
-  // Same broad wisps as the original star-map renderer, transformed into the
-  // V10 ellipse instead of being positioned independently in room space.
-  ctx.globalCompositeOperation = 'lighter';
-  for (let cloud = 0; cloud < 12; cloud += 1) {
-    const u = cloud / 11;
-    const legacyX = 14 + u * 78;
-    const legacyY =
-      53 -
-      u * 36 +
-      Math.sin(u * 6 + timeSec * 0.025) * 3;
-    const point = mapLegacyPoint(legacyX, legacyY);
-    const rx = legacyRadiusX(11) * 1.7;
-    const ry =
-      legacyRadiusY(11) *
-      (0.6 + (cloud % 3) * 0.12);
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+
+  for (let i = 0; i < count; i += 1) {
+    const angle =
+      (i / count) * Math.PI * 2 +
+      (deterministicUnit(i, 1) - 0.5) * 0.12 +
+      rotation;
+    const radius =
+      67 + (deterministicUnit(i, 2) - 0.5) * 13;
+    const x = SUN_X + Math.cos(angle) * radius;
+    const y = SUN_Y + Math.sin(angle) * radius * ORBIT_Y_SCALE;
+    const rock = 0.62 + deterministicUnit(i, 3) * 1.05;
 
     ctx.save();
-    ctx.translate(point.x, point.y);
-    ctx.scale(1, ry / Math.max(0.001, rx));
-    const haze = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
-    haze.addColorStop(0, working ? '#56bdd632' : '#56bdd622');
-    haze.addColorStop(0.35, '#348da918');
-    haze.addColorStop(1, '#16435b00');
-    ctx.fillStyle = haze;
-    ctx.fillRect(-rx, -rx, rx * 2, rx * 2);
+    ctx.translate(x, y);
+    ctx.rotate(angle + deterministicUnit(i, 4));
+    ctx.globalAlpha = (working ? 0.58 : 0.46) *
+      (0.72 + deterministicUnit(i, 5) * 0.28);
+    ctx.fillStyle = i % 5 === 0 ? '#e9c99b' : i % 3 === 0 ? '#b8d7dd' : '#d6d1c7';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, rock * 1.45, rock * 0.62, 0, 0, Math.PI * 2);
+    ctx.fill();
     ctx.restore();
   }
-  ctx.globalCompositeOperation = 'source-over';
 
-  // Original fixed-seed dust distribution. Density is reduced from the legacy
-  // 420 points to 150 so the V10 art remains readable.
-  for (const mote of LEGACY_HOLOGRAM_DUST) {
-    const drift = Math.sin(timeSec * 0.18 + mote.depth * 0.13);
-    const point = mapLegacyPoint(
-      mote.x + drift * mote.depth * 0.65,
-      mote.y +
-        Math.cos(timeSec * 0.13 + mote.depth * 0.2) *
-          mote.depth *
-          0.3,
-    );
-    const mappedRadius = Math.max(
-      0.28,
-      legacyRadiusX(mote.radius),
-    );
-    ctx.globalAlpha =
-      mote.alpha *
-      (working ? 0.72 : 0.52) *
-      (0.8 + Math.sin(timeSec * 0.8 + mote.x) * 0.2);
-    ctx.fillStyle = mote.depth > 0 ? '#beedf0' : '#5ba8c3';
-    ctx.beginPath();
-    ctx.arc(point.x, point.y, mappedRadius, 0, Math.PI * 2);
-    ctx.fill();
-  }
+  ctx.restore();
+}
 
-  // The same fine star grid used by the reference implementation.
-  for (let i = 0; i < 38; i += 1) {
-    const x = 7 + ((i * 37.73) % 91);
-    const y = 7 + ((i * 19.31) % 57);
-    const point = mapLegacyPoint(x, y);
-    const radius = i % 7 === 0 ? 0.72 : 0.42;
-    ctx.globalAlpha =
-      (working ? 0.34 : 0.24) *
-      (0.68 + (i % 4) * 0.08);
-    ctx.fillStyle = '#bedee8';
-    ctx.beginPath();
-    ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
-    ctx.fill();
-  }
+function drawReferenceSectorGrid(
+  ctx: CanvasRenderingContext2D,
+  working: boolean,
+): void {
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
 
-  // Port the original subdued navigation branches exactly in map coordinates.
-  const p32_15 = mapLegacyPoint(32, 15);
-  const p54_38 = mapLegacyPoint(54, 38);
-  const p86_20 = mapLegacyPoint(86, 20);
-  const p87_51 = mapLegacyPoint(87, 51);
-  const c1 = mapLegacyPoint(35, 28);
-  const c2 = mapLegacyPoint(43, 35);
-  const c3 = mapLegacyPoint(66, 32);
-  const c4 = mapLegacyPoint(76, 23);
-  const c5 = mapLegacyPoint(68, 44);
-  const c6 = mapLegacyPoint(79, 46);
-
-  ctx.globalAlpha = working ? 0.24 : 0.16;
-  ctx.strokeStyle = '#70c4d8';
-  ctx.lineWidth = 0.75;
-  ctx.beginPath();
-  ctx.moveTo(p32_15.x, p32_15.y);
-  ctx.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, p54_38.x, p54_38.y);
-  ctx.bezierCurveTo(c3.x, c3.y, c4.x, c4.y, p86_20.x, p86_20.y);
-  ctx.moveTo(p54_38.x, p54_38.y);
-  ctx.bezierCurveTo(c5.x, c5.y, c6.x, c6.y, p87_51.x, p87_51.y);
-  ctx.stroke();
-
-  drawLegacyMapStar(ctx, 32, 15, 0.42, '#ffae83', working ? 0.66 : 0.50);
-  drawLegacyMapStar(ctx, 86, 20, 0.68, '#c1f3ff', working ? 0.82 : 0.64);
-  drawLegacyMapStar(ctx, 87, 51, 0.50, '#bceeff', working ? 0.68 : 0.50);
-  drawLegacyMapStar(ctx, 69, 27, 0.28, '#bceeff', working ? 0.74 : 0.56);
-  drawLegacyMapStar(ctx, 18, 45, 0.30, '#bceeff', working ? 0.58 : 0.42);
-
-  // Use the current V10 orbital geometry for structure, not guessed circles.
-  // Three low-alpha guide ellipses are derived from the measured planet radii.
-  const guideRadii = [56, 91, 132] as const;
-  ctx.strokeStyle = '#70c4d8';
-  ctx.lineWidth = 0.62;
-  ctx.globalAlpha = working ? 0.16 : 0.10;
-  for (const radius of guideRadii) {
+  const alpha = working ? 0.24 : 0.16;
+  const radii = [38, 58, 82, 100, 118, 136] as const;
+  for (const radius of radii) {
+    ctx.strokeStyle = `rgba(105,218,255,${alpha})`;
+    ctx.lineWidth = radius === 136 ? 0.7 : 0.52;
     ctx.beginPath();
     ctx.ellipse(
       SUN_X,
@@ -433,9 +451,142 @@ function drawLegacyMapContext(
     ctx.stroke();
   }
 
+  for (let i = 0; i < 8; i += 1) {
+    const angle = (i / 8) * Math.PI * 2;
+    const x0 = SUN_X + Math.cos(angle) * 28;
+    const y0 = SUN_Y + Math.sin(angle) * 28 * ORBIT_Y_SCALE;
+    const x1 = SUN_X + Math.cos(angle) * 139;
+    const y1 = SUN_Y + Math.sin(angle) * 139 * ORBIT_Y_SCALE;
+    ctx.strokeStyle = `rgba(95,205,246,${alpha * (i % 2 === 0 ? 0.75 : 0.42)})`;
+    ctx.lineWidth = 0.45;
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    ctx.lineTo(x1, y1);
+    ctx.stroke();
+  }
+
   ctx.restore();
 }
 
+function drawReferenceConstellations(
+  ctx: CanvasRenderingContext2D,
+  working: boolean,
+): void {
+  const groups = [
+    [[146, 109], [160, 122], [178, 115], [193, 130]],
+    [[226, 26], [245, 20], [265, 29], [287, 20], [304, 31]],
+  ] as const;
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  for (const group of groups) {
+    ctx.strokeStyle = working
+      ? 'rgba(192,112,255,0.38)'
+      : 'rgba(168,96,245,0.27)';
+    ctx.lineWidth = 0.7;
+    ctx.beginPath();
+    group.forEach((point, index) => {
+      if (index === 0) ctx.moveTo(point[0], point[1]);
+      else ctx.lineTo(point[0], point[1]);
+    });
+    ctx.stroke();
+
+    for (const point of group) {
+      ctx.fillStyle = 'rgba(228,205,255,0.78)';
+      ctx.beginPath();
+      ctx.arc(point[0], point[1], 1.05, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+function drawReferenceSun(
+  ctx: CanvasRenderingContext2D,
+  intro: number,
+  timeSec: number,
+): void {
+  const x = SOURCE_SUN_X + (SUN_X - SOURCE_SUN_X) * intro;
+  const y = SOURCE_SUN_Y + (SUN_Y - SOURCE_SUN_Y) * intro;
+  const pulse = 0.96 + Math.sin(timeSec * 1.25) * 0.04;
+  const radius = 11.6 * pulse;
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  ctx.globalAlpha = intro;
+
+  const glow = ctx.createRadialGradient(x, y, 0, x, y, radius * 3.1);
+  glow.addColorStop(0, 'rgba(255,255,225,1)');
+  glow.addColorStop(0.18, 'rgba(255,225,95,0.98)');
+  glow.addColorStop(0.42, 'rgba(255,153,38,0.58)');
+  glow.addColorStop(1, 'rgba(255,95,15,0)');
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(x, y, radius * 3.1, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#fff7b0';
+  ctx.beginPath();
+  ctx.arc(x, y, radius * 0.84, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = 'rgba(255,207,88,0.92)';
+  ctx.lineWidth = 0.85;
+  ctx.beginPath();
+  ctx.arc(x, y, radius * 1.1, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.strokeStyle = 'rgba(255,236,168,0.58)';
+  ctx.lineWidth = 0.55;
+  ctx.beginPath();
+  ctx.arc(x, y, radius * 1.34, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawLegacyMapContext(
+  ctx: CanvasRenderingContext2D,
+  timeSec: number,
+  working: boolean,
+): void {
+  ctx.save();
+  clipKevinMapSurface(ctx);
+
+  // Deep-space clusters match the approved reference composition.
+  drawGalaxyCluster(ctx, 158, 55, 13.5, timeSec, 0.25, true);
+  drawGalaxyCluster(ctx, 382, 55, 12.5, timeSec, 1.45, false);
+  drawGalaxyCluster(ctx, 366, 116, 11.5, timeSec, 2.2, true);
+
+  // A restrained background star field: enough depth to read as a star map,
+  // but no dense random speckle that previously looked like pixel debris.
+  ctx.globalCompositeOperation = 'screen';
+  for (const mote of LEGACY_HOLOGRAM_DUST.slice(0, 30)) {
+    const point = mapLegacyPoint(mote.x, mote.y);
+    ctx.globalAlpha = mote.alpha * (working ? 0.31 : 0.22);
+    ctx.fillStyle = mote.depth > 0 ? '#c9f2ff' : '#79b6d6';
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, Math.max(0.34, legacyRadiusX(mote.radius) * 0.72), 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  for (const [x, y, radius] of REFERENCE_STAR_NODES) {
+    ctx.globalAlpha = working ? 0.66 : 0.52;
+    const glow = ctx.createRadialGradient(x, y, 0, x, y, radius * 5.2);
+    glow.addColorStop(0, 'rgba(255,255,245,0.95)');
+    glow.addColorStop(0.24, 'rgba(126,230,255,0.72)');
+    glow.addColorStop(1, 'rgba(72,170,255,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(x, y, radius * 5.2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  drawReferenceSectorGrid(ctx, working);
+  drawReferenceConstellations(ctx, working);
+  drawReferenceAsteroidBelt(ctx, timeSec, working);
+
+  ctx.restore();
+}
 
 function copyMapEllipse(
   source: Uint8ClampedArray,
@@ -600,16 +751,18 @@ function buildCleanupMask(source: Uint8ClampedArray): Uint8Array {
   const cleanup = new Uint8Array(WIDTH * HEIGHT);
   const protectedMask = new Uint8Array(WIDTH * HEIGHT);
 
-  const sun = KEVIN_AUTHORED_OBJECTS.find((definition) => definition.id === 'sun');
-  if (!sun) throw new Error('Kevin authored sun mask is missing');
-  addDilatedMask(protectedMask, decodeKevinAuthoredMask(sun), 12);
-
-  // Deterministic removal of only known authored movable bodies and marker.
+  // Remove the authored Sun + all five planets + marker from the source plate.
+  // The redesigned system is then rebuilt as one coherent composition.
   for (const definition of KEVIN_AUTHORED_OBJECTS) {
-    if (definition.id === 'sun') continue;
-    if (definition.id !== 'marker_star' && !MOVING_PLANETS.has(definition.id)) continue;
+    const isPlanet = MOVING_PLANETS.has(definition.id);
+    if (definition.id !== 'sun' && definition.id !== 'marker_star' && !isPlanet) continue;
 
-    const radius = definition.id === 'marker_star' ? 2 : 3;
+    const radius =
+      definition.id === 'sun'
+        ? 15
+        : definition.id === 'marker_star'
+          ? 2
+          : 3;
     addDilatedMask(
       cleanup,
       decodeKevinAuthoredMask(definition),
@@ -1023,8 +1176,7 @@ function buildPlanetPatch(
 
   const id = definition.id;
   const centroid = planetCentroid(mask);
-  const u = centroid.x - SUN_X;
-  const v = (centroid.y - SUN_Y) / ORBIT_Y_SCALE;
+  const layout = REFERENCE_ORBITS[id];
   const visual = PLANET_VISUALS[id];
   const sprite = makePlanetSprite(visual);
 
@@ -1033,8 +1185,10 @@ function buildPlanetPatch(
     canvas: sprite,
     localCenterX: sprite.width / 2,
     localCenterY: sprite.height / 2,
-    orbitRadius: Math.hypot(u, v),
-    orbitTheta: Math.atan2(v, u),
+    sourceCenterX: centroid.x,
+    sourceCenterY: centroid.y,
+    orbitRadius: layout.radius,
+    orbitTheta: layout.theta,
     config,
     visual,
   };
@@ -1156,7 +1310,7 @@ export async function loadKevinPixelMotion(
     render(timeSec: number, working: boolean): HTMLCanvasElement {
       if (timeSec <= 0.0001) return sourceEllipse;
 
-      const intro = smoothstep(0, 0.65, timeSec);
+      const intro = smoothstep(0, 1.25, timeSec);
 
       frameCtx.save();
       frameCtx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1171,6 +1325,7 @@ export async function loadKevinPixelMotion(
       // Sun focus inside that glass; these are intentionally separate centers.
       drawLegacyMapContext(frameCtx, timeSec, working);
       drawMeasuredOrbitTracks(frameCtx, patches, working);
+      drawReferenceSun(frameCtx, intro, timeSec);
 
       const states = patches
         .map((patch) => {
@@ -1185,9 +1340,15 @@ export async function loadKevinPixelMotion(
           );
           const theta = patch.orbitTheta + omega * timeSec;
           const radius = patch.orbitRadius;
-          const x = SUN_X + Math.cos(theta) * radius;
-          const y =
+          const targetX = SUN_X + Math.cos(theta) * radius;
+          const targetY =
             SUN_Y + Math.sin(theta) * radius * ORBIT_Y_SCALE;
+          const x =
+            patch.sourceCenterX +
+            (targetX - patch.sourceCenterX) * intro;
+          const y =
+            patch.sourceCenterY +
+            (targetY - patch.sourceCenterY) * intro;
           const depth = Math.sin(theta);
           return { patch, x, y, depth };
         })
