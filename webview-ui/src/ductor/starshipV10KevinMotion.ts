@@ -287,46 +287,7 @@ function legacyRadiusX(radius: number): number {
   return (radius / LEGACY_MAP_HALF_W) * KEVIN_DISC.rx;
 }
 
-function legacyRadiusY(radius: number): number {
-  return (radius / LEGACY_MAP_HALF_H) * KEVIN_DISC.ry;
-}
 
-function drawLegacyMapStar(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  radius: number,
-  color: string,
-  opacity: number,
-): void {
-  const point = mapLegacyPoint(x, y);
-  const mappedRadius = Math.max(0.75, legacyRadiusX(radius));
-
-  ctx.globalAlpha = opacity;
-  const glow = ctx.createRadialGradient(
-    point.x,
-    point.y,
-    0,
-    point.x,
-    point.y,
-    mappedRadius * 4.5,
-  );
-  glow.addColorStop(0, '#fff9eb');
-  glow.addColorStop(0.14, '#fff0ce');
-  glow.addColorStop(0.30, color);
-  glow.addColorStop(0.55, color + '42');
-  glow.addColorStop(1, color + '00');
-
-  ctx.fillStyle = glow;
-  ctx.beginPath();
-  ctx.arc(point.x, point.y, mappedRadius * 4.5, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.fillStyle = '#fff5dc';
-  ctx.beginPath();
-  ctx.arc(point.x, point.y, mappedRadius * 0.55, 0, Math.PI * 2);
-  ctx.fill();
-}
 
 function clipKevinMapSurface(ctx: CanvasRenderingContext2D): void {
   const first = KEVIN_STAR_MAP_POLYGON[0]!;
