@@ -82,6 +82,50 @@
     }
   ],
   "qaPage": "/kevin-pixel-qa.html",
-  "runtimeAnimationEnabled": false,
-  "gate": "Do not animate until exact source-pixel masks and clean-plate quality are visually accepted."
+  "runtimeAnimationEnabled": true,
+  "gate": "Kevin pilot is enabled only because render(0,false) reconstructs the authored 540x230 PNG with 0 RGBA pixel difference. Other room regions remain gated.",
+  "motionPilot": {
+    "sourcePixelOnly": true,
+    "restFrameRgbaDiffPixels": 0,
+    "cleanPlateMethod": "same-radius elliptical donor sampling from the authored Kevin table texture",
+    "orbitCenter": {
+      "x": 308.68936170212766,
+      "y": 54.161702127659574
+    },
+    "orbitYScale": 0.32,
+    "movedObjects": [
+      {
+        "id": "planet_orange",
+        "donorRotationDeg": 168,
+        "speedRadPerSec": 0.22
+      },
+      {
+        "id": "planet_gold_small",
+        "donorRotationDeg": 60,
+        "speedRadPerSec": 0.16
+      },
+      {
+        "id": "planet_cyan",
+        "donorRotationDeg": -48,
+        "speedRadPerSec": 0.19
+      },
+      {
+        "id": "planet_white",
+        "donorRotationDeg": -24,
+        "speedRadPerSec": 0.12
+      },
+      {
+        "id": "marker_star",
+        "donorRotationDeg": -54,
+        "speedRadPerSec": 0.09
+      },
+      {
+        "id": "planet_purple_small",
+        "donorRotationDeg": 18,
+        "speedRadPerSec": 0.27
+      }
+    ],
+    "sun": "kept at authored source position in this pilot",
+    "runtime": "enabled only for Kevin; other V10 regions remain authored/static while pixel masks are audited"
+  }
 }
