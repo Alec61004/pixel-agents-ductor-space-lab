@@ -230,188 +230,101 @@ function copyMapEllipse(
   }
 }
 
-function sampleBilinear(
-  source: Uint8ClampedArray,
-  x: number,
-  y: number,
-  channel: number,
-): number {
-  const clampedX = Math.max(0, Math.min(WIDTH - 1.001, x));
-  const clampedY = Math.max(0, Math.min(HEIGHT - 1.001, y));
-  const x0 = Math.floor(clampedX);
-  const y0 = Math.floor(clampedY);
-  const x1 = Math.min(WIDTH - 1, x0 + 1);
-  const y1 = Math.min(HEIGHT - 1, y0 + 1);
-  const fx = clampedX - x0;
-  const fy = clampedY - y0;
-
-  const p00 = source[(y0 * WIDTH + x0) * 4 + channel]!;
-  const p10 = source[(y0 * WIDTH + x1) * 4 + channel]!;
-  const p01 = source[(y1 * WIDTH + x0) * 4 + channel]!;
-  const p11 = source[(y1 * WIDTH + x1) * 4 + channel]!;
-
-  const top = p00 + (p10 - p00) * fx;
-  const bottom = p01 + (p11 - p01) * fx;
-  return top + (bottom - top) * fy;
-}
-
-function donorSample(
-  source: Uint8ClampedArray,
-  x: number,
-  y: number,
-  donorAngle: number,
-  channel: number,
-): number {
+function insideMap(x: number, y: number): boolean {
   const u = x - CENTER_X;
   const v = (y - CENTER_Y) / Y_SCALE;
-  const radius = Math.hypot(u, v);
-  const theta = Math.atan2(v, u);
-
-  const sampleAt = (angle: number): number => {
-    const sx = CENTER_X + Math.cos(angle) * radius;
-    const sy = CENTER_Y + Math.sin(angle) * radius * Y_SCALE;
-    return sampleBilinear(source, sx, sy, channel);
-  };
-
-  return (
-    sampleAt(theta + donorAngle) +
-    sampleAt(theta - donorAngle)
-  ) * 0.5;
+  return u * u + v * v <= MAP_RADIUS * MAP_RADIUS;
 }
 
-function maskCoordinates(mask: Uint8Array): Array<{ x: number; y: number }> {
-  const points: Array<{ x: number; y: number }> = [];
+function addDilatedMask(
+  target: Uint8Array,
+  mask: Uint8Array,
+  radius: number,
+  protectedMask?: Uint8Array,
+): void {
+  const radiusSq = radius * radius;
+
   for (let pixel = 0; pixel < mask.length; pixel += 1) {
     if (!mask[pixel]) continue;
-    points.push({ x: pixel % WIDTH, y: Math.floor(pixel / WIDTH) });
-  }
-  return points;
-}
+    const x = pixel % WIDTH;
+    const y = Math.floor(pixel / WIDTH);
 
-function distanceToMask(
-  x: number,
-  y: number,
-  points: readonly { x: number; y: number }[],
-): number {
-  let bestSquared = Number.POSITIVE_INFINITY;
-  for (const point of points) {
-    const dx = point.x - x;
-    const dy = point.y - y;
-    const squared = dx * dx + dy * dy;
-    if (squared < bestSquared) bestSquared = squared;
-  }
-  return Math.sqrt(bestSquared);
-}
-
-function patchWeight(distance: number, feather: number): number {
-  if (distance <= 0.5) return 1;
-  if (distance >= feather) return 0;
-  return 1 - smoothstep(0.5, feather, distance);
-}
-
-function buildProtectedMask(): Uint8Array {
-  const protectedMask = new Uint8Array(WIDTH * HEIGHT);
-
-  for (const definition of KEVIN_AUTHORED_OBJECTS) {
-    if (definition.id !== 'sun' && !MOVING_PLANETS.has(definition.id)) continue;
-
-    const mask = decodeKevinAuthoredMask(definition);
-    const radius = definition.id === 'sun' ? 12 : 7;
-    const radiusSq = radius * radius;
-
-    for (let pixel = 0; pixel < mask.length; pixel += 1) {
-      if (!mask[pixel]) continue;
-      const x = pixel % WIDTH;
-      const y = Math.floor(pixel / WIDTH);
-
-      for (let oy = -radius; oy <= radius; oy += 1) {
-        for (let ox = -radius; ox <= radius; ox += 1) {
-          if (ox * ox + oy * oy > radiusSq) continue;
-          const nx = x + ox;
-          const ny = y + oy;
-          if (nx < 0 || ny < 0 || nx >= WIDTH || ny >= HEIGHT) continue;
-          protectedMask[ny * WIDTH + nx] = 1;
-        }
+    for (let oy = -radius; oy <= radius; oy += 1) {
+      for (let ox = -radius; ox <= radius; ox += 1) {
+        if (ox * ox + oy * oy > radiusSq) continue;
+        const nx = x + ox;
+        const ny = y + oy;
+        if (nx < 0 || ny < 0 || nx >= WIDTH || ny >= HEIGHT) continue;
+        if (!insideMap(nx, ny)) continue;
+        const np = ny * WIDTH + nx;
+        if (protectedMask?.[np]) continue;
+        target[np] = 1;
       }
     }
   }
-
-  return protectedMask;
 }
 
-function isTinyArtifactCandidate(
-  data: Uint8ClampedArray,
-  pixel: number,
-  protectedMask: Uint8Array,
-): boolean {
-  if (protectedMask[pixel]) return false;
-
-  const x = pixel % WIDTH;
-  const y = Math.floor(pixel / WIDTH);
-
-  const u = x - CENTER_X;
-  const v = (y - CENTER_Y) / Y_SCALE;
-  if (u * u + v * v > MAP_RADIUS * MAP_RADIUS) return false;
-
-  const offset = pixel * 4;
-  const a = data[offset + 3]!;
-  if (a < 8) return false;
-
-  const r = data[offset]!;
-  const g = data[offset + 1]!;
-  const b = data[offset + 2]!;
-
-  const brightness = (r + g + b) / 3;
-  const chroma = Math.max(r, g, b) - Math.min(r, g, b);
-
-  // Catch both colored specks and bright neutral/white markers. The earlier
-  // pass missed the latter because it required chroma.
-  const coloredSpeck = brightness >= 102 && chroma >= 16;
-  const neutralSpeck = brightness >= 142;
-  return coloredSpeck || neutralSpeck;
+interface PixelComponent {
+  pixels: number[];
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
 }
 
-function eraseMaskedArtifact(
+function collectComponents(mask: Uint8Array): PixelComponent[] {
+  const visited = new Uint8Array(mask.length);
+  const components: PixelComponent[] = [];
+  const neighbors = [
+    [-1, -1], [0, -1], [1, -1],
+    [-1, 0],            [1, 0],
+    [-1, 1],  [0, 1],   [1, 1],
+  ] as const;
+
+  for (let pixel = 0; pixel < mask.length; pixel += 1) {
+    if (!mask[pixel] || visited[pixel]) continue;
+
+    const queue = [pixel];
+    const pixels: number[] = [];
+    visited[pixel] = 1;
+
+    const startX = pixel % WIDTH;
+    const startY = Math.floor(pixel / WIDTH);
+    let minX = startX;
+    let maxX = startX;
+    let minY = startY;
+    let maxY = startY;
+
+    while (queue.length) {
+      const current = queue.pop()!;
+      pixels.push(current);
+
+      const x = current % WIDTH;
+      const y = Math.floor(current / WIDTH);
+      minX = Math.min(minX, x);
+      maxX = Math.max(maxX, x);
+      minY = Math.min(minY, y);
+      maxY = Math.max(maxY, y);
+
+      for (const [dx, dy] of neighbors) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= WIDTH || ny >= HEIGHT) continue;
+        const np = ny * WIDTH + nx;
+        if (!mask[np] || visited[np]) continue;
+        visited[np] = 1;
+        queue.push(np);
+      }
+    }
+
+    components.push({ pixels, minX, maxX, minY, maxY });
+  }
+
+  return components;
+}
+
+function isDecorativeSourcePixel(
   source: Uint8ClampedArray,
-  target: Uint8ClampedArray,
-  definition: KevinAuthoredObjectDefinition,
-  mask: Uint8Array,
-  feather: number,
-  donorAngle: number,
-): void {
-  const points = maskCoordinates(mask);
-  const padding = Math.ceil(feather + 2);
-  const x0 = Math.max(0, definition.bounds.x - padding);
-  const y0 = Math.max(0, definition.bounds.y - padding);
-  const x1 = Math.min(WIDTH, definition.bounds.x + definition.bounds.w + padding);
-  const y1 = Math.min(HEIGHT, definition.bounds.y + definition.bounds.h + padding);
-
-  for (let y = y0; y < y1; y += 1) {
-    for (let x = x0; x < x1; x += 1) {
-      const distance = distanceToMask(x, y, points);
-      const weight = patchWeight(distance, feather);
-      if (weight <= 0) continue;
-
-      const offset = (y * WIDTH + x) * 4;
-
-      for (let channel = 0; channel < 3; channel += 1) {
-        const donorA = donorSample(source, x, y, donorAngle, channel);
-        const donorB = donorSample(source, x, y, donorAngle * 1.45, channel);
-        const donor = (donorA + donorB) * 0.5;
-
-        target[offset + channel] = Math.round(
-          source[offset + channel]! +
-            (donor - source[offset + channel]!) * weight,
-        );
-      }
-
-      target[offset + 3] = source[offset + 3]!;
-    }
-  }
-}
-
-function isDecorativeMarkerPixel(
-  data: Uint8ClampedArray,
   pixel: number,
   protectedMask: Uint8Array,
 ): boolean {
@@ -419,15 +332,13 @@ function isDecorativeMarkerPixel(
 
   const x = pixel % WIDTH;
   const y = Math.floor(pixel / WIDTH);
-  const u = x - CENTER_X;
-  const v = (y - CENTER_Y) / Y_SCALE;
-  if (u * u + v * v > MAP_RADIUS * MAP_RADIUS) return false;
+  if (!insideMap(x, y)) return false;
 
   const offset = pixel * 4;
-  const r = data[offset]!;
-  const g = data[offset + 1]!;
-  const b = data[offset + 2]!;
-  const a = data[offset + 3]!;
+  const r = source[offset]!;
+  const g = source[offset + 1]!;
+  const b = source[offset + 2]!;
+  const a = source[offset + 3]!;
   if (a < 8) return false;
 
   const max = Math.max(r, g, b);
@@ -435,9 +346,6 @@ function isDecorativeMarkerPixel(
   const chroma = max - min;
   const brightness = (r + g + b) / 3;
 
-  // The authored map contains many small purple, amber/yellow and white
-  // navigation decorations. They are visually point-like even when their
-  // anti-aliased pixels touch nearby orbit lines.
   const purple =
     b >= 82 &&
     r >= 52 &&
@@ -457,211 +365,151 @@ function isDecorativeMarkerPixel(
   return purple || warm || neutralBright;
 }
 
-function removeDecorativeMarkerComponents(
-  source: Uint8ClampedArray,
-  target: Uint8ClampedArray,
-  protectedMask: Uint8Array,
-): void {
-  const visited = new Uint8Array(WIDTH * HEIGHT);
-  const minX = Math.max(0, Math.floor(CENTER_X - MAP_RADIUS - 2));
-  const maxX = Math.min(WIDTH - 1, Math.ceil(CENTER_X + MAP_RADIUS + 2));
-  const minY = Math.max(0, Math.floor(CENTER_Y - MAP_RADIUS * Y_SCALE - 2));
-  const maxY = Math.min(HEIGHT - 1, Math.ceil(CENTER_Y + MAP_RADIUS * Y_SCALE + 2));
+function buildCleanupMask(source: Uint8ClampedArray): Uint8Array {
+  const cleanup = new Uint8Array(WIDTH * HEIGHT);
+  const protectedMask = new Uint8Array(WIDTH * HEIGHT);
 
-  const neighbors = [
-    [-1, -1], [0, -1], [1, -1],
-    [-1, 0],            [1, 0],
-    [-1, 1],  [0, 1],   [1, 1],
-  ] as const;
+  const sun = KEVIN_AUTHORED_OBJECTS.find((definition) => definition.id === 'sun');
+  if (!sun) throw new Error('Kevin authored sun mask is missing');
+  addDilatedMask(protectedMask, decodeKevinAuthoredMask(sun), 12);
 
-  for (let y = minY; y <= maxY; y += 1) {
-    for (let x = minX; x <= maxX; x += 1) {
-      const start = y * WIDTH + x;
-      if (visited[start]) continue;
-      if (!isDecorativeMarkerPixel(target, start, protectedMask)) continue;
+  // Deterministic removal of only known authored movable bodies and marker.
+  for (const definition of KEVIN_AUTHORED_OBJECTS) {
+    if (definition.id === 'sun') continue;
+    if (definition.id !== 'marker_star' && !MOVING_PLANETS.has(definition.id)) continue;
 
-      const queue = [start];
-      const component: number[] = [];
-      visited[start] = 1;
+    const radius = definition.id === 'marker_star' ? 2 : 3;
+    addDilatedMask(
+      cleanup,
+      decodeKevinAuthoredMask(definition),
+      radius,
+      protectedMask,
+    );
+  }
 
-      let boxMinX = x;
-      let boxMaxX = x;
-      let boxMinY = y;
-      let boxMaxY = y;
+  // Detect source decorations only. This analysis is performed against the
+  // untouched PNG, never against a partially repaired frame.
+  const candidates = new Uint8Array(WIDTH * HEIGHT);
+  for (let pixel = 0; pixel < candidates.length; pixel += 1) {
+    if (isDecorativeSourcePixel(source, pixel, protectedMask)) {
+      candidates[pixel] = 1;
+    }
+  }
 
-      while (queue.length) {
-        const pixel = queue.pop()!;
-        component.push(pixel);
+  for (const component of collectComponents(candidates)) {
+    const width = component.maxX - component.minX + 1;
+    const height = component.maxY - component.minY + 1;
+    const maxDim = Math.max(width, height);
+    const minDim = Math.max(1, Math.min(width, height));
 
-        const px = pixel % WIDTH;
-        const py = Math.floor(pixel / WIDTH);
-        boxMinX = Math.min(boxMinX, px);
-        boxMaxX = Math.max(boxMaxX, px);
-        boxMinY = Math.min(boxMinY, py);
-        boxMaxY = Math.max(boxMaxY, py);
+    // Source-pixel audit: decorative dots, dashes and small blocks stay under
+    // these limits. Long cyan orbit strokes do not.
+    const markerLike =
+      component.pixels.length >= 2 &&
+      component.pixels.length <= 180 &&
+      maxDim <= 30 &&
+      minDim <= 13;
 
-        for (const [dx, dy] of neighbors) {
-          const nx = px + dx;
-          const ny = py + dy;
-          if (nx < minX || nx > maxX || ny < minY || ny > maxY) continue;
-          const np = ny * WIDTH + nx;
-          if (visited[np]) continue;
-          if (!isDecorativeMarkerPixel(target, np, protectedMask)) continue;
-          visited[np] = 1;
-          queue.push(np);
-        }
-      }
+    if (!markerLike) continue;
 
-      const width = boxMaxX - boxMinX + 1;
-      const height = boxMaxY - boxMinY + 1;
-      const maxDim = Math.max(width, height);
-      const minDim = Math.max(1, Math.min(width, height));
-      const aspect = maxDim / minDim;
+    const componentMask = new Uint8Array(WIDTH * HEIGHT);
+    for (const pixel of component.pixels) componentMask[pixel] = 1;
+    addDilatedMask(cleanup, componentMask, 1, protectedMask);
+  }
 
-      // This deliberately accepts short dash/rectangle markers that the old
-      // <=11px compact-speck rule missed, while rejecting long orbit arcs.
-      const markerLike =
-        component.length <= 180 &&
-        maxDim <= 30 &&
-        minDim <= 12 &&
-        aspect <= 8.0;
+  return cleanup;
+}
 
-      if (!markerLike) continue;
+function boundaryPixelsForComponent(
+  component: PixelComponent,
+  cleanupMask: Uint8Array,
+): number[] {
+  const boundary = new Set<number>();
 
-      // Expand one pixel to remove anti-aliased marker fringes as well.
-      const erasePixels = new Set<number>();
-      for (const pixel of component) {
-        const px = pixel % WIDTH;
-        const py = Math.floor(pixel / WIDTH);
-        for (let oy = -1; oy <= 1; oy += 1) {
-          for (let ox = -1; ox <= 1; ox += 1) {
-            const nx = px + ox;
-            const ny = py + oy;
-            if (nx < minX || nx > maxX || ny < minY || ny > maxY) continue;
-            const np = ny * WIDTH + nx;
-            if (protectedMask[np]) continue;
-            erasePixels.add(np);
-          }
-        }
-      }
+  for (const pixel of component.pixels) {
+    const x = pixel % WIDTH;
+    const y = Math.floor(pixel / WIDTH);
 
-      for (const pixel of erasePixels) {
-        const px = pixel % WIDTH;
-        const py = Math.floor(pixel / WIDTH);
-        const offset = pixel * 4;
-
-        for (let channel = 0; channel < 3; channel += 1) {
-          const samples = [
-            donorSample(source, px, py, 0.14, channel),
-            donorSample(source, px, py, 0.23, channel),
-            donorSample(source, px, py, 0.34, channel),
-            donorSample(source, px, py, 0.47, channel),
-            donorSample(source, px, py, 0.61, channel),
-          ].sort((a, b) => a - b);
-
-          target[offset + channel] = Math.round(samples[2]!);
-        }
-
-        target[offset + 3] = source[offset + 3]!;
+    for (let oy = -2; oy <= 2; oy += 1) {
+      for (let ox = -2; ox <= 2; ox += 1) {
+        if (!ox && !oy) continue;
+        const nx = x + ox;
+        const ny = y + oy;
+        if (nx < 0 || ny < 0 || nx >= WIDTH || ny >= HEIGHT) continue;
+        if (!insideMap(nx, ny)) continue;
+        const np = ny * WIDTH + nx;
+        if (cleanupMask[np]) continue;
+        boundary.add(np);
       }
     }
+  }
+
+  const values = Array.from(boundary);
+  if (values.length <= 180) return values;
+
+  // Deterministic even down-sampling keeps load cost bounded.
+  const sampled: number[] = [];
+  for (let i = 0; i < 180; i += 1) {
+    sampled.push(values[Math.floor((i * values.length) / 180)]!);
+  }
+  return sampled;
+}
+
+function repairComponentFromBoundary(
+  source: Uint8ClampedArray,
+  target: Uint8ClampedArray,
+  component: PixelComponent,
+  cleanupMask: Uint8Array,
+): void {
+  const boundary = boundaryPixelsForComponent(component, cleanupMask);
+  if (!boundary.length) return;
+
+  for (const pixel of component.pixels) {
+    const x = pixel % WIDTH;
+    const y = Math.floor(pixel / WIDTH);
+    const offset = pixel * 4;
+
+    let totalWeight = 0;
+    let sumR = 0;
+    let sumG = 0;
+    let sumB = 0;
+
+    for (const boundaryPixel of boundary) {
+      const bx = boundaryPixel % WIDTH;
+      const by = Math.floor(boundaryPixel / WIDTH);
+      const dx = bx - x;
+      const dy = by - y;
+      const weight = 1 / (dx * dx + dy * dy + 0.5);
+      const boundaryOffset = boundaryPixel * 4;
+
+      totalWeight += weight;
+      sumR += source[boundaryOffset]! * weight;
+      sumG += source[boundaryOffset + 1]! * weight;
+      sumB += source[boundaryOffset + 2]! * weight;
+    }
+
+    target[offset] = Math.round(sumR / totalWeight);
+    target[offset + 1] = Math.round(sumG / totalWeight);
+    target[offset + 2] = Math.round(sumB / totalWeight);
+    target[offset + 3] = source[offset + 3]!;
   }
 }
 
-function removeTinyArtifacts(
+function buildCleanBasePixels(
   source: Uint8ClampedArray,
-  target: Uint8ClampedArray,
-  protectedMask: Uint8Array,
-): void {
-  const visited = new Uint8Array(WIDTH * HEIGHT);
-  const minX = Math.max(0, Math.floor(CENTER_X - MAP_RADIUS - 2));
-  const maxX = Math.min(WIDTH - 1, Math.ceil(CENTER_X + MAP_RADIUS + 2));
-  const minY = Math.max(0, Math.floor(CENTER_Y - MAP_RADIUS * Y_SCALE - 2));
-  const maxY = Math.min(HEIGHT - 1, Math.ceil(CENTER_Y + MAP_RADIUS * Y_SCALE + 2));
+  sourceEllipse: Uint8ClampedArray,
+): Uint8ClampedArray {
+  const clean = sourceEllipse.slice();
+  const cleanupMask = buildCleanupMask(source);
 
-  const neighbors = [
-    [-1, -1], [0, -1], [1, -1],
-    [-1, 0],            [1, 0],
-    [-1, 1],  [0, 1],   [1, 1],
-  ] as const;
-
-  for (let y = minY; y <= maxY; y += 1) {
-    for (let x = minX; x <= maxX; x += 1) {
-      const start = y * WIDTH + x;
-      if (visited[start]) continue;
-      if (!isTinyArtifactCandidate(target, start, protectedMask)) continue;
-
-      const queue = [start];
-      const component: number[] = [];
-      visited[start] = 1;
-
-      let boxMinX = x;
-      let boxMaxX = x;
-      let boxMinY = y;
-      let boxMaxY = y;
-
-      while (queue.length) {
-        const pixel = queue.pop()!;
-        component.push(pixel);
-
-        const px = pixel % WIDTH;
-        const py = Math.floor(pixel / WIDTH);
-
-        if (px < boxMinX) boxMinX = px;
-        if (px > boxMaxX) boxMaxX = px;
-        if (py < boxMinY) boxMinY = py;
-        if (py > boxMaxY) boxMaxY = py;
-
-        for (const [dx, dy] of neighbors) {
-          const nx = px + dx;
-          const ny = py + dy;
-          if (nx < minX || nx > maxX || ny < minY || ny > maxY) continue;
-
-          const np = ny * WIDTH + nx;
-          if (visited[np]) continue;
-          if (!isTinyArtifactCandidate(target, np, protectedMask)) continue;
-
-          visited[np] = 1;
-          queue.push(np);
-        }
-      }
-
-      const width = boxMaxX - boxMinX + 1;
-      const height = boxMaxY - boxMinY + 1;
-
-      const bboxArea = width * height;
-      const aspect = Math.max(width, height) / Math.max(1, Math.min(width, height));
-      const compactness = component.length / Math.max(1, bboxArea);
-
-      // Remove compact point-like marks up to ~10 px across. Long/thin orbit
-      // fragments are preserved by the aspect/compactness guards.
-      const pointLike =
-        component.length <= 64 &&
-        width <= 11 &&
-        height <= 11 &&
-        aspect <= 2.8 &&
-        compactness >= 0.16;
-
-      if (pointLike) {
-        for (const pixel of component) {
-          const px = pixel % WIDTH;
-          const py = Math.floor(pixel / WIDTH);
-          const offset = pixel * 4;
-
-          for (let channel = 0; channel < 3; channel += 1) {
-            const donorA = donorSample(source, px, py, 0.16, channel);
-            const donorB = donorSample(source, px, py, 0.27, channel);
-            const donorC = donorSample(source, px, py, 0.39, channel);
-            const donorD = donorSample(source, px, py, 0.53, channel);
-            const values = [donorA, donorB, donorC, donorD].sort((a, b) => a - b);
-            target[offset + channel] = Math.round((values[1]! + values[2]!) * 0.5);
-          }
-
-          target[offset + 3] = source[offset + 3]!;
-        }
-      }
-    }
+  // Boundary interpolation uses only untouched neighboring source pixels.
+  // Unlike the old angular donor pass it cannot copy distant dark squares,
+  // planets or unrelated HUD fragments into the repaired region.
+  for (const component of collectComponents(cleanupMask)) {
+    repairComponentFromBoundary(source, clean, component, cleanupMask);
   }
+
+  return clean;
 }
 
 function planetCentroid(mask: Uint8Array): { x: number; y: number } {
@@ -908,23 +756,6 @@ function buildPlanetPatch(
   };
 }
 
-function erasePlanetFromBase(
-  source: Uint8ClampedArray,
-  base: Uint8ClampedArray,
-  definition: KevinAuthoredObjectDefinition,
-  mask: Uint8Array,
-  config: PlanetMotionConfig,
-): void {
-  eraseMaskedArtifact(
-    source,
-    base,
-    definition,
-    mask,
-    config.feather,
-    config.donorAngle,
-  );
-}
-
 function buildSourceAndCleanBase(
   source: Uint8ClampedArray,
 ): {
@@ -935,30 +766,14 @@ function buildSourceAndCleanBase(
   const sourceEllipseData = new ImageData(WIDTH, HEIGHT);
   copyMapEllipse(source, sourceEllipseData.data);
 
-  const cleanBaseData = new ImageData(
-    new Uint8ClampedArray(sourceEllipseData.data),
-    WIDTH,
-    HEIGHT,
-  );
+  const cleanPixels = buildCleanBasePixels(source, sourceEllipseData.data);
+  const cleanBaseData = new ImageData(cleanPixels, WIDTH, HEIGHT);
   const patches: PlanetPatch[] = [];
-  const protectedMask = buildProtectedMask();
 
   for (const definition of KEVIN_AUTHORED_OBJECTS) {
-    if (definition.id === 'marker_star') {
-      const markerMask = decodeKevinAuthoredMask(definition);
-      eraseMaskedArtifact(
-        source,
-        cleanBaseData.data,
-        definition,
-        markerMask,
-        4,
-        0.26,
-      );
-      continue;
-    }
-
     if (
       definition.id === 'sun' ||
+      definition.id === 'marker_star' ||
       !MOVING_PLANETS.has(definition.id)
     ) {
       continue;
@@ -967,11 +782,7 @@ function buildSourceAndCleanBase(
     const config = PLANET_MOTION[definition.id];
     const mask = decodeKevinAuthoredMask(definition);
     patches.push(buildPlanetPatch(definition, mask, config));
-    erasePlanetFromBase(source, cleanBaseData.data, definition, mask, config);
   }
-
-  removeDecorativeMarkerComponents(source, cleanBaseData.data, protectedMask);
-  removeTinyArtifacts(source, cleanBaseData.data, protectedMask);
 
   const sourceEllipse = createTransparentCanvas();
   const sourceCtx = sourceEllipse.getContext('2d');
