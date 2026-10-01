@@ -345,8 +345,8 @@ function makePlanetSprite(spec: PlanetVisualSpec): HTMLCanvasElement {
     cy,
     spec.radius * 1.45,
   );
-  atmosphere.addColorStop(0, 'rgba(255,255,255,0.06)');
-  atmosphere.addColorStop(0.64, 'rgba(150,220,255,0.025)');
+  atmosphere.addColorStop(0, 'rgba(255,255,255,0.028)');
+  atmosphere.addColorStop(0.64, 'rgba(150,220,255,0.012)');
   atmosphere.addColorStop(1, 'rgba(100,190,255,0)');
   ctx.fillStyle = atmosphere;
   ctx.beginPath();
@@ -357,20 +357,15 @@ function makePlanetSprite(spec: PlanetVisualSpec): HTMLCanvasElement {
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(spec.tilt);
-    ctx.strokeStyle = 'rgba(70,62,54,0.38)';
-    ctx.lineWidth = 4.0;
+    ctx.strokeStyle = 'rgba(70,62,54,0.24)';
+    ctx.lineWidth = 2.2;
     ctx.beginPath();
-    ctx.ellipse(0, 0, spec.radius * 2.05, spec.radius * 0.62, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 0, spec.radius * 2.02, spec.radius * 0.60, 0, 0, Math.PI * 2);
     ctx.stroke();
     ctx.strokeStyle = spec.ring;
-    ctx.lineWidth = 1.8;
+    ctx.lineWidth = 1.05;
     ctx.beginPath();
-    ctx.ellipse(0, 0, spec.radius * 2.05, spec.radius * 0.62, 0, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.strokeStyle = 'rgba(255,247,229,0.32)';
-    ctx.lineWidth = 0.65;
-    ctx.beginPath();
-    ctx.ellipse(0, 0, spec.radius * 2.28, spec.radius * 0.75, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 0, spec.radius * 2.02, spec.radius * 0.60, 0, 0, Math.PI * 2);
     ctx.stroke();
     ctx.restore();
   }
@@ -406,11 +401,11 @@ function makePlanetSprite(spec: PlanetVisualSpec): HTMLCanvasElement {
   ctx.translate(-cx, -cy);
 
   if (spec.style === 'gas_banded' || spec.style === 'ringed_gas') {
-    const bandCount = spec.style === 'gas_banded' ? 6 : 5;
+    const bandCount = spec.style === 'gas_banded' ? 3 : 2;
     for (let band = -bandCount; band <= bandCount; band += 1) {
-      const y = cy + band * (spec.radius * 0.16);
-      const thickness = spec.radius * (band % 3 === 0 ? 0.105 : 0.07);
-      ctx.globalAlpha = band % 2 === 0 ? 0.28 : 0.16;
+      const y = cy + band * (spec.radius * 0.24);
+      const thickness = spec.radius * (band % 2 === 0 ? 0.09 : 0.06);
+      ctx.globalAlpha = band % 2 === 0 ? 0.22 : 0.12;
       ctx.fillStyle =
         band % 3 === 0
           ? (spec.accent ?? spec.secondary)
@@ -446,7 +441,7 @@ function makePlanetSprite(spec: PlanetVisualSpec): HTMLCanvasElement {
       ctx.fill();
     }
   } else if (spec.style === 'rocky' || spec.style === 'moon') {
-    const craterCount = spec.style === 'rocky' ? 9 : 6;
+    const craterCount = spec.style === 'rocky' ? 4 : 3;
     for (let i = 0; i < craterCount; i += 1) {
       const angle = i * 2.17 + spec.tilt;
       const radial = spec.radius * (0.18 + (i % 4) * 0.13);
@@ -454,7 +449,7 @@ function makePlanetSprite(spec: PlanetVisualSpec): HTMLCanvasElement {
       const py = cy + Math.sin(angle * 1.31) * radial * 0.72;
       const craterRadius =
         spec.radius * (0.055 + (i % 3) * 0.027);
-      ctx.globalAlpha = 0.24 + (i % 2) * 0.08;
+      ctx.globalAlpha = 0.18 + (i % 2) * 0.06;
       ctx.fillStyle = i % 2 === 0 ? spec.secondary : (spec.accent ?? spec.secondary);
       ctx.beginPath();
       ctx.arc(px, py, craterRadius, 0, Math.PI * 2);
@@ -467,8 +462,8 @@ function makePlanetSprite(spec: PlanetVisualSpec): HTMLCanvasElement {
       ctx.stroke();
     }
   } else if (spec.style === 'icy') {
-    for (let i = -3; i <= 3; i += 1) {
-      ctx.globalAlpha = 0.11 + (i % 2 === 0 ? 0.07 : 0);
+    for (let i = -1; i <= 1; i += 1) {
+      ctx.globalAlpha = 0.10 + (i === 0 ? 0.05 : 0);
       ctx.strokeStyle = i % 2 === 0 ? spec.highlight : (spec.accent ?? spec.primary);
       ctx.lineWidth = 0.65;
       ctx.beginPath();
@@ -510,8 +505,8 @@ function makePlanetSprite(spec: PlanetVisualSpec): HTMLCanvasElement {
   ctx.restore();
 
   // Thin directional rim light, not a full neon ring.
-  ctx.strokeStyle = 'rgba(224,244,255,0.34)';
-  ctx.lineWidth = 0.8;
+  ctx.strokeStyle = 'rgba(224,244,255,0.22)';
+  ctx.lineWidth = 0.65;
   ctx.beginPath();
   ctx.arc(
     cx,
@@ -592,7 +587,7 @@ function erasePlanetFromBase(
           config.donorAngle,
           channel,
         );
-        const eraseStrength = weight * 0.86;
+        const eraseStrength = weight;
         base[offset + channel] = Math.round(
           source[offset + channel]! +
             (donor - source[offset + channel]!) * eraseStrength,
@@ -769,42 +764,18 @@ export async function loadKevinPixelMotion(
       for (const state of states) {
         const { patch, x, y, depth } = state;
         const config = patch.config;
-        const visual = patch.visual;
         const scale =
           1 + config.scaleAmplitude * depth * intro;
         const opacity =
-          0.94 + (depth + 1) * 0.03;
+          0.96 + (depth + 1) * 0.02;
         const brightness =
-          0.96 +
-          (depth + 1) * 0.03 +
-          Math.sin(timeSec * 1.05 + config.phase) * 0.018;
+          0.98 +
+          (depth + 1) * 0.018 +
+          Math.sin(timeSec * 0.72 + config.phase) * 0.006;
 
         frameCtx.save();
         frameCtx.translate(x, y);
         frameCtx.scale(scale, scale);
-
-        const halo = frameCtx.createRadialGradient(
-          0,
-          0,
-          visual.radius * 0.65,
-          0,
-          0,
-          visual.radius * 1.85,
-        );
-        halo.addColorStop(0, 'rgba(190,225,255,0.07)');
-        halo.addColorStop(0.58, 'rgba(120,200,255,0.025)');
-        halo.addColorStop(1, 'rgba(90,170,255,0)');
-        frameCtx.fillStyle = halo;
-        frameCtx.globalAlpha = 0.85;
-        frameCtx.beginPath();
-        frameCtx.arc(
-          0,
-          0,
-          visual.radius * 1.85,
-          0,
-          Math.PI * 2,
-        );
-        frameCtx.fill();
 
         frameCtx.globalAlpha = opacity;
         frameCtx.filter =
