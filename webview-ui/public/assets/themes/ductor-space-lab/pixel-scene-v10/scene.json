@@ -290,20 +290,48 @@
           "label": "Kevin orbital star map",
           "polygon": [
             [
-              142,
-              18
+              138,
+              38
             ],
             [
-              399,
-              18
+              175,
+              14
             ],
             [
-              399,
-              139
+              253,
+              5
             ],
             [
-              142,
-              139
+              337,
+              12
+            ],
+            [
+              401,
+              38
+            ],
+            [
+              414,
+              82
+            ],
+            [
+              395,
+              122
+            ],
+            [
+              347,
+              143
+            ],
+            [
+              196,
+              143
+            ],
+            [
+              148,
+              119
+            ],
+            [
+              126,
+              82
             ]
           ],
           "animate": true
@@ -329,7 +357,7 @@
               118
             ]
           ],
-          "animate": true
+          "animate": false
         },
         {
           "id": "right-hud",
@@ -352,7 +380,7 @@
               118
             ]
           ],
-          "animate": true
+          "animate": false
         }
       ],
       "working": {
@@ -361,7 +389,7 @@
         "phase": 0.8,
         "intensity": 0.28,
         "motion": "orbit",
-        "amplitude": 0.035,
+        "amplitude": 0.018,
         "centerX": 270,
         "centerY": 82
       }
@@ -396,20 +424,40 @@
           "label": "Benjamin central analysis hologram",
           "polygon": [
             [
-              93,
+              90,
+              86
+            ],
+            [
+              126,
+              65
+            ],
+            [
+              213,
+              54
+            ],
+            [
+              307,
               69
             ],
             [
-              369,
-              69
+              371,
+              99
             ],
             [
               369,
-              190
+              168
             ],
             [
-              93,
-              190
+              337,
+              194
+            ],
+            [
+              126,
+              194
+            ],
+            [
+              88,
+              166
             ]
           ],
           "animate": true
@@ -435,7 +483,7 @@
               91
             ]
           ],
-          "animate": true
+          "animate": false
         }
       ],
       "working": {
