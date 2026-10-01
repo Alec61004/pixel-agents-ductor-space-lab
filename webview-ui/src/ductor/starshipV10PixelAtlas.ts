@@ -30,6 +30,108 @@ type Context = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 const KEVIN_REGION: PixelRegion = { x: 340, y: 510, w: 540, h: 230 };
 const KEVIN_DISC = { cx: 270, cy: 82, rx: 151, ry: 67 };
 
+export type KevinAuthoredObjectId =
+  | 'sun'
+  | 'planet_orange'
+  | 'planet_gold_small'
+  | 'planet_cyan'
+  | 'planet_white'
+  | 'marker_star'
+  | 'planet_purple_small';
+
+interface KevinAuthoredObjectDefinition {
+  id: KevinAuthoredObjectId;
+  /** Row-major [start,length] runs over the exact 540x230 authored PNG. */
+  runs: readonly (readonly [number, number])[];
+  bounds: PixelRegion;
+  pixelCount: number;
+}
+
+/**
+ * Exact source-pixel masks measured from the authored V10 Kevin PNG.
+ *
+ * These runs are not replacement artwork. Every selected pixel is copied from
+ * the PNG byte-for-byte. They are intentionally checked into source so runtime
+ * work can never silently drift back to approximate rectangular overlays.
+ */
+export const KEVIN_AUTHORED_OBJECTS: readonly KevinAuthoredObjectDefinition[] = [
+  {
+    id: 'sun',
+    runs: [[23524,8],[24062,13],[24601,16],[25140,18],[25679,20],[26218,22],[26757,23],[27297,24],[27837,24],[28377,24],[28917,25],[29457,25],[29997,25],[30537,25],[31077,25],[31617,25],[32157,24],[32698,23],[33239,21],[33780,19],[34321,17],[34862,14],[35404,10]],
+    bounds: { x: 297, y: 43, w: 25, h: 23 },
+    pixelCount: 470,
+  },
+  {
+    id: 'planet_orange',
+    runs: [[30472,7],[31011,9],[31550,11],[32089,13],[32629,14],[33169,15],[33709,14],[34252,10],[34793,8]],
+    bounds: { x: 229, y: 56, w: 15, h: 9 },
+    pixelCount: 101,
+  },
+  {
+    id: 'planet_gold_small',
+    runs: [[21829,3],[22367,6],[22906,8],[23445,9],[23985,9],[24526,8],[25066,7],[25607,5]],
+    bounds: { x: 225, y: 40, w: 9, h: 8 },
+    pixelCount: 55,
+  },
+  {
+    id: 'planet_cyan',
+    runs: [[30068,5],[30607,7],[31147,11],[31686,13],[32225,14],[32764,15],[33303,16],[33843,16],[34383,16],[34923,16],[35463,16],[36004,15],[36545,10],[37086,8],[37628,6],[38170,4],[38712,1]],
+    bounds: { x: 363, y: 55, w: 16, h: 17 },
+    pixelCount: 189,
+  },
+  {
+    id: 'planet_white',
+    runs: [[36041,1],[36580,2],[37120,2],[37655,7],[38194,9],[38733,11],[39272,13],[39811,15],[40351,15],[40891,16],[41431,16],[41971,16],[42511,16],[43051,16],[43592,14],[44133,13],[44674,11],[45216,8]],
+    bounds: { x: 391, y: 66, w: 16, h: 18 },
+    pixelCount: 201,
+  },
+  {
+    id: 'marker_star',
+    runs: [[13841,2],[14380,3],[14917,9],[15456,11],[15996,11],[16539,8],[17080,3],[17620,2]],
+    bounds: { x: 336, y: 25, w: 11, h: 8 },
+    pixelCount: 49,
+  },
+  {
+    id: 'planet_purple_small',
+    runs: [[19698,1],[20237,5],[20776,7],[21315,9],[21856,7],[22397,5]],
+    bounds: { x: 255, y: 36, w: 9, h: 6 },
+    pixelCount: 34,
+  },
+] as const;
+
+export function decodeKevinAuthoredMask(
+  definition: KevinAuthoredObjectDefinition,
+): Uint8Array {
+  const mask = new Uint8Array(KEVIN_REGION.w * KEVIN_REGION.h);
+  let count = 0;
+  for (const [start, length] of definition.runs) {
+    for (let i = start; i < start + length; i += 1) {
+      if (i < 0 || i >= mask.length) throw new Error(`Kevin mask out of range: ${definition.id}`);
+      if (mask[i]) throw new Error(`Kevin mask self-overlap: ${definition.id}`);
+      mask[i] = 1;
+      count += 1;
+    }
+  }
+  if (count !== definition.pixelCount) {
+    throw new Error(`Kevin mask pixel count mismatch: ${definition.id}`);
+  }
+  return mask;
+}
+
+export function getKevinAuthoredObjectMasks(): ReadonlyArray<{
+  id: KevinAuthoredObjectId;
+  mask: Uint8Array;
+  bounds: PixelRegion;
+  pixelCount: number;
+}> {
+  return KEVIN_AUTHORED_OBJECTS.map((definition) => ({
+    id: definition.id,
+    mask: decodeKevinAuthoredMask(definition),
+    bounds: { ...definition.bounds },
+    pixelCount: definition.pixelCount,
+  }));
+}
+
 function canvas(width: number, height: number): Surface {
   if (typeof OffscreenCanvas !== 'undefined') return new OffscreenCanvas(width, height);
   const c = document.createElement('canvas');
@@ -370,6 +472,18 @@ export function splitExactPixels(
   }
 
   return { remainder, layers };
+}
+
+export function splitKevinAuthoredPixels(
+  rgba: Uint8ClampedArray,
+): { remainder: Uint8ClampedArray; layers: ExactPixelLayer[] } {
+  if (rgba.length !== KEVIN_REGION.w * KEVIN_REGION.h * 4) {
+    throw new Error('Kevin authored split expects exact 540x230 RGBA data');
+  }
+  const masks = getKevinAuthoredObjectMasks();
+  const total = masks.reduce((sum, item) => sum + item.pixelCount, 0);
+  if (total !== 1099) throw new Error('Kevin authored object pixel total changed unexpectedly');
+  return splitExactPixels(rgba, masks);
 }
 
 export function reconstructExactPixels(
