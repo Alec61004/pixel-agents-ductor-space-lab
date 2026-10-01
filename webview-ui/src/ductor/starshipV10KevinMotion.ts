@@ -161,306 +161,6 @@ interface PlanetPatch {
   visual: PlanetVisualSpec;
 }
 
-interface StarMapPoint {
-  radius: number;
-  angle: number;
-  size: number;
-  phase: number;
-  warm: boolean;
-}
-
-interface ConstellationNode {
-  radius: number;
-  angle: number;
-}
-
-const CONSTELLATION_GROUPS: readonly (readonly ConstellationNode[])[] = [
-  [
-    { radius: 112, angle: 3.48 },
-    { radius: 126, angle: 3.72 },
-    { radius: 139, angle: 3.93 },
-    { radius: 121, angle: 4.16 },
-  ],
-  [
-    { radius: 109, angle: 5.10 },
-    { radius: 124, angle: 5.34 },
-    { radius: 139, angle: 5.52 },
-    { radius: 130, angle: 5.76 },
-  ],
-  [
-    { radius: 113, angle: 0.26 },
-    { radius: 129, angle: 0.43 },
-    { radius: 140, angle: 0.66 },
-    { radius: 123, angle: 0.90 },
-  ],
-] as const;
-
-function seededUnit(seed: number): number {
-  const value = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
-  return value - Math.floor(value);
-}
-
-const STAR_FIELD: readonly StarMapPoint[] = Array.from({ length: 26 }, (_, index) => {
-  const radius = 98 + seededUnit(index + 1) * 43;
-  const angle = seededUnit(index + 101) * Math.PI * 2;
-  return {
-    radius,
-    angle,
-    size: 1.1 + seededUnit(index + 201) * 1.55,
-    phase: seededUnit(index + 301) * Math.PI * 2,
-    warm: seededUnit(index + 401) > 0.72,
-  };
-});
-
-const ASTEROID_BELT: readonly StarMapPoint[] = Array.from({ length: 42 }, (_, index) => {
-  const radius = 82 + (seededUnit(index + 501) - 0.5) * 8.5;
-  const angle = seededUnit(index + 601) * Math.PI * 2;
-  return {
-    radius,
-    angle,
-    size: 0.75 + seededUnit(index + 701) * 1.05,
-    phase: seededUnit(index + 801) * Math.PI * 2,
-    warm: seededUnit(index + 901) > 0.7,
-  };
-});
-
-function ellipsePoint(radius: number, angle: number): { x: number; y: number } {
-  return {
-    x: CENTER_X + Math.cos(angle) * radius,
-    y: CENTER_Y + Math.sin(angle) * radius * Y_SCALE,
-  };
-}
-
-function clipToMap(ctx: CanvasRenderingContext2D): void {
-  ctx.beginPath();
-  ctx.ellipse(
-    CENTER_X,
-    CENTER_Y,
-    MAP_RADIUS,
-    MAP_RADIUS * Y_SCALE,
-    0,
-    0,
-    Math.PI * 2,
-  );
-  ctx.clip();
-}
-
-function drawNebulaPatch(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  radius: number,
-  timeSec: number,
-  phase: number,
-  working: boolean,
-  purple: boolean,
-): void {
-  const driftX = Math.sin(timeSec * 0.11 + phase) * 2.2;
-  const driftY = Math.cos(timeSec * 0.09 + phase) * 1.2;
-  const pulse = 0.88 + Math.sin(timeSec * 0.33 + phase) * 0.12;
-  const strength = (working ? 0.34 : 0.26) * pulse;
-
-  ctx.save();
-  ctx.translate(x + driftX, y + driftY);
-  ctx.scale(1, 0.48);
-
-  const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, radius);
-  gradient.addColorStop(
-    0,
-    purple
-      ? `rgba(150, 72, 255, ${strength.toFixed(3)})`
-      : `rgba(27, 160, 255, ${strength.toFixed(3)})`,
-  );
-  gradient.addColorStop(
-    0.42,
-    purple
-      ? 'rgba(88, 44, 180, 0.14)'
-      : 'rgba(20, 110, 210, 0.13)',
-  );
-  gradient.addColorStop(1, 'rgba(0, 24, 64, 0)');
-
-  ctx.fillStyle = gradient;
-  ctx.beginPath();
-  ctx.arc(0, 0, radius, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-}
-
-function drawMiniGalaxy(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  radius: number,
-  timeSec: number,
-  phase: number,
-): void {
-  const rotation = timeSec * 0.032 + phase;
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.scale(1, 0.34);
-  ctx.rotate(rotation);
-
-  ctx.globalCompositeOperation = 'screen';
-  for (let arm = 0; arm < 2; arm += 1) {
-    const armPhase = arm * Math.PI;
-    ctx.beginPath();
-    for (let step = 0; step <= 24; step += 1) {
-      const t = step / 24;
-      const r = radius * (0.12 + t * 0.88);
-      const angle = armPhase + t * Math.PI * 2.15;
-      const px = Math.cos(angle) * r;
-      const py = Math.sin(angle) * r * 0.68;
-      if (step === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
-    }
-    ctx.strokeStyle = 'rgba(119, 205, 255, 0.42)';
-    ctx.lineWidth = 1.35;
-    ctx.stroke();
-  }
-
-  const core = ctx.createRadialGradient(0, 0, 0, 0, 0, radius * 0.38);
-  core.addColorStop(0, 'rgba(236, 250, 255, 0.72)');
-  core.addColorStop(0.28, 'rgba(109, 191, 255, 0.34)');
-  core.addColorStop(1, 'rgba(35, 90, 180, 0)');
-  ctx.fillStyle = core;
-  ctx.beginPath();
-  ctx.arc(0, 0, radius * 0.38, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.restore();
-}
-
-function drawStarNetworkLayer(
-  ctx: CanvasRenderingContext2D,
-  timeSec: number,
-  working: boolean,
-): void {
-  ctx.save();
-  clipToMap(ctx);
-  ctx.globalCompositeOperation = 'screen';
-
-  drawNebulaPatch(ctx, CENTER_X - 104, CENTER_Y - 4, 50, timeSec, 0.5, working, false);
-  drawNebulaPatch(ctx, CENTER_X + 102, CENTER_Y + 6, 46, timeSec, 2.2, working, true);
-
-  drawMiniGalaxy(ctx, CENTER_X - 119, CENTER_Y - 17, 19, timeSec, 0.3);
-  drawMiniGalaxy(ctx, CENTER_X + 121, CENTER_Y + 12, 17, timeSec, 1.7);
-
-  for (const star of STAR_FIELD) {
-    const point = ellipsePoint(star.radius, star.angle);
-    const twinkle =
-      0.56 +
-      0.44 * Math.sin(timeSec * (1.15 + star.size * 0.18) + star.phase);
-    const alpha = (working ? 0.88 : 0.72) * (0.78 + twinkle * 0.22);
-
-    ctx.fillStyle = star.warm
-      ? `rgba(255, 199, 112, ${alpha.toFixed(3)})`
-      : `rgba(196, 238, 255, ${alpha.toFixed(3)})`;
-    ctx.beginPath();
-    ctx.arc(point.x, point.y, star.size, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  for (let groupIndex = 0; groupIndex < CONSTELLATION_GROUPS.length; groupIndex += 1) {
-    const group = CONSTELLATION_GROUPS[groupIndex]!;
-    const pulse =
-      0.30 +
-      0.07 * Math.sin(timeSec * 0.42 + groupIndex * 1.7);
-
-    ctx.strokeStyle = `rgba(133, 220, 255, ${pulse.toFixed(3)})`;
-    ctx.lineWidth = 1.05;
-    ctx.beginPath();
-
-    group.forEach((node, index) => {
-      const point = ellipsePoint(node.radius, node.angle);
-      if (index === 0) ctx.moveTo(point.x, point.y);
-      else ctx.lineTo(point.x, point.y);
-    });
-    ctx.stroke();
-
-    for (const node of group) {
-      const point = ellipsePoint(node.radius, node.angle);
-      ctx.fillStyle = 'rgba(220, 248, 255, 0.86)';
-      ctx.beginPath();
-      ctx.arc(point.x, point.y, 2.05, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-
-  ctx.restore();
-}
-
-function drawAsteroidBeltLayer(
-  ctx: CanvasRenderingContext2D,
-  timeSec: number,
-  working: boolean,
-): void {
-  ctx.save();
-  clipToMap(ctx);
-  ctx.globalCompositeOperation = 'screen';
-
-  const rotation = timeSec * (working ? 0.030 : 0.021);
-  for (const asteroid of ASTEROID_BELT) {
-    const angle = asteroid.angle + rotation;
-    const point = ellipsePoint(asteroid.radius, angle);
-    const shimmer =
-      0.58 +
-      0.42 * Math.sin(timeSec * 0.9 + asteroid.phase);
-    const alpha = (working ? 0.58 : 0.44) * shimmer;
-
-    ctx.fillStyle = asteroid.warm
-      ? `rgba(255, 191, 105, ${alpha.toFixed(3)})`
-      : `rgba(150, 218, 255, ${alpha.toFixed(3)})`;
-    ctx.beginPath();
-    ctx.arc(point.x, point.y, asteroid.size, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  ctx.restore();
-}
-
-function drawSectorRingLayer(
-  ctx: CanvasRenderingContext2D,
-  timeSec: number,
-  working: boolean,
-): void {
-  ctx.save();
-  clipToMap(ctx);
-  ctx.globalCompositeOperation = 'screen';
-
-  const outerRadius = 139;
-  const tickAlpha = working ? 0.50 : 0.36;
-
-  for (let index = 0; index < 32; index += 1) {
-    const angle = (index / 32) * Math.PI * 2;
-    const major = index % 4 === 0;
-    const innerRadius = outerRadius - (major ? 6.5 : 3.4);
-    const outer = ellipsePoint(outerRadius, angle);
-    const inner = ellipsePoint(innerRadius, angle);
-
-    ctx.strokeStyle = major
-      ? `rgba(126, 225, 255, ${tickAlpha.toFixed(3)})`
-      : `rgba(111, 190, 229, ${(tickAlpha * 0.58).toFixed(3)})`;
-    ctx.lineWidth = major ? 0.9 : 0.55;
-    ctx.beginPath();
-    ctx.moveTo(inner.x, inner.y);
-    ctx.lineTo(outer.x, outer.y);
-    ctx.stroke();
-  }
-
-  const sweep = timeSec * 0.16;
-  const sweepStart = ellipsePoint(111, sweep);
-  const sweepEnd = ellipsePoint(140, sweep);
-  const sweepAlpha = working ? 0.34 : 0.20;
-  ctx.strokeStyle = `rgba(162, 239, 255, ${sweepAlpha.toFixed(3)})`;
-  ctx.lineWidth = 0.8;
-  ctx.beginPath();
-  ctx.moveTo(sweepStart.x, sweepStart.y);
-  ctx.lineTo(sweepEnd.x, sweepEnd.y);
-  ctx.stroke();
-
-  ctx.restore();
-}
-
 function loadImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image();
@@ -502,6 +202,233 @@ function createTransparentCanvas(): HTMLCanvasElement {
   canvas.width = WIDTH;
   canvas.height = HEIGHT;
   return canvas;
+}
+
+const LEGACY_MAP_CENTER_X = 54;
+const LEGACY_MAP_CENTER_Y = 35.5;
+const LEGACY_MAP_HALF_W = 49;
+const LEGACY_MAP_HALF_H = 30.5;
+
+interface LegacyDustPoint {
+  x: number;
+  y: number;
+  depth: number;
+  radius: number;
+  alpha: number;
+}
+
+const LEGACY_HOLOGRAM_DUST: readonly LegacyDustPoint[] = Array.from(
+  { length: 150 },
+  (_, index) => {
+    const random = (salt: number) => {
+      const value = Math.sin(index * 127.1 + salt * 311.7) * 43758.5453;
+      return value - Math.floor(value);
+    };
+    const u = random(1);
+    const spread =
+      (random(2) + random(3) + random(4) - 1.5) *
+      (4 + Math.sin(u * Math.PI) * 7);
+    return {
+      x: 12 + u * 81 + spread * 0.3,
+      y: 54 - u * 38 + Math.sin(u * 6) * 3 + spread,
+      depth: random(5) * 12 - 6,
+      radius: 0.075 + random(6) * 0.18,
+      alpha: 0.12 + random(7) * 0.48,
+    };
+  },
+);
+
+function mapLegacyPoint(x: number, y: number): { x: number; y: number } {
+  const nx = (x - LEGACY_MAP_CENTER_X) / LEGACY_MAP_HALF_W;
+  const ny = (y - LEGACY_MAP_CENTER_Y) / LEGACY_MAP_HALF_H;
+  return {
+    x: CENTER_X + nx * MAP_RADIUS,
+    y: CENTER_Y + ny * MAP_RADIUS * Y_SCALE,
+  };
+}
+
+function legacyRadiusX(radius: number): number {
+  return (radius / LEGACY_MAP_HALF_W) * MAP_RADIUS;
+}
+
+function legacyRadiusY(radius: number): number {
+  return (radius / LEGACY_MAP_HALF_H) * MAP_RADIUS * Y_SCALE;
+}
+
+function drawLegacyMapStar(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  radius: number,
+  color: string,
+  opacity: number,
+): void {
+  const point = mapLegacyPoint(x, y);
+  const mappedRadius = Math.max(0.75, legacyRadiusX(radius));
+
+  ctx.globalAlpha = opacity;
+  const glow = ctx.createRadialGradient(
+    point.x,
+    point.y,
+    0,
+    point.x,
+    point.y,
+    mappedRadius * 4.5,
+  );
+  glow.addColorStop(0, '#fff9eb');
+  glow.addColorStop(0.14, '#fff0ce');
+  glow.addColorStop(0.30, color);
+  glow.addColorStop(0.55, color + '42');
+  glow.addColorStop(1, color + '00');
+
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(point.x, point.y, mappedRadius * 4.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#fff5dc';
+  ctx.beginPath();
+  ctx.arc(point.x, point.y, mappedRadius * 0.55, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawLegacyMapContext(
+  ctx: CanvasRenderingContext2D,
+  timeSec: number,
+  working: boolean,
+): void {
+  ctx.save();
+  ctx.beginPath();
+  ctx.ellipse(
+    CENTER_X,
+    CENTER_Y,
+    MAP_RADIUS,
+    MAP_RADIUS * Y_SCALE,
+    0,
+    0,
+    Math.PI * 2,
+  );
+  ctx.clip();
+
+  // Same broad wisps as the original star-map renderer, transformed into the
+  // V10 ellipse instead of being positioned independently in room space.
+  ctx.globalCompositeOperation = 'lighter';
+  for (let cloud = 0; cloud < 12; cloud += 1) {
+    const u = cloud / 11;
+    const legacyX = 14 + u * 78;
+    const legacyY =
+      53 -
+      u * 36 +
+      Math.sin(u * 6 + timeSec * 0.025) * 3;
+    const point = mapLegacyPoint(legacyX, legacyY);
+    const rx = legacyRadiusX(11) * 1.7;
+    const ry =
+      legacyRadiusY(11) *
+      (0.6 + (cloud % 3) * 0.12);
+
+    ctx.save();
+    ctx.translate(point.x, point.y);
+    ctx.scale(1, ry / Math.max(0.001, rx));
+    const haze = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
+    haze.addColorStop(0, working ? '#56bdd632' : '#56bdd622');
+    haze.addColorStop(0.35, '#348da918');
+    haze.addColorStop(1, '#16435b00');
+    ctx.fillStyle = haze;
+    ctx.fillRect(-rx, -rx, rx * 2, rx * 2);
+    ctx.restore();
+  }
+  ctx.globalCompositeOperation = 'source-over';
+
+  // Original fixed-seed dust distribution. Density is reduced from the legacy
+  // 420 points to 150 so the V10 art remains readable.
+  for (const mote of LEGACY_HOLOGRAM_DUST) {
+    const drift = Math.sin(timeSec * 0.18 + mote.depth * 0.13);
+    const point = mapLegacyPoint(
+      mote.x + drift * mote.depth * 0.65,
+      mote.y +
+        Math.cos(timeSec * 0.13 + mote.depth * 0.2) *
+          mote.depth *
+          0.3,
+    );
+    const mappedRadius = Math.max(
+      0.28,
+      legacyRadiusX(mote.radius),
+    );
+    ctx.globalAlpha =
+      mote.alpha *
+      (working ? 0.72 : 0.52) *
+      (0.8 + Math.sin(timeSec * 0.8 + mote.x) * 0.2);
+    ctx.fillStyle = mote.depth > 0 ? '#beedf0' : '#5ba8c3';
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, mappedRadius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // The same fine star grid used by the reference implementation.
+  for (let i = 0; i < 38; i += 1) {
+    const x = 7 + ((i * 37.73) % 91);
+    const y = 7 + ((i * 19.31) % 57);
+    const point = mapLegacyPoint(x, y);
+    const radius = i % 7 === 0 ? 0.72 : 0.42;
+    ctx.globalAlpha =
+      (working ? 0.34 : 0.24) *
+      (0.68 + (i % 4) * 0.08);
+    ctx.fillStyle = '#bedee8';
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Port the original subdued navigation branches exactly in map coordinates.
+  const p32_15 = mapLegacyPoint(32, 15);
+  const p54_38 = mapLegacyPoint(54, 38);
+  const p86_20 = mapLegacyPoint(86, 20);
+  const p87_51 = mapLegacyPoint(87, 51);
+  const c1 = mapLegacyPoint(35, 28);
+  const c2 = mapLegacyPoint(43, 35);
+  const c3 = mapLegacyPoint(66, 32);
+  const c4 = mapLegacyPoint(76, 23);
+  const c5 = mapLegacyPoint(68, 44);
+  const c6 = mapLegacyPoint(79, 46);
+
+  ctx.globalAlpha = working ? 0.24 : 0.16;
+  ctx.strokeStyle = '#70c4d8';
+  ctx.lineWidth = 0.75;
+  ctx.beginPath();
+  ctx.moveTo(p32_15.x, p32_15.y);
+  ctx.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, p54_38.x, p54_38.y);
+  ctx.bezierCurveTo(c3.x, c3.y, c4.x, c4.y, p86_20.x, p86_20.y);
+  ctx.moveTo(p54_38.x, p54_38.y);
+  ctx.bezierCurveTo(c5.x, c5.y, c6.x, c6.y, p87_51.x, p87_51.y);
+  ctx.stroke();
+
+  drawLegacyMapStar(ctx, 32, 15, 0.42, '#ffae83', working ? 0.66 : 0.50);
+  drawLegacyMapStar(ctx, 86, 20, 0.68, '#c1f3ff', working ? 0.82 : 0.64);
+  drawLegacyMapStar(ctx, 87, 51, 0.50, '#bceeff', working ? 0.68 : 0.50);
+  drawLegacyMapStar(ctx, 69, 27, 0.28, '#bceeff', working ? 0.74 : 0.56);
+  drawLegacyMapStar(ctx, 18, 45, 0.30, '#bceeff', working ? 0.58 : 0.42);
+
+  // Use the current V10 orbital geometry for structure, not guessed circles.
+  // Three low-alpha guide ellipses are derived from the measured planet radii.
+  const guideRadii = [56, 91, 132] as const;
+  ctx.strokeStyle = '#70c4d8';
+  ctx.lineWidth = 0.62;
+  ctx.globalAlpha = working ? 0.16 : 0.10;
+  for (const radius of guideRadii) {
+    ctx.beginPath();
+    ctx.ellipse(
+      CENTER_X,
+      CENTER_Y,
+      radius,
+      radius * Y_SCALE,
+      0,
+      0,
+      Math.PI * 2,
+    );
+    ctx.stroke();
+  }
+
+  ctx.restore();
 }
 
 
@@ -1183,11 +1110,9 @@ export async function loadKevinPixelMotion(
       frameCtx.filter = 'none';
       frameCtx.drawImage(cleanBase, 0, 0);
 
-      // Star-map context layers: sector ring -> deep-space network -> asteroid belt.
-      // All layers are clipped to the authored holographic table surface.
-      drawSectorRingLayer(frameCtx, timeSec, working);
-      drawStarNetworkLayer(frameCtx, timeSec, working);
-      drawAsteroidBeltLayer(frameCtx, timeSec, working);
+      // Context is ported from the original Kevin star-map renderer and mapped
+      // into the exact V10 ellipse, so it shares the same center as the planets.
+      drawLegacyMapContext(frameCtx, timeSec, working);
 
       const states = patches
         .map((patch) => {
