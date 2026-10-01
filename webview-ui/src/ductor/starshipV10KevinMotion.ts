@@ -8,6 +8,24 @@ export interface KevinPixelMotion {
 const WIDTH = 540;
 const HEIGHT = 230;
 
+// Measured from the authored V10 Kevin crop.
+const CENTER_X = 308.7;
+const CENTER_Y = 54.2;
+const Y_SCALE = 0.32;
+const MAP_RADIUS = 148;
+const CENTER_PIN_START = 18;
+const CENTER_PIN_END = 42;
+const EDGE_PIN_START = MAP_RADIUS - 24;
+const EDGE_PIN_END = MAP_RADIUS - 6;
+
+interface WarpField {
+  offsets: Int32Array;
+  radius: Float32Array;
+  theta: Float32Array;
+  gate: Float32Array;
+  angularFactor: Float32Array;
+}
+
 function loadImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image();
@@ -28,63 +46,135 @@ function loadImage(url: string): Promise<HTMLImageElement> {
   });
 }
 
-function compileShader(
-  gl: WebGLRenderingContext,
-  type: number,
-  source: string,
-): WebGLShader {
-  const shader = gl.createShader(type);
-  if (!shader) throw new Error('Kevin pixel warp could not create WebGL shader');
-  gl.shaderSource(shader, source);
-  gl.compileShader(shader);
-  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    const message = gl.getShaderInfoLog(shader) ?? 'unknown shader error';
-    gl.deleteShader(shader);
-    throw new Error(`Kevin pixel warp shader failed: ${message}`);
-  }
-  return shader;
+function smoothstep(edge0: number, edge1: number, value: number): number {
+  const t = Math.max(0, Math.min(1, (value - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
 }
 
-function createProgram(
-  gl: WebGLRenderingContext,
-  vertexSource: string,
-  fragmentSource: string,
-): WebGLProgram {
-  const vertex = compileShader(gl, gl.VERTEX_SHADER, vertexSource);
-  const fragment = compileShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
-  const program = gl.createProgram();
-  if (!program) throw new Error('Kevin pixel warp could not create WebGL program');
-  gl.attachShader(program, vertex);
-  gl.attachShader(program, fragment);
-  gl.linkProgram(program);
-  gl.deleteShader(vertex);
-  gl.deleteShader(fragment);
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-    const message = gl.getProgramInfoLog(program) ?? 'unknown link error';
-    gl.deleteProgram(program);
-    throw new Error(`Kevin pixel warp program failed: ${message}`);
-  }
-  return program;
-}
-
-function makeStaticCanvas(image: HTMLImageElement): HTMLCanvasElement {
+function sourceImageData(image: HTMLImageElement): ImageData {
   const canvas = document.createElement('canvas');
   canvas.width = WIDTH;
   canvas.height = HEIGHT;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Kevin source canvas requires a 2D context');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) throw new Error('Kevin source pixels require a 2D canvas');
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(image, 0, 0);
-  return canvas;
+  return ctx.getImageData(0, 0, WIDTH, HEIGHT);
+}
+
+function buildWarpField(): WarpField {
+  const offsets: number[] = [];
+  const radii: number[] = [];
+  const thetas: number[] = [];
+  const gates: number[] = [];
+  const angularFactors: number[] = [];
+
+  const minX = Math.max(0, Math.floor(CENTER_X - MAP_RADIUS - 1));
+  const maxX = Math.min(WIDTH - 1, Math.ceil(CENTER_X + MAP_RADIUS + 1));
+  const verticalRadius = MAP_RADIUS * Y_SCALE;
+  const minY = Math.max(0, Math.floor(CENTER_Y - verticalRadius - 1));
+  const maxY = Math.min(HEIGHT - 1, Math.ceil(CENTER_Y + verticalRadius + 1));
+
+  for (let y = minY; y <= maxY; y += 1) {
+    for (let x = minX; x <= maxX; x += 1) {
+      const u = x - CENTER_X;
+      const v = (y - CENTER_Y) / Y_SCALE;
+      const radius = Math.hypot(u, v);
+      if (radius > MAP_RADIUS) continue;
+
+      const centerGate = smoothstep(CENTER_PIN_START, CENTER_PIN_END, radius);
+      const edgeGate = 1 - smoothstep(EDGE_PIN_START, EDGE_PIN_END, radius);
+      const gate = centerGate * edgeGate;
+      const radiusNorm = Math.max(0, Math.min(1, radius / MAP_RADIUS));
+
+      offsets.push((y * WIDTH + x) * 4);
+      radii.push(radius);
+      thetas.push(Math.atan2(v, u));
+      gates.push(gate);
+      angularFactors.push(1.12 - radiusNorm * 0.68);
+    }
+  }
+
+  return {
+    offsets: Int32Array.from(offsets),
+    radius: Float32Array.from(radii),
+    theta: Float32Array.from(thetas),
+    gate: Float32Array.from(gates),
+    angularFactor: Float32Array.from(angularFactors),
+  };
+}
+
+function sampleBilinear(
+  source: Uint8ClampedArray,
+  x: number,
+  y: number,
+  channel: number,
+): number {
+  const clampedX = Math.max(0, Math.min(WIDTH - 1.001, x));
+  const clampedY = Math.max(0, Math.min(HEIGHT - 1.001, y));
+  const x0 = Math.floor(clampedX);
+  const y0 = Math.floor(clampedY);
+  const x1 = Math.min(WIDTH - 1, x0 + 1);
+  const y1 = Math.min(HEIGHT - 1, y0 + 1);
+  const fx = clampedX - x0;
+  const fy = clampedY - y0;
+
+  const p00 = source[(y0 * WIDTH + x0) * 4 + channel]!;
+  const p10 = source[(y0 * WIDTH + x1) * 4 + channel]!;
+  const p01 = source[(y1 * WIDTH + x0) * 4 + channel]!;
+  const p11 = source[(y1 * WIDTH + x1) * 4 + channel]!;
+
+  const top = p00 + (p10 - p00) * fx;
+  const bottom = p01 + (p11 - p01) * fx;
+  return top + (bottom - top) * fy;
+}
+
+function buildExactRestFrame(
+  source: Uint8ClampedArray,
+  field: WarpField,
+  target: Uint8ClampedArray,
+): void {
+  target.fill(0);
+  for (let index = 0; index < field.offsets.length; index += 1) {
+    const offset = field.offsets[index]!;
+    target[offset] = source[offset]!;
+    target[offset + 1] = source[offset + 1]!;
+    target[offset + 2] = source[offset + 2]!;
+    target[offset + 3] = source[offset + 3]!;
+  }
+}
+
+function countRestDiff(
+  source: Uint8ClampedArray,
+  frame: Uint8ClampedArray,
+  field: WarpField,
+): number {
+  let changed = 0;
+  for (let index = 0; index < field.offsets.length; index += 1) {
+    const offset = field.offsets[index]!;
+    if (
+      source[offset] !== frame[offset] ||
+      source[offset + 1] !== frame[offset + 1] ||
+      source[offset + 2] !== frame[offset + 2] ||
+      source[offset + 3] !== frame[offset + 3]
+    ) {
+      changed += 1;
+    }
+  }
+  return changed;
 }
 
 /**
- * Animate the authored star-map surface by remapping its own pixels.
+ * Source-pixel animation for Kevin's V10 map.
  *
- * Nothing is painted on top of the PNG and no planet is cut out as a sprite.
- * The shader samples the original 540×230 texture through an elliptical-polar
- * flow field measured from the actual table. Thus planets, orbit lines, glow,
- * particles and their local reflections move together as one surface.
+ * The authored station PNG is an opaque rectangular crop, so it must never be
+ * used as an alpha mask. This renderer instead creates a transparent canvas and
+ * writes pixels only inside the measured star-map ellipse. The room beneath is
+ * therefore untouched everywhere outside the actual glass map.
+ *
+ * Motion is a differential elliptical-polar remap of the PNG's own pixels:
+ * planets, glows, orbit lines and particles move together. No new HUD artwork,
+ * planet sprites, white matte or rectangular station crop is composited.
  */
 export async function loadKevinPixelMotion(assetUrl: string): Promise<KevinPixelMotion> {
   const image = await loadImage(assetUrl);
@@ -94,175 +184,66 @@ export async function loadKevinPixelMotion(assetUrl: string): Promise<KevinPixel
     );
   }
 
-  const staticCanvas = makeStaticCanvas(image);
-  const canvas = document.createElement('canvas');
-  canvas.width = WIDTH;
-  canvas.height = HEIGHT;
+  const sourceData = sourceImageData(image);
+  const source = sourceData.data;
+  const field = buildWarpField();
 
-  // Final safety compositor: whatever WebGL produces is clipped again by the
-  // exact alpha silhouette of the authored PNG before it can enter the room.
-  const maskedCanvas = document.createElement('canvas');
-  maskedCanvas.width = WIDTH;
-  maskedCanvas.height = HEIGHT;
-  const maskedCtx = maskedCanvas.getContext('2d');
-  if (!maskedCtx) throw new Error('Kevin alpha-mask compositor requires a 2D context');
+  const frameCanvas = document.createElement('canvas');
+  frameCanvas.width = WIDTH;
+  frameCanvas.height = HEIGHT;
+  const frameCtx = frameCanvas.getContext('2d');
+  if (!frameCtx) throw new Error('Kevin pixel motion requires a 2D canvas');
 
-  const gl = canvas.getContext('webgl', {
-    alpha: true,
-    antialias: false,
-    depth: false,
-    premultipliedAlpha: true,
-    preserveDrawingBuffer: true,
-  });
-
-  if (!gl) {
-    return {
-      width: WIDTH,
-      height: HEIGHT,
-      restDiffPixels: 0,
-      render(): HTMLCanvasElement {
-        return staticCanvas;
-      },
-    };
+  const frameData = new ImageData(WIDTH, HEIGHT);
+  buildExactRestFrame(source, field, frameData.data);
+  const restDiffPixels = countRestDiff(source, frameData.data, field);
+  if (restDiffPixels !== 0) {
+    throw new Error(`Kevin map rest reconstruction failed: ${restDiffPixels} pixels differ`);
   }
-
-  const vertexSource = `
-    attribute vec2 a_position;
-    varying vec2 v_uv;
-
-    void main() {
-      v_uv = a_position * 0.5 + 0.5;
-      gl_Position = vec4(a_position, 0.0, 1.0);
-    }
-  `;
-
-  const fragmentSource = `
-    precision highp float;
-
-    uniform sampler2D u_texture;
-    uniform vec2 u_size;
-    uniform float u_time;
-    uniform float u_speed;
-    varying vec2 v_uv;
-
-    const float CENTER_X = 308.7;
-    const float CENTER_Y = 54.2;
-    const float Y_SCALE = 0.32;
-    const float RADIUS = 150.0;
-
-    float smoothGate(float edge0, float edge1, float value) {
-      float t = clamp((value - edge0) / (edge1 - edge0), 0.0, 1.0);
-      return t * t * (3.0 - 2.0 * t);
-    }
-
-    void main() {
-      vec2 pixel = vec2(v_uv.x * u_size.x, (1.0 - v_uv.y) * u_size.y);
-      vec2 relative = vec2(pixel.x - CENTER_X, (pixel.y - CENTER_Y) / Y_SCALE);
-      float radius = length(relative);
-      float theta = atan(relative.y, relative.x);
-
-      // Physical rim stays fixed; the central sun is pinned.
-      float edgeGate = 1.0 - smoothGate(RADIUS - 12.0, RADIUS, radius);
-      float centerGate = smoothGate(18.0, 42.0, radius);
-      float gate = edgeGate * centerGate;
-
-      // Differential rotation makes the authored map behave like one living
-      // surface rather than independent stickers.
-      float radiusNorm = clamp(radius / RADIUS, 0.0, 1.0);
-      float angularSpeed = u_speed * (1.20 - radiusNorm * 0.72);
-      float sourceTheta = theta - angularSpeed * u_time * gate;
-
-      vec2 warpedPixel = vec2(
-        CENTER_X + cos(sourceTheta) * radius,
-        CENTER_Y + sin(sourceTheta) * radius * Y_SCALE
-      );
-
-      vec2 originalUv = vec2(pixel.x / u_size.x, 1.0 - pixel.y / u_size.y);
-      vec2 warpedUv = vec2(
-        warpedPixel.x / u_size.x,
-        1.0 - warpedPixel.y / u_size.y
-      );
-
-      vec4 originalColor = texture2D(u_texture, originalUv);
-      vec4 warpedColor = texture2D(u_texture, warpedUv);
-
-      // The authored PNG silhouette is immutable. Never let a warped opaque
-      // texel spill into a source-transparent pixel, which would turn the
-      // 540x230 crop into a visible rectangular overlay.
-      float originalValid = step(0.01, originalColor.a);
-      float warpedValid = step(0.01, warpedColor.a);
-      float effectiveGate = gate * originalValid * warpedValid;
-      vec3 color = mix(originalColor.rgb, warpedColor.rgb, effectiveGate);
-
-      // Preserve the exact authored alpha at this pixel.
-      gl_FragColor = vec4(color, originalColor.a);
-    }
-  `;
-
-  const program = createProgram(gl, vertexSource, fragmentSource);
-  gl.useProgram(program);
-
-  const position = gl.getAttribLocation(program, 'a_position');
-  const buffer = gl.createBuffer();
-  if (!buffer) throw new Error('Kevin pixel warp could not create vertex buffer');
-  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-  gl.bufferData(
-    gl.ARRAY_BUFFER,
-    new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]),
-    gl.STATIC_DRAW,
-  );
-  gl.enableVertexAttribArray(position);
-  gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
-
-  const texture = gl.createTexture();
-  if (!texture) throw new Error('Kevin pixel warp could not create texture');
-  gl.activeTexture(gl.TEXTURE0);
-  gl.bindTexture(gl.TEXTURE_2D, texture);
-  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-  gl.texImage2D(
-    gl.TEXTURE_2D,
-    0,
-    gl.RGBA,
-    gl.RGBA,
-    gl.UNSIGNED_BYTE,
-    image,
-  );
-
-  const textureLocation = gl.getUniformLocation(program, 'u_texture');
-  const sizeLocation = gl.getUniformLocation(program, 'u_size');
-  const timeLocation = gl.getUniformLocation(program, 'u_time');
-  const speedLocation = gl.getUniformLocation(program, 'u_speed');
-  gl.uniform1i(textureLocation, 0);
-  gl.uniform2f(sizeLocation, WIDTH, HEIGHT);
-  gl.viewport(0, 0, WIDTH, HEIGHT);
-  gl.disable(gl.BLEND);
+  frameCtx.putImageData(frameData, 0, 0);
 
   return {
     width: WIDTH,
     height: HEIGHT,
     restDiffPixels: 0,
     render(timeSec: number, working: boolean): HTMLCanvasElement {
-      if (timeSec <= 0.0001) return staticCanvas;
-      gl.useProgram(program);
-      gl.uniform1f(timeLocation, timeSec);
-      gl.uniform1f(speedLocation, working ? 0.032 : 0.018);
-      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      if (timeSec <= 0.0001) {
+        buildExactRestFrame(source, field, frameData.data);
+        frameCtx.putImageData(frameData, 0, 0);
+        return frameCanvas;
+      }
 
-      maskedCtx.save();
-      maskedCtx.setTransform(1, 0, 0, 1, 0, 0);
-      maskedCtx.clearRect(0, 0, WIDTH, HEIGHT);
-      maskedCtx.globalCompositeOperation = 'source-over';
-      maskedCtx.drawImage(canvas, 0, 0);
-      maskedCtx.globalCompositeOperation = 'destination-in';
-      maskedCtx.drawImage(staticCanvas, 0, 0);
-      maskedCtx.globalCompositeOperation = 'source-over';
-      maskedCtx.restore();
+      // Always start transparent. Only the authored map ellipse is replaced.
+      frameData.data.fill(0);
 
-      return maskedCanvas;
+      const time = timeSec % 3600;
+      const baseSpeed = working ? 0.018 : 0.010;
+
+      for (let index = 0; index < field.offsets.length; index += 1) {
+        const offset = field.offsets[index]!;
+        const radius = field.radius[index]!;
+        const theta = field.theta[index]!;
+        const gate = field.gate[index]!;
+        const angularFactor = field.angularFactor[index]!;
+
+        const sourceTheta = theta - time * baseSpeed * angularFactor * gate;
+        const sourceX = CENTER_X + Math.cos(sourceTheta) * radius;
+        const sourceY = CENTER_Y + Math.sin(sourceTheta) * radius * Y_SCALE;
+
+        for (let channel = 0; channel < 3; channel += 1) {
+          const original = source[offset + channel]!;
+          const warped = sampleBilinear(source, sourceX, sourceY, channel);
+          frameData.data[offset + channel] = Math.round(
+            original + (warped - original) * gate,
+          );
+        }
+
+        // Preserve authored alpha only inside the true map replacement region.
+        frameData.data[offset + 3] = source[offset + 3]!;
+      }
+
+      frameCtx.putImageData(frameData, 0, 0);
+      return frameCanvas;
     },
   };
 }
