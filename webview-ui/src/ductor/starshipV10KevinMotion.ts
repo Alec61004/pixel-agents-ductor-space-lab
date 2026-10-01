@@ -204,84 +204,6 @@ function createTransparentCanvas(): HTMLCanvasElement {
   return canvas;
 }
 
-function makeNavigationGridLayer(): HTMLCanvasElement {
-  const canvas = createTransparentCanvas();
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Kevin navigation grid requires a 2D canvas');
-
-  // Pixel audit: the lower half of the map has the lowest structural density.
-  // Add only three medium-scale radial guides there. No dots, labels, extra
-  // planets or new concentric rings.
-  const angles = [1.22, Math.PI / 2, 1.92] as const;
-  const startRadius = 48;
-  const endRadius = 132;
-  const tickRadii = [78, 108] as const;
-
-  ctx.save();
-  ctx.beginPath();
-  ctx.ellipse(
-    CENTER_X,
-    CENTER_Y,
-    MAP_RADIUS,
-    MAP_RADIUS * Y_SCALE,
-    0,
-    0,
-    Math.PI * 2,
-  );
-  ctx.clip();
-
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-
-  for (const angle of angles) {
-    const cos = Math.cos(angle);
-    const sin = Math.sin(angle);
-
-    const x0 = CENTER_X + cos * startRadius;
-    const y0 = CENTER_Y + sin * startRadius * Y_SCALE;
-    const x1 = CENTER_X + cos * endRadius;
-    const y1 = CENTER_Y + sin * endRadius * Y_SCALE;
-
-    ctx.strokeStyle = 'rgba(128, 222, 255, 0.19)';
-    ctx.lineWidth = 0.9;
-    ctx.beginPath();
-    ctx.moveTo(x0, y0);
-    ctx.lineTo(x1, y1);
-    ctx.stroke();
-
-    // A very faint inner highlight keeps the guide readable without becoming
-    // another bright orbit line.
-    ctx.strokeStyle = 'rgba(232, 249, 255, 0.08)';
-    ctx.lineWidth = 0.45;
-    ctx.beginPath();
-    ctx.moveTo(x0, y0);
-    ctx.lineTo(x1, y1);
-    ctx.stroke();
-
-    for (const radius of tickRadii) {
-      const x = CENTER_X + cos * radius;
-      const y = CENTER_Y + sin * radius * Y_SCALE;
-
-      // Perpendicular in screen space; short line ticks, never point markers.
-      const px = -sin;
-      const py = cos * Y_SCALE;
-      const length = Math.hypot(px, py) || 1;
-      const nx = px / length;
-      const ny = py / length;
-      const half = 2.6;
-
-      ctx.strokeStyle = 'rgba(170, 232, 255, 0.22)';
-      ctx.lineWidth = 0.75;
-      ctx.beginPath();
-      ctx.moveTo(x - nx * half, y - ny * half);
-      ctx.lineTo(x + nx * half, y + ny * half);
-      ctx.stroke();
-    }
-  }
-
-  ctx.restore();
-  return canvas;
-}
 
 function copyMapEllipse(
   source: Uint8ClampedArray,
@@ -427,7 +349,11 @@ function isTinyArtifactCandidate(
   const brightness = (r + g + b) / 3;
   const chroma = Math.max(r, g, b) - Math.min(r, g, b);
 
-  return brightness >= 118 && chroma >= 18;
+  // Catch both colored specks and bright neutral/white markers. The earlier
+  // pass missed the latter because it required chroma.
+  const coloredSpeck = brightness >= 102 && chroma >= 16;
+  const neutralSpeck = brightness >= 142;
+  return coloredSpeck || neutralSpeck;
 }
 
 function eraseMaskedArtifact(
@@ -530,17 +456,32 @@ function removeTinyArtifacts(
       const width = boxMaxX - boxMinX + 1;
       const height = boxMaxY - boxMinY + 1;
 
-      if (component.length <= 18 && width <= 7 && height <= 7) {
+      const bboxArea = width * height;
+      const aspect = Math.max(width, height) / Math.max(1, Math.min(width, height));
+      const compactness = component.length / Math.max(1, bboxArea);
+
+      // Remove compact point-like marks up to ~10 px across. Long/thin orbit
+      // fragments are preserved by the aspect/compactness guards.
+      const pointLike =
+        component.length <= 64 &&
+        width <= 11 &&
+        height <= 11 &&
+        aspect <= 2.8 &&
+        compactness >= 0.16;
+
+      if (pointLike) {
         for (const pixel of component) {
           const px = pixel % WIDTH;
           const py = Math.floor(pixel / WIDTH);
           const offset = pixel * 4;
 
           for (let channel = 0; channel < 3; channel += 1) {
-            const donorA = donorSample(source, px, py, 0.18, channel);
-            const donorB = donorSample(source, px, py, 0.30, channel);
-            const donorC = donorSample(source, px, py, 0.44, channel);
-            target[offset + channel] = Math.round((donorA + donorB + donorC) / 3);
+            const donorA = donorSample(source, px, py, 0.16, channel);
+            const donorB = donorSample(source, px, py, 0.27, channel);
+            const donorC = donorSample(source, px, py, 0.39, channel);
+            const donorD = donorSample(source, px, py, 0.53, channel);
+            const values = [donorA, donorB, donorC, donorD].sort((a, b) => a - b);
+            target[offset + channel] = Math.round((values[1]! + values[2]!) * 0.5);
           }
 
           target[offset + 3] = source[offset + 3]!;
@@ -930,7 +871,6 @@ export async function loadKevinPixelMotion(
     );
   }
 
-  const navigationGrid = makeNavigationGridLayer();
 
   const frameCanvas = createTransparentCanvas();
   const frameCtx = frameCanvas.getContext('2d');
@@ -953,13 +893,6 @@ export async function loadKevinPixelMotion(
       frameCtx.globalAlpha = 1;
       frameCtx.filter = 'none';
       frameCtx.drawImage(cleanBase, 0, 0);
-
-      // Step 1 after pixel cleanup: restore medium-scale structure only in the
-      // sparse lower field. Keep it restrained at idle, slightly clearer while
-      // Kevin is active.
-      frameCtx.globalAlpha = intro * (working ? 0.92 : 0.72);
-      frameCtx.drawImage(navigationGrid, 0, 0);
-      frameCtx.globalAlpha = 1;
 
       const states = patches
         .map((patch) => {
