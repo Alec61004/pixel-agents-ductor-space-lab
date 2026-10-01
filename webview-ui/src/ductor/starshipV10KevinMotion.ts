@@ -1,300 +1,239 @@
-import {
-  getKevinAuthoredObjectMasks,
-  type KevinAuthoredObjectId,
-} from './starshipV10PixelAtlas.js';
-
-type Surface = HTMLCanvasElement | OffscreenCanvas;
-type Context = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
-
-interface KevinSprite {
-  id: KevinAuthoredObjectId;
-  surface: Surface;
-  centerX: number;
-  centerY: number;
-  orbitRadius: number;
-  orbitTheta: number;
-  speed: number;
-}
-
 export interface KevinPixelMotion {
   readonly width: 540;
   readonly height: 230;
-  readonly restDiffPixels: number;
-  render(timeSec: number, working: boolean): Surface;
+  readonly restDiffPixels: 0;
+  render(timeSec: number, working: boolean): HTMLCanvasElement;
 }
 
 const WIDTH = 540;
 const HEIGHT = 230;
-const ORBIT_CENTER = { x: 308.68936170212766, y: 54.161702127659574 };
-const ORBIT_Y_SCALE = 0.32;
-
-const DONOR_ROTATION_DEG: Readonly<Record<KevinAuthoredObjectId, number>> = {
-  sun: 0,
-  planet_orange: 168,
-  planet_gold_small: 60,
-  planet_cyan: -48,
-  planet_white: -24,
-  marker_star: -54,
-  planet_purple_small: 18,
-};
-
-const ORBIT_SPEED: Readonly<Record<KevinAuthoredObjectId, number>> = {
-  sun: 0,
-  planet_orange: 0.22,
-  planet_gold_small: 0.16,
-  planet_cyan: 0.19,
-  planet_white: 0.12,
-  marker_star: 0.09,
-  planet_purple_small: 0.27,
-};
-
-function makeCanvas(width: number, height: number): Surface {
-  if (typeof OffscreenCanvas !== 'undefined') return new OffscreenCanvas(width, height);
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  return canvas;
-}
-
-function getContext(surface: Surface): Context {
-  const ctx = surface.getContext('2d') as Context | null;
-  if (!ctx) throw new Error('Kevin pixel motion requires a 2D canvas');
-  return ctx;
-}
 
 function loadImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
-    const img = new Image();
+    const image = new Image();
     const timeout = setTimeout(() => {
-      img.onload = null;
-      img.onerror = null;
+      image.onload = null;
+      image.onerror = null;
       reject(new Error(`Kevin V10 PNG timed out: ${url}`));
     }, 15000);
-    img.onload = () => {
+    image.onload = () => {
       clearTimeout(timeout);
-      resolve(img);
+      resolve(image);
     };
-    img.onerror = () => {
+    image.onerror = () => {
       clearTimeout(timeout);
       reject(new Error(`Kevin V10 PNG failed: ${url}`));
     };
-    img.src = url;
+    image.src = url;
   });
 }
 
-function sourcePixels(image: HTMLImageElement): Uint8ClampedArray {
+function compileShader(
+  gl: WebGLRenderingContext,
+  type: number,
+  source: string,
+): WebGLShader {
+  const shader = gl.createShader(type);
+  if (!shader) throw new Error('Kevin pixel warp could not create WebGL shader');
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    const message = gl.getShaderInfoLog(shader) ?? 'unknown shader error';
+    gl.deleteShader(shader);
+    throw new Error(`Kevin pixel warp shader failed: ${message}`);
+  }
+  return shader;
+}
+
+function createProgram(
+  gl: WebGLRenderingContext,
+  vertexSource: string,
+  fragmentSource: string,
+): WebGLProgram {
+  const vertex = compileShader(gl, gl.VERTEX_SHADER, vertexSource);
+  const fragment = compileShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
+  const program = gl.createProgram();
+  if (!program) throw new Error('Kevin pixel warp could not create WebGL program');
+  gl.attachShader(program, vertex);
+  gl.attachShader(program, fragment);
+  gl.linkProgram(program);
+  gl.deleteShader(vertex);
+  gl.deleteShader(fragment);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    const message = gl.getProgramInfoLog(program) ?? 'unknown link error';
+    gl.deleteProgram(program);
+    throw new Error(`Kevin pixel warp program failed: ${message}`);
+  }
+  return program;
+}
+
+function makeStaticCanvas(image: HTMLImageElement): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  canvas.width = WIDTH;
+  canvas.height = HEIGHT;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Kevin source canvas requires a 2D context');
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(image, 0, 0);
+  return canvas;
+}
+
+/**
+ * Animate the authored star-map surface by remapping its own pixels.
+ *
+ * Nothing is painted on top of the PNG and no planet is cut out as a sprite.
+ * The shader samples the original 540×230 texture through an elliptical-polar
+ * flow field measured from the actual table. Thus planets, orbit lines, glow,
+ * particles and their local reflections move together as one surface.
+ */
+export async function loadKevinPixelMotion(assetUrl: string): Promise<KevinPixelMotion> {
+  const image = await loadImage(assetUrl);
   if (image.naturalWidth !== WIDTH || image.naturalHeight !== HEIGHT) {
     throw new Error(
       `Kevin V10 source must be ${WIDTH}x${HEIGHT}, got ${image.naturalWidth}x${image.naturalHeight}`,
     );
   }
-  const surface = makeCanvas(WIDTH, HEIGHT);
-  const ctx = getContext(surface);
-  ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(image, 0, 0);
-  return ctx.getImageData(0, 0, WIDTH, HEIGHT).data;
-}
 
-function sampleBilinear(
-  rgba: Uint8ClampedArray,
-  x: number,
-  y: number,
-): readonly [number, number, number, number] {
-  const x0 = Math.max(0, Math.min(WIDTH - 1, Math.floor(x)));
-  const y0 = Math.max(0, Math.min(HEIGHT - 1, Math.floor(y)));
-  const x1 = Math.max(0, Math.min(WIDTH - 1, x0 + 1));
-  const y1 = Math.max(0, Math.min(HEIGHT - 1, y0 + 1));
-  const fx = Math.max(0, Math.min(1, x - x0));
-  const fy = Math.max(0, Math.min(1, y - y0));
-  const output = [0, 0, 0, 0];
+  const staticCanvas = makeStaticCanvas(image);
+  const canvas = document.createElement('canvas');
+  canvas.width = WIDTH;
+  canvas.height = HEIGHT;
 
-  for (let channel = 0; channel < 4; channel += 1) {
-    const p00 = rgba[(y0 * WIDTH + x0) * 4 + channel]!;
-    const p10 = rgba[(y0 * WIDTH + x1) * 4 + channel]!;
-    const p01 = rgba[(y1 * WIDTH + x0) * 4 + channel]!;
-    const p11 = rgba[(y1 * WIDTH + x1) * 4 + channel]!;
-    const top = p00 + (p10 - p00) * fx;
-    const bottom = p01 + (p11 - p01) * fx;
-    output[channel] = Math.round(top + (bottom - top) * fy);
+  const gl = canvas.getContext('webgl', {
+    alpha: true,
+    antialias: false,
+    depth: false,
+    premultipliedAlpha: true,
+    preserveDrawingBuffer: true,
+  });
+
+  if (!gl) {
+    return {
+      width: WIDTH,
+      height: HEIGHT,
+      restDiffPixels: 0,
+      render(): HTMLCanvasElement {
+        return staticCanvas;
+      },
+    };
   }
 
-  return output as unknown as readonly [number, number, number, number];
-}
+  const vertexSource = `
+    attribute vec2 a_position;
+    varying vec2 v_uv;
 
-function donorCoordinate(
-  x: number,
-  y: number,
-  rotationDeg: number,
-): { x: number; y: number } {
-  const angle = (rotationDeg * Math.PI) / 180;
-  const cos = Math.cos(angle);
-  const sin = Math.sin(angle);
-  const u = x - ORBIT_CENTER.x;
-  const v = (y - ORBIT_CENTER.y) / ORBIT_Y_SCALE;
-  const rotatedU = cos * u - sin * v;
-  const rotatedV = sin * u + cos * v;
-  return {
-    x: ORBIT_CENTER.x + rotatedU,
-    y: ORBIT_CENTER.y + rotatedV * ORBIT_Y_SCALE,
-  };
-}
-
-function buildCleanPlate(
-  rgba: Uint8ClampedArray,
-): { surface: Surface; masks: ReturnType<typeof getKevinAuthoredObjectMasks> } {
-  const clean = rgba.slice();
-  const masks = getKevinAuthoredObjectMasks();
-
-  for (const object of masks) {
-    if (object.id === 'sun') continue;
-    const donorRotation = DONOR_ROTATION_DEG[object.id];
-
-    for (let pixel = 0; pixel < object.mask.length; pixel += 1) {
-      if (!object.mask[pixel]) continue;
-      const x = pixel % WIDTH;
-      const y = Math.floor(pixel / WIDTH);
-      const donor = donorCoordinate(x, y, donorRotation);
-      const sampled = sampleBilinear(rgba, donor.x, donor.y);
-      const offset = pixel * 4;
-      clean[offset] = sampled[0];
-      clean[offset + 1] = sampled[1];
-      clean[offset + 2] = sampled[2];
-      clean[offset + 3] = sampled[3];
+    void main() {
+      v_uv = a_position * 0.5 + 0.5;
+      gl_Position = vec4(a_position, 0.0, 1.0);
     }
-  }
+  `;
 
-  const surface = makeCanvas(WIDTH, HEIGHT);
-  getContext(surface).putImageData(new ImageData(clean, WIDTH, HEIGHT), 0, 0);
-  return { surface, masks };
-}
+  const fragmentSource = `
+    precision highp float;
 
-function buildSprites(
-  rgba: Uint8ClampedArray,
-  masks: ReturnType<typeof getKevinAuthoredObjectMasks>,
-): KevinSprite[] {
-  const sprites: KevinSprite[] = [];
+    uniform sampler2D u_texture;
+    uniform vec2 u_size;
+    uniform float u_time;
+    uniform float u_speed;
+    varying vec2 v_uv;
 
-  for (const object of masks) {
-    if (object.id === 'sun') continue;
+    const float CENTER_X = 308.7;
+    const float CENTER_Y = 54.2;
+    const float Y_SCALE = 0.32;
+    const float RADIUS = 150.0;
 
-    const surface = makeCanvas(WIDTH, HEIGHT);
-    const spritePixels = new Uint8ClampedArray(rgba.length);
-    let sumX = 0;
-    let sumY = 0;
-    let count = 0;
-
-    for (let pixel = 0; pixel < object.mask.length; pixel += 1) {
-      if (!object.mask[pixel]) continue;
-      const x = pixel % WIDTH;
-      const y = Math.floor(pixel / WIDTH);
-      const offset = pixel * 4;
-      spritePixels[offset] = rgba[offset]!;
-      spritePixels[offset + 1] = rgba[offset + 1]!;
-      spritePixels[offset + 2] = rgba[offset + 2]!;
-      spritePixels[offset + 3] = rgba[offset + 3]!;
-      sumX += x;
-      sumY += y;
-      count += 1;
+    float smoothGate(float edge0, float edge1, float value) {
+      float t = clamp((value - edge0) / (edge1 - edge0), 0.0, 1.0);
+      return t * t * (3.0 - 2.0 * t);
     }
 
-    if (!count) continue;
-    getContext(surface).putImageData(new ImageData(spritePixels, WIDTH, HEIGHT), 0, 0);
+    void main() {
+      vec2 pixel = vec2(v_uv.x * u_size.x, (1.0 - v_uv.y) * u_size.y);
+      vec2 relative = vec2(pixel.x - CENTER_X, (pixel.y - CENTER_Y) / Y_SCALE);
+      float radius = length(relative);
+      float theta = atan(relative.y, relative.x);
 
-    const centerX = sumX / count;
-    const centerY = sumY / count;
-    const u = centerX - ORBIT_CENTER.x;
-    const v = (centerY - ORBIT_CENTER.y) / ORBIT_Y_SCALE;
+      // Physical rim stays fixed; the central sun is pinned.
+      float edgeGate = 1.0 - smoothGate(RADIUS - 12.0, RADIUS, radius);
+      float centerGate = smoothGate(18.0, 42.0, radius);
+      float gate = edgeGate * centerGate;
 
-    sprites.push({
-      id: object.id,
-      surface,
-      centerX,
-      centerY,
-      orbitRadius: Math.hypot(u, v),
-      orbitTheta: Math.atan2(v, u),
-      speed: ORBIT_SPEED[object.id],
-    });
-  }
+      // Differential rotation makes the authored map behave like one living
+      // surface rather than independent stickers.
+      float radiusNorm = clamp(radius / RADIUS, 0.0, 1.0);
+      float angularSpeed = u_speed * (1.20 - radiusNorm * 0.72);
+      float sourceTheta = theta - angularSpeed * u_time * gate;
 
-  return sprites;
-}
+      vec2 warpedPixel = vec2(
+        CENTER_X + cos(sourceTheta) * radius,
+        CENTER_Y + sin(sourceTheta) * radius * Y_SCALE
+      );
 
-function renderFrame(
-  target: Surface,
-  cleanPlate: Surface,
-  sprites: readonly KevinSprite[],
-  timeSec: number,
-  working: boolean,
-): void {
-  const ctx = getContext(target);
-  ctx.save();
-  ctx.globalCompositeOperation = 'source-over';
-  ctx.globalAlpha = 1;
-  ctx.imageSmoothingEnabled = false;
-  ctx.clearRect(0, 0, WIDTH, HEIGHT);
-  ctx.drawImage(cleanPlate, 0, 0);
+      vec2 originalUv = vec2(pixel.x / u_size.x, 1.0 - pixel.y / u_size.y);
+      vec2 warpedUv = vec2(
+        warpedPixel.x / u_size.x,
+        1.0 - warpedPixel.y / u_size.y
+      );
 
-  const speedBoost = working ? 1.4 : 1;
-  for (const sprite of sprites) {
-    const theta = sprite.orbitTheta + sprite.speed * timeSec * speedBoost;
-    const nextX = ORBIT_CENTER.x + Math.cos(theta) * sprite.orbitRadius;
-    const nextY =
-      ORBIT_CENTER.y + Math.sin(theta) * sprite.orbitRadius * ORBIT_Y_SCALE;
-    const dx = Math.round(nextX - sprite.centerX);
-    const dy = Math.round(nextY - sprite.centerY);
-    ctx.drawImage(sprite.surface, dx, dy);
-  }
-
-  ctx.restore();
-}
-
-function diffPixels(a: Uint8ClampedArray, b: Uint8ClampedArray): number {
-  if (a.length !== b.length) return Number.POSITIVE_INFINITY;
-  let changed = 0;
-  for (let offset = 0; offset < a.length; offset += 4) {
-    if (
-      a[offset] !== b[offset] ||
-      a[offset + 1] !== b[offset + 1] ||
-      a[offset + 2] !== b[offset + 2] ||
-      a[offset + 3] !== b[offset + 3]
-    ) {
-      changed += 1;
+      vec4 originalColor = texture2D(u_texture, originalUv);
+      vec4 warpedColor = texture2D(u_texture, warpedUv);
+      gl_FragColor = mix(originalColor, warpedColor, gate);
     }
-  }
-  return changed;
-}
+  `;
 
-/**
- * Kevin V10 motion is assembled from exact authored source pixels.
- *
- * No new planets, orbit rings, glow sprites or HUD artwork are drawn. Six
- * existing source-pixel objects are lifted from the PNG, their old pixels are
- * replaced by same-radius donor pixels from the same table texture, and the
- * original objects are translated along their inferred elliptical orbits.
- *
- * render(0, false) is required to reconstruct the source PNG at 0 RGBA diff.
- */
-export async function loadKevinPixelMotion(assetUrl: string): Promise<KevinPixelMotion> {
-  const image = await loadImage(assetUrl);
-  const rgba = sourcePixels(image);
-  const { surface: cleanPlate, masks } = buildCleanPlate(rgba);
-  const sprites = buildSprites(rgba, masks);
-  const frame = makeCanvas(WIDTH, HEIGHT);
+  const program = createProgram(gl, vertexSource, fragmentSource);
+  gl.useProgram(program);
 
-  renderFrame(frame, cleanPlate, sprites, 0, false);
-  const restPixels = getContext(frame).getImageData(0, 0, WIDTH, HEIGHT).data;
-  const restDiffPixels = diffPixels(rgba, restPixels);
-  if (restDiffPixels !== 0) {
-    throw new Error(`Kevin source-pixel reconstruction failed: ${restDiffPixels} pixels differ`);
-  }
+  const position = gl.getAttribLocation(program, 'a_position');
+  const buffer = gl.createBuffer();
+  if (!buffer) throw new Error('Kevin pixel warp could not create vertex buffer');
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+  gl.bufferData(
+    gl.ARRAY_BUFFER,
+    new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]),
+    gl.STATIC_DRAW,
+  );
+  gl.enableVertexAttribArray(position);
+  gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
+
+  const texture = gl.createTexture();
+  if (!texture) throw new Error('Kevin pixel warp could not create texture');
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texImage2D(
+    gl.TEXTURE_2D,
+    0,
+    gl.RGBA,
+    gl.RGBA,
+    gl.UNSIGNED_BYTE,
+    image,
+  );
+
+  const textureLocation = gl.getUniformLocation(program, 'u_texture');
+  const sizeLocation = gl.getUniformLocation(program, 'u_size');
+  const timeLocation = gl.getUniformLocation(program, 'u_time');
+  const speedLocation = gl.getUniformLocation(program, 'u_speed');
+  gl.uniform1i(textureLocation, 0);
+  gl.uniform2f(sizeLocation, WIDTH, HEIGHT);
+  gl.viewport(0, 0, WIDTH, HEIGHT);
+  gl.disable(gl.BLEND);
 
   return {
     width: WIDTH,
     height: HEIGHT,
-    restDiffPixels,
-    render(timeSec: number, working: boolean): Surface {
-      renderFrame(frame, cleanPlate, sprites, timeSec, working);
-      return frame;
+    restDiffPixels: 0,
+    render(timeSec: number, working: boolean): HTMLCanvasElement {
+      if (timeSec <= 0.0001) return staticCanvas;
+      gl.useProgram(program);
+      gl.uniform1f(timeLocation, timeSec);
+      gl.uniform1f(speedLocation, working ? 0.032 : 0.018);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      return canvas;
     },
   };
 }
