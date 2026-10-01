@@ -1,10 +1,7 @@
 import { useEffect, useRef, type RefObject } from 'react';
 
 import { ductorAssetUrl } from './ductorLabModel.js';
-import {
-  loadStarshipPixelScene,
-  type StarshipPixelScene,
-} from './starshipPixelScene.js';
+import { loadStarshipPixelScene } from './starshipPixelScene.js';
 
 const V10_SCENE_MANIFEST = 'themes/ductor-space-lab/pixel-scene-v10/scene.json';
 
@@ -22,64 +19,22 @@ interface HtmlLayerSceneProps {
 }
 
 /**
- * Render the authored V10 room from eight external, non-overlapping PNG layers.
+ * Pixel-QA integration boundary for the authored V10 room.
  *
- * The PNGs remain the physical room. A same-canvas procedural pass paints only
- * live content inside authored device/window interiors: space motion, fluid,
- * radar, orbital maps and QA holograms. No workstation PNG is translated and
- * no extra image layer is stacked over the room.
+ * During source-pixel extraction the room is intentionally rendered exactly
+ * once from the eight authored PNG layers. No provisional animation may run
+ * here until the checked-in masks pass reconstruction and clean-plate QA.
  */
 export function HtmlLayerScene({ sceneRef, activity, onReady, onError }: HtmlLayerSceneProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const runtimeSceneRef = useRef<StarshipPixelScene | null>(null);
-  const animationFrameRef = useRef<number | null>(null);
-  const activityRef = useRef(activity);
-  activityRef.current = activity;
+  void activity;
 
   useEffect(() => {
     let disposed = false;
-    let lastDrawMs = -Infinity;
     const manifestUrl = ductorAssetUrl(
       import.meta.env?.BASE_URL ?? './',
       V10_SCENE_MANIFEST,
     );
-
-    const drawFrame = (timeMs: number) => {
-      if (disposed) return;
-
-      // Keep the room alive continuously, but 30 fps is enough for the authored
-      // pixel scene and avoids needlessly repainting a 1926×816 canvas at 60 fps.
-      if (timeMs - lastDrawMs < 1000 / 30) {
-        animationFrameRef.current = requestAnimationFrame(drawFrame);
-        return;
-      }
-      lastDrawMs = timeMs;
-
-      const scene = runtimeSceneRef.current;
-      const canvas = canvasRef.current;
-      if (!scene || !canvas) {
-        animationFrameRef.current = requestAnimationFrame(drawFrame);
-        return;
-      }
-
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('V10 compositor requires a 2D canvas');
-
-      // V10 base remains pixel-identical to the authored PNG composition.
-      scene.render(0, false);
-
-      ctx.save();
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.clearRect(0, 0, scene.width, scene.height);
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(scene.nativeArtwork, 0, 0);
-      ctx.restore();
-
-      // Pixel-extraction work is intentionally gated: keep V10 exact and static
-      // until source-pixel masks pass reconstruction QA. Do not paint provisional
-      // motion over the authored room.
-      animationFrameRef.current = null;
-    };
 
     void loadStarshipPixelScene(manifestUrl)
       .then((scene) => {
@@ -92,8 +47,18 @@ export function HtmlLayerScene({ sceneRef, activity, onReady, onError }: HtmlLay
         if (!canvas) throw new Error('V10 compositor canvas is unavailable');
         canvas.width = scene.width;
         canvas.height = scene.height;
-        runtimeSceneRef.current = scene;
-        drawFrame(performance.now());
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('V10 compositor requires a 2D canvas');
+
+        scene.render(0, false);
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, scene.width, scene.height);
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(scene.nativeArtwork, 0, 0);
+        ctx.restore();
+
         onReady();
       })
       .catch((error: unknown) => {
@@ -102,11 +67,6 @@ export function HtmlLayerScene({ sceneRef, activity, onReady, onError }: HtmlLay
 
     return () => {
       disposed = true;
-      runtimeSceneRef.current = null;
-      if (animationFrameRef.current !== null) {
-        cancelAnimationFrame(animationFrameRef.current);
-        animationFrameRef.current = null;
-      }
     };
   }, [onError, onReady]);
 
