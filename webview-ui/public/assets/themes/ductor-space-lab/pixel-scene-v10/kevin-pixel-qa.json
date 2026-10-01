@@ -1,0 +1,87 @@
+{
+  "sourceFile": "webview-ui/public/assets/themes/ductor-space-lab/pixel-scene-v10/layers/kevin-station.png",
+  "sourceSize": {
+    "width": 540,
+    "height": 230
+  },
+  "sourceSha256": "516828b31d3d5b4b4883c651a6de5ccf4f1bcfeca1abfbc0ce44453372ace84b",
+  "extractedFrom": "Space_Lab_Layer_Editor_agents_v10_SEMANTIC_LAYERS.html",
+  "extractionSourceSha256": "1fe5d04642f67a517634231078f4ffedb243537b01d54f7a8e5731d81c036633",
+  "exactReconstructionDiffPixels": 0,
+  "selectedObjectPixels": 1099,
+  "objects": [
+    {
+      "id": "sun",
+      "bounds": {
+        "x": 297,
+        "y": 43,
+        "w": 25,
+        "h": 23
+      },
+      "pixelCount": 470
+    },
+    {
+      "id": "planet_orange",
+      "bounds": {
+        "x": 229,
+        "y": 56,
+        "w": 15,
+        "h": 9
+      },
+      "pixelCount": 101
+    },
+    {
+      "id": "planet_gold_small",
+      "bounds": {
+        "x": 225,
+        "y": 40,
+        "w": 9,
+        "h": 8
+      },
+      "pixelCount": 55
+    },
+    {
+      "id": "planet_cyan",
+      "bounds": {
+        "x": 363,
+        "y": 55,
+        "w": 16,
+        "h": 17
+      },
+      "pixelCount": 189
+    },
+    {
+      "id": "planet_white",
+      "bounds": {
+        "x": 391,
+        "y": 66,
+        "w": 16,
+        "h": 18
+      },
+      "pixelCount": 201
+    },
+    {
+      "id": "marker_star",
+      "bounds": {
+        "x": 336,
+        "y": 25,
+        "w": 11,
+        "h": 8
+      },
+      "pixelCount": 49
+    },
+    {
+      "id": "planet_purple_small",
+      "bounds": {
+        "x": 255,
+        "y": 36,
+        "w": 9,
+        "h": 6
+      },
+      "pixelCount": 34
+    }
+  ],
+  "qaPage": "/kevin-pixel-qa.html",
+  "runtimeAnimationEnabled": false,
+  "gate": "Do not animate until exact source-pixel masks and clean-plate quality are visually accepted."
+}
