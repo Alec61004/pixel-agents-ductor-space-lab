@@ -297,181 +297,6 @@ function drawLegacyMapStar(
   ctx.fill();
 }
 
-function deterministicUnit(index: number, salt: number): number {
-  const value = Math.sin(index * 91.713 + salt * 37.117) * 43758.5453;
-  return value - Math.floor(value);
-}
-
-function drawDeepSpaceCluster(
-  ctx: CanvasRenderingContext2D,
-  legacyX: number,
-  legacyY: number,
-  radius: number,
-  timeSec: number,
-  phase: number,
-  magenta: boolean,
-): void {
-  const center = mapLegacyPoint(legacyX, legacyY);
-  const mappedRadius = legacyRadiusX(radius);
-
-  ctx.save();
-  ctx.translate(center.x, center.y);
-  ctx.scale(1, 0.42);
-  ctx.rotate(timeSec * 0.018 + phase);
-  ctx.globalCompositeOperation = 'screen';
-
-  const haze = ctx.createRadialGradient(0, 0, 0, 0, 0, mappedRadius * 1.65);
-  haze.addColorStop(
-    0,
-    magenta
-      ? 'rgba(248,220,255,0.50)'
-      : 'rgba(225,249,255,0.54)',
-  );
-  haze.addColorStop(
-    0.25,
-    magenta
-      ? 'rgba(188,82,255,0.20)'
-      : 'rgba(86,204,255,0.22)',
-  );
-  haze.addColorStop(
-    1,
-    magenta
-      ? 'rgba(110,28,210,0)'
-      : 'rgba(24,125,245,0)',
-  );
-  ctx.fillStyle = haze;
-  ctx.beginPath();
-  ctx.arc(0, 0, mappedRadius * 1.65, 0, Math.PI * 2);
-  ctx.fill();
-
-  for (let arm = 0; arm < 2; arm += 1) {
-    ctx.beginPath();
-    for (let step = 0; step <= 22; step += 1) {
-      const t = step / 22;
-      const rr = mappedRadius * (0.12 + 0.9 * t);
-      const angle = arm * Math.PI + t * Math.PI * 2.05;
-      const x = Math.cos(angle) * rr;
-      const y = Math.sin(angle) * rr * 0.70;
-      if (step === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.strokeStyle = magenta
-      ? 'rgba(211,126,255,0.30)'
-      : 'rgba(139,226,255,0.32)';
-    ctx.lineWidth = 0.85;
-    ctx.stroke();
-  }
-
-  ctx.restore();
-}
-
-function drawOuterSectorRing(
-  ctx: CanvasRenderingContext2D,
-  working: boolean,
-): void {
-  ctx.save();
-  ctx.globalCompositeOperation = 'screen';
-
-  const tickAlpha = working ? 0.31 : 0.22;
-  const radiusX = KEVIN_DISC.rx - 7;
-  const radiusY = KEVIN_DISC.ry - 5;
-
-  ctx.strokeStyle = working
-    ? 'rgba(104,219,255,0.22)'
-    : 'rgba(92,194,232,0.16)';
-  ctx.lineWidth = 0.62;
-  ctx.beginPath();
-  ctx.ellipse(
-    KEVIN_DISC.cx,
-    KEVIN_DISC.cy,
-    radiusX,
-    radiusY,
-    0,
-    0,
-    Math.PI * 2,
-  );
-  ctx.stroke();
-
-  for (let index = 0; index < 28; index += 1) {
-    const angle = (index / 28) * Math.PI * 2;
-    const major = index % 4 === 0;
-    const inset = major ? 7 : 4;
-    const innerX =
-      KEVIN_DISC.cx + Math.cos(angle) * (radiusX - inset);
-    const innerY =
-      KEVIN_DISC.cy + Math.sin(angle) * (radiusY - inset * 0.45);
-    const outerX =
-      KEVIN_DISC.cx + Math.cos(angle) * radiusX;
-    const outerY =
-      KEVIN_DISC.cy + Math.sin(angle) * radiusY;
-
-    ctx.strokeStyle = major
-      ? `rgba(126,230,255,${tickAlpha})`
-      : `rgba(104,190,228,${tickAlpha * 0.56})`;
-    ctx.lineWidth = major ? 0.8 : 0.48;
-    ctx.beginPath();
-    ctx.moveTo(innerX, innerY);
-    ctx.lineTo(outerX, outerY);
-    ctx.stroke();
-  }
-
-  ctx.restore();
-}
-
-function drawMeasuredAsteroidBelt(
-  ctx: CanvasRenderingContext2D,
-  patches: readonly PlanetPatch[],
-  timeSec: number,
-  working: boolean,
-): void {
-  const radii = patches
-    .map((patch) => patch.orbitRadius)
-    .sort((a, b) => a - b);
-
-  if (radii.length < 2) return;
-
-  const inner = radii[Math.max(0, Math.floor(radii.length * 0.35) - 1)]!;
-  const outer = radii[Math.min(radii.length - 1, Math.ceil(radii.length * 0.68))]!;
-  const beltRadius = (inner + outer) * 0.5;
-  const spread = Math.max(5, Math.min(10, (outer - inner) * 0.22));
-  const rotation = timeSec * keplerAngularSpeed(beltRadius, 0.74);
-
-  ctx.save();
-  ctx.globalCompositeOperation = 'screen';
-
-  for (let index = 0; index < 42; index += 1) {
-    const angle =
-      (index / 42) * Math.PI * 2 +
-      rotation +
-      (deterministicUnit(index, 1) - 0.5) * 0.10;
-    const radius =
-      beltRadius +
-      (deterministicUnit(index, 2) - 0.5) * spread * 2;
-    const x = SUN_X + Math.cos(angle) * radius;
-    const y = SUN_Y + Math.sin(angle) * radius * ORBIT_Y_SCALE;
-    const size = 0.45 + deterministicUnit(index, 3) * 0.75;
-
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(angle + deterministicUnit(index, 4));
-    ctx.globalAlpha =
-      (working ? 0.43 : 0.31) *
-      (0.70 + deterministicUnit(index, 5) * 0.30);
-    ctx.fillStyle =
-      index % 6 === 0
-        ? '#e5c79f'
-        : index % 3 === 0
-          ? '#b6d7df'
-          : '#d0c8bb';
-    ctx.beginPath();
-    ctx.ellipse(0, 0, size * 1.35, size * 0.58, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  }
-
-  ctx.restore();
-}
-
 function drawLegacyMapContext(
   ctx: CanvasRenderingContext2D,
   timeSec: number,
@@ -489,12 +314,6 @@ function drawLegacyMapContext(
     Math.PI * 2,
   );
   ctx.clip();
-
-  // Medium-scale deep-space structure. These use the same legacy-map
-  // coordinate transform as the original renderer, so they stay aligned.
-  drawDeepSpaceCluster(ctx, 19, 21, 3.8, timeSec, 0.25, true);
-  drawDeepSpaceCluster(ctx, 88, 18, 3.5, timeSec, 1.35, false);
-  drawOuterSectorRing(ctx, working);
 
   // Same broad wisps as the original star-map renderer, transformed into the
   // V10 ellipse instead of being positioned independently in room space.
@@ -1351,7 +1170,6 @@ export async function loadKevinPixelMotion(
       // into the exact physical V10 glass. The solar system keeps its authored
       // Sun focus inside that glass; these are intentionally separate centers.
       drawLegacyMapContext(frameCtx, timeSec, working);
-      drawMeasuredAsteroidBelt(frameCtx, patches, timeSec, working);
       drawMeasuredOrbitTracks(frameCtx, patches, working);
 
       const states = patches
