@@ -308,6 +308,169 @@ function patchWeight(distance: number, feather: number): number {
   return 1 - smoothstep(0.5, feather, distance);
 }
 
+function buildProtectedMask(): Uint8Array {
+  const protectedMask = new Uint8Array(WIDTH * HEIGHT);
+
+  for (const definition of KEVIN_AUTHORED_OBJECTS) {
+    if (definition.id !== 'sun' && !MOVING_PLANETS.has(definition.id)) continue;
+
+    const mask = decodeKevinAuthoredMask(definition);
+    for (let i = 0; i < mask.length; i += 1) {
+      if (mask[i]) protectedMask[i] = 1;
+    }
+  }
+
+  return protectedMask;
+}
+
+function isTinyArtifactCandidate(
+  data: Uint8ClampedArray,
+  pixel: number,
+  protectedMask: Uint8Array,
+): boolean {
+  if (protectedMask[pixel]) return false;
+
+  const x = pixel % WIDTH;
+  const y = Math.floor(pixel / WIDTH);
+
+  const u = x - CENTER_X;
+  const v = (y - CENTER_Y) / Y_SCALE;
+  if (u * u + v * v > MAP_RADIUS * MAP_RADIUS) return false;
+
+  const offset = pixel * 4;
+  const a = data[offset + 3]!;
+  if (a < 8) return false;
+
+  const r = data[offset]!;
+  const g = data[offset + 1]!;
+  const b = data[offset + 2]!;
+
+  const brightness = (r + g + b) / 3;
+  const chroma = Math.max(r, g, b) - Math.min(r, g, b);
+
+  return brightness >= 118 && chroma >= 18;
+}
+
+function eraseMaskedArtifact(
+  source: Uint8ClampedArray,
+  target: Uint8ClampedArray,
+  definition: KevinAuthoredObjectDefinition,
+  mask: Uint8Array,
+  feather: number,
+  donorAngle: number,
+): void {
+  const points = maskCoordinates(mask);
+  const padding = Math.ceil(feather + 2);
+  const x0 = Math.max(0, definition.bounds.x - padding);
+  const y0 = Math.max(0, definition.bounds.y - padding);
+  const x1 = Math.min(WIDTH, definition.bounds.x + definition.bounds.w + padding);
+  const y1 = Math.min(HEIGHT, definition.bounds.y + definition.bounds.h + padding);
+
+  for (let y = y0; y < y1; y += 1) {
+    for (let x = x0; x < x1; x += 1) {
+      const distance = distanceToMask(x, y, points);
+      const weight = patchWeight(distance, feather);
+      if (weight <= 0) continue;
+
+      const offset = (y * WIDTH + x) * 4;
+
+      for (let channel = 0; channel < 3; channel += 1) {
+        const donorA = donorSample(source, x, y, donorAngle, channel);
+        const donorB = donorSample(source, x, y, donorAngle * 1.45, channel);
+        const donor = (donorA + donorB) * 0.5;
+
+        target[offset + channel] = Math.round(
+          source[offset + channel]! +
+            (donor - source[offset + channel]!) * weight,
+        );
+      }
+
+      target[offset + 3] = source[offset + 3]!;
+    }
+  }
+}
+
+function removeTinyArtifacts(
+  source: Uint8ClampedArray,
+  target: Uint8ClampedArray,
+  protectedMask: Uint8Array,
+): void {
+  const visited = new Uint8Array(WIDTH * HEIGHT);
+  const minX = Math.max(0, Math.floor(CENTER_X - MAP_RADIUS - 2));
+  const maxX = Math.min(WIDTH - 1, Math.ceil(CENTER_X + MAP_RADIUS + 2));
+  const minY = Math.max(0, Math.floor(CENTER_Y - MAP_RADIUS * Y_SCALE - 2));
+  const maxY = Math.min(HEIGHT - 1, Math.ceil(CENTER_Y + MAP_RADIUS * Y_SCALE + 2));
+
+  const neighbors = [
+    [-1, -1], [0, -1], [1, -1],
+    [-1, 0],            [1, 0],
+    [-1, 1],  [0, 1],   [1, 1],
+  ] as const;
+
+  for (let y = minY; y <= maxY; y += 1) {
+    for (let x = minX; x <= maxX; x += 1) {
+      const start = y * WIDTH + x;
+      if (visited[start]) continue;
+      if (!isTinyArtifactCandidate(target, start, protectedMask)) continue;
+
+      const queue = [start];
+      const component: number[] = [];
+      visited[start] = 1;
+
+      let boxMinX = x;
+      let boxMaxX = x;
+      let boxMinY = y;
+      let boxMaxY = y;
+
+      while (queue.length) {
+        const pixel = queue.pop()!;
+        component.push(pixel);
+
+        const px = pixel % WIDTH;
+        const py = Math.floor(pixel / WIDTH);
+
+        if (px < boxMinX) boxMinX = px;
+        if (px > boxMaxX) boxMaxX = px;
+        if (py < boxMinY) boxMinY = py;
+        if (py > boxMaxY) boxMaxY = py;
+
+        for (const [dx, dy] of neighbors) {
+          const nx = px + dx;
+          const ny = py + dy;
+          if (nx < minX || nx > maxX || ny < minY || ny > maxY) continue;
+
+          const np = ny * WIDTH + nx;
+          if (visited[np]) continue;
+          if (!isTinyArtifactCandidate(target, np, protectedMask)) continue;
+
+          visited[np] = 1;
+          queue.push(np);
+        }
+      }
+
+      const width = boxMaxX - boxMinX + 1;
+      const height = boxMaxY - boxMinY + 1;
+
+      if (component.length <= 18 && width <= 7 && height <= 7) {
+        for (const pixel of component) {
+          const px = pixel % WIDTH;
+          const py = Math.floor(pixel / WIDTH);
+          const offset = pixel * 4;
+
+          for (let channel = 0; channel < 3; channel += 1) {
+            const donorA = donorSample(source, px, py, 0.18, channel);
+            const donorB = donorSample(source, px, py, 0.30, channel);
+            const donorC = donorSample(source, px, py, 0.44, channel);
+            target[offset + channel] = Math.round((donorA + donorB + donorC) / 3);
+          }
+
+          target[offset + 3] = source[offset + 3]!;
+        }
+      }
+    }
+  }
+}
+
 function planetCentroid(mask: Uint8Array): { x: number; y: number } {
   let sumX = 0;
   let sumY = 0;
@@ -559,43 +722,14 @@ function erasePlanetFromBase(
   mask: Uint8Array,
   config: PlanetMotionConfig,
 ): void {
-  const points = maskCoordinates(mask);
-  const padding = Math.ceil(config.feather + 2);
-  const x0 = Math.max(0, definition.bounds.x - padding);
-  const y0 = Math.max(0, definition.bounds.y - padding);
-  const x1 = Math.min(
-    WIDTH,
-    definition.bounds.x + definition.bounds.w + padding,
+  eraseMaskedArtifact(
+    source,
+    base,
+    definition,
+    mask,
+    config.feather,
+    config.donorAngle,
   );
-  const y1 = Math.min(
-    HEIGHT,
-    definition.bounds.y + definition.bounds.h + padding,
-  );
-
-  for (let y = y0; y < y1; y += 1) {
-    for (let x = x0; x < x1; x += 1) {
-      const distance = distanceToMask(x, y, points);
-      const weight = patchWeight(distance, config.feather);
-      if (weight <= 0) continue;
-      const offset = (y * WIDTH + x) * 4;
-
-      for (let channel = 0; channel < 3; channel += 1) {
-        const donor = donorSample(
-          source,
-          x,
-          y,
-          config.donorAngle,
-          channel,
-        );
-        const eraseStrength = weight;
-        base[offset + channel] = Math.round(
-          source[offset + channel]! +
-            (donor - source[offset + channel]!) * eraseStrength,
-        );
-      }
-      base[offset + 3] = source[offset + 3]!;
-    }
-  }
 }
 
 function buildSourceAndCleanBase(
@@ -614,11 +748,24 @@ function buildSourceAndCleanBase(
     HEIGHT,
   );
   const patches: PlanetPatch[] = [];
+  const protectedMask = buildProtectedMask();
 
   for (const definition of KEVIN_AUTHORED_OBJECTS) {
+    if (definition.id === 'marker_star') {
+      const markerMask = decodeKevinAuthoredMask(definition);
+      eraseMaskedArtifact(
+        source,
+        cleanBaseData.data,
+        definition,
+        markerMask,
+        4,
+        0.26,
+      );
+      continue;
+    }
+
     if (
       definition.id === 'sun' ||
-      definition.id === 'marker_star' ||
       !MOVING_PLANETS.has(definition.id)
     ) {
       continue;
@@ -629,6 +776,8 @@ function buildSourceAndCleanBase(
     patches.push(buildPlanetPatch(definition, mask, config));
     erasePlanetFromBase(source, cleanBaseData.data, definition, mask, config);
   }
+
+  removeTinyArtifacts(source, cleanBaseData.data, protectedMask);
 
   const sourceEllipse = createTransparentCanvas();
   const sourceCtx = sourceEllipse.getContext('2d');
