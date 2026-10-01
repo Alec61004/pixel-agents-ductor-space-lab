@@ -146,10 +146,6 @@ function context(surface: Surface): Context {
   return ctx;
 }
 
-function clamp(v: number, lo: number, hi: number): number {
-  return Math.max(lo, Math.min(hi, v));
-}
-
 function pixelOffset(width: number, x: number, y: number): number {
   return (y * width + x) * 4;
 }
