@@ -99,6 +99,14 @@ export async function loadKevinPixelMotion(assetUrl: string): Promise<KevinPixel
   canvas.width = WIDTH;
   canvas.height = HEIGHT;
 
+  // Final safety compositor: whatever WebGL produces is clipped again by the
+  // exact alpha silhouette of the authored PNG before it can enter the room.
+  const maskedCanvas = document.createElement('canvas');
+  maskedCanvas.width = WIDTH;
+  maskedCanvas.height = HEIGHT;
+  const maskedCtx = maskedCanvas.getContext('2d');
+  if (!maskedCtx) throw new Error('Kevin alpha-mask compositor requires a 2D context');
+
   const gl = canvas.getContext('webgl', {
     alpha: true,
     antialias: false,
@@ -243,7 +251,18 @@ export async function loadKevinPixelMotion(assetUrl: string): Promise<KevinPixel
       gl.uniform1f(timeLocation, timeSec);
       gl.uniform1f(speedLocation, working ? 0.032 : 0.018);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
-      return canvas;
+
+      maskedCtx.save();
+      maskedCtx.setTransform(1, 0, 0, 1, 0, 0);
+      maskedCtx.clearRect(0, 0, WIDTH, HEIGHT);
+      maskedCtx.globalCompositeOperation = 'source-over';
+      maskedCtx.drawImage(canvas, 0, 0);
+      maskedCtx.globalCompositeOperation = 'destination-in';
+      maskedCtx.drawImage(staticCanvas, 0, 0);
+      maskedCtx.globalCompositeOperation = 'source-over';
+      maskedCtx.restore();
+
+      return maskedCanvas;
     },
   };
 }
