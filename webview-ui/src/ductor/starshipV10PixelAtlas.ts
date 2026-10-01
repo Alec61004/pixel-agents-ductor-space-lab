@@ -29,6 +29,20 @@ type Context = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
 const KEVIN_REGION: PixelRegion = { x: 340, y: 510, w: 540, h: 230 };
 export const KEVIN_DISC = { cx: 270, cy: 82, rx: 151, ry: 67 } as const;
+export const KEVIN_STAR_MAP_POLYGON = [
+  [138, 38],
+  [175, 14],
+  [253, 5],
+  [337, 12],
+  [401, 38],
+  [414, 82],
+  [395, 122],
+  [347, 143],
+  [196, 143],
+  [148, 119],
+  [126, 82],
+] as const;
+
 
 export type KevinAuthoredObjectId =
   | 'sun'
