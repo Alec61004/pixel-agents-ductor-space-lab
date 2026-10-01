@@ -23,6 +23,8 @@ const HEIGHT = 230;
 const SUN_X = 308.7;
 const SUN_Y = 54.2;
 const ORBIT_Y_SCALE = KEVIN_DISC.ry / KEVIN_DISC.rx;
+const KEPLER_REFERENCE_RADIUS = 60;
+const KEPLER_REFERENCE_PERIOD_SEC = 18;
 
 type MovingPlanetId = Exclude<KevinAuthoredObjectId, 'sun' | 'marker_star'>;
 type PlanetStyle = 'rocky' | 'gas_banded' | 'ringed_gas' | 'icy' | 'moon';
@@ -60,7 +62,7 @@ const PLANET_MOTION: Readonly<Record<MovingPlanetId, PlanetMotionConfig>> = {
   planet_orange: {
     angularAmplitude: 0.13,
     radialAmplitude: 2.2,
-    speed: 1.15,
+    speed: 1,
     phase: 0.4,
     scaleAmplitude: 0.03,
     feather: 7,
@@ -69,7 +71,7 @@ const PLANET_MOTION: Readonly<Record<MovingPlanetId, PlanetMotionConfig>> = {
   planet_gold_small: {
     angularAmplitude: 0.14,
     radialAmplitude: 1.6,
-    speed: 0.96,
+    speed: 1,
     phase: 2.1,
     scaleAmplitude: 0.025,
     feather: 6,
@@ -78,7 +80,7 @@ const PLANET_MOTION: Readonly<Record<MovingPlanetId, PlanetMotionConfig>> = {
   planet_cyan: {
     angularAmplitude: 0.12,
     radialAmplitude: 2.4,
-    speed: 0.82,
+    speed: 1,
     phase: 3.7,
     scaleAmplitude: 0.034,
     feather: 8,
@@ -87,7 +89,7 @@ const PLANET_MOTION: Readonly<Record<MovingPlanetId, PlanetMotionConfig>> = {
   planet_white: {
     angularAmplitude: 0.095,
     radialAmplitude: 2.0,
-    speed: 0.68,
+    speed: 1,
     phase: 5.2,
     scaleAmplitude: 0.036,
     feather: 9,
@@ -96,7 +98,7 @@ const PLANET_MOTION: Readonly<Record<MovingPlanetId, PlanetMotionConfig>> = {
   planet_purple_small: {
     angularAmplitude: 0.16,
     radialAmplitude: 1.25,
-    speed: 1.28,
+    speed: 1,
     phase: 1.25,
     scaleAmplitude: 0.026,
     feather: 6,
@@ -953,6 +955,59 @@ function makePlanetSprite(spec: PlanetVisualSpec): HTMLCanvasElement {
   return canvas;
 }
 
+function keplerAngularSpeed(radius: number, speedMultiplier: number): number {
+  const safeRadius = Math.max(1, radius);
+  const period =
+    KEPLER_REFERENCE_PERIOD_SEC *
+    Math.pow(safeRadius / KEPLER_REFERENCE_RADIUS, 1.5);
+  return (Math.PI * 2 * speedMultiplier) / period;
+}
+
+function drawMeasuredOrbitTracks(
+  ctx: CanvasRenderingContext2D,
+  patches: readonly PlanetPatch[],
+  working: boolean,
+): void {
+  ctx.save();
+  ctx.beginPath();
+  ctx.ellipse(
+    KEVIN_DISC.cx,
+    KEVIN_DISC.cy,
+    KEVIN_DISC.rx,
+    KEVIN_DISC.ry,
+    0,
+    0,
+    Math.PI * 2,
+  );
+  ctx.clip();
+
+  ctx.globalCompositeOperation = 'screen';
+  ctx.strokeStyle = working
+    ? 'rgba(112, 218, 242, 0.18)'
+    : 'rgba(100, 194, 224, 0.12)';
+  ctx.lineWidth = working ? 0.72 : 0.58;
+
+  const uniqueRadii = [...patches]
+    .map((patch) => patch.orbitRadius)
+    .sort((a, b) => a - b);
+
+  for (const radius of uniqueRadii) {
+    ctx.beginPath();
+    ctx.ellipse(
+      SUN_X,
+      SUN_Y,
+      radius,
+      radius * ORBIT_Y_SCALE,
+      0,
+      0,
+      Math.PI * 2,
+    );
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
 function buildPlanetPatch(
   definition: KevinAuthoredObjectDefinition,
   mask: Uint8Array,
@@ -1102,7 +1157,6 @@ export async function loadKevinPixelMotion(
       if (timeSec <= 0.0001) return sourceEllipse;
 
       const intro = smoothstep(0, 0.65, timeSec);
-      const activityBoost = working ? 1.24 : 1;
 
       frameCtx.save();
       frameCtx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1116,36 +1170,21 @@ export async function loadKevinPixelMotion(
       // into the exact physical V10 glass. The solar system keeps its authored
       // Sun focus inside that glass; these are intentionally separate centers.
       drawLegacyMapContext(frameCtx, timeSec, working);
+      drawMeasuredOrbitTracks(frameCtx, patches, working);
 
       const states = patches
         .map((patch) => {
           const config = patch.config;
-          const primaryWave =
-            0.76 *
-              Math.sin(
-                timeSec * config.speed * activityBoost + config.phase,
-              ) +
-            0.24 *
-              Math.sin(
-                timeSec *
-                  config.speed *
-                  0.49 *
-                  activityBoost +
-                  config.phase * 2.27,
-              );
-          const radialWave = Math.sin(
-            timeSec *
-              config.speed *
-              0.74 *
-              activityBoost +
-              config.phase * 1.67,
+
+          // Stable prograde orbital motion. Radius never breathes or reverses.
+          // Kepler's third-law relationship makes inner worlds visibly faster
+          // and outer worlds slower while preserving each authored start point.
+          const omega = keplerAngularSpeed(
+            patch.orbitRadius,
+            config.speed,
           );
-          const theta =
-            patch.orbitTheta +
-            config.angularAmplitude * primaryWave * intro;
-          const radius =
-            patch.orbitRadius +
-            config.radialAmplitude * radialWave * intro;
+          const theta = patch.orbitTheta + omega * timeSec;
+          const radius = patch.orbitRadius;
           const x = SUN_X + Math.cos(theta) * radius;
           const y =
             SUN_Y + Math.sin(theta) * radius * ORBIT_Y_SCALE;
@@ -1175,11 +1214,13 @@ export async function loadKevinPixelMotion(
         const scale =
           1 + config.scaleAmplitude * depth * intro;
         const opacity =
-          0.96 + (depth + 1) * 0.02;
+          0.95 + (depth + 1) * 0.025;
+        const hologramPulse =
+          Math.sin(timeSec * 0.65 + config.phase) * 0.005;
         const brightness =
-          0.98 +
-          (depth + 1) * 0.018 +
-          Math.sin(timeSec * 0.72 + config.phase) * 0.006;
+          0.985 +
+          (depth + 1) * 0.016 +
+          hologramPulse;
 
         frameCtx.save();
         frameCtx.translate(x, y);
