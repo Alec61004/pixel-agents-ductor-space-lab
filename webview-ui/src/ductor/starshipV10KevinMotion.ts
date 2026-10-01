@@ -44,47 +44,47 @@ const PLANET_MOTION: Readonly<Record<
   PlanetMotionConfig
 >> = {
   planet_orange: {
-    angularAmplitude: 0.045,
-    radialAmplitude: 0.7,
-    speed: 0.56,
+    angularAmplitude: 0.095,
+    radialAmplitude: 1.7,
+    speed: 0.92,
     phase: 0.4,
-    scaleAmplitude: 0.014,
+    scaleAmplitude: 0.026,
     feather: 7,
     donorAngle: 0.42,
   },
   planet_gold_small: {
-    angularAmplitude: 0.052,
-    radialAmplitude: 0.55,
-    speed: 0.43,
+    angularAmplitude: 0.115,
+    radialAmplitude: 1.25,
+    speed: 0.78,
     phase: 2.1,
-    scaleAmplitude: 0.012,
+    scaleAmplitude: 0.022,
     feather: 6,
     donorAngle: 0.5,
   },
   planet_cyan: {
-    angularAmplitude: 0.038,
-    radialAmplitude: 0.85,
-    speed: 0.37,
+    angularAmplitude: 0.085,
+    radialAmplitude: 1.9,
+    speed: 0.66,
     phase: 3.7,
-    scaleAmplitude: 0.017,
+    scaleAmplitude: 0.03,
     feather: 8,
     donorAngle: 0.36,
   },
   planet_white: {
-    angularAmplitude: 0.028,
-    radialAmplitude: 0.7,
-    speed: 0.31,
+    angularAmplitude: 0.07,
+    radialAmplitude: 1.6,
+    speed: 0.54,
     phase: 5.2,
-    scaleAmplitude: 0.019,
+    scaleAmplitude: 0.032,
     feather: 9,
     donorAngle: 0.31,
   },
   planet_purple_small: {
-    angularAmplitude: 0.05,
-    radialAmplitude: 0.45,
-    speed: 0.61,
+    angularAmplitude: 0.12,
+    radialAmplitude: 1.05,
+    speed: 1.02,
     phase: 1.25,
-    scaleAmplitude: 0.012,
+    scaleAmplitude: 0.024,
     feather: 6,
     donorAngle: 0.47,
   },
@@ -500,8 +500,8 @@ export async function loadKevinPixelMotion(
     render(timeSec: number, working: boolean): HTMLCanvasElement {
       if (timeSec <= 0.0001) return sourceEllipse;
 
-      const intro = smoothstep(0, 1.4, timeSec);
-      const activityBoost = working ? 1.18 : 1;
+      const intro = smoothstep(0, 0.8, timeSec);
+      const activityBoost = working ? 1.22 : 1;
 
       frameCtx.save();
       frameCtx.setTransform(1, 0, 0, 1, 0, 0);
@@ -515,10 +515,14 @@ export async function loadKevinPixelMotion(
         .map((patch) => {
           const config = patch.config;
           const wave =
-            Math.sin(timeSec * config.speed * activityBoost + config.phase);
+            0.78 * Math.sin(timeSec * config.speed * activityBoost + config.phase) +
+            0.22 * Math.sin(
+              timeSec * config.speed * 0.47 * activityBoost +
+                config.phase * 2.31,
+            );
           const radialWave =
             Math.sin(
-              timeSec * config.speed * 0.67 * activityBoost +
+              timeSec * config.speed * 0.71 * activityBoost +
                 config.phase * 1.73,
             );
           const theta =
@@ -539,11 +543,11 @@ export async function loadKevinPixelMotion(
         const scale =
           1 + config.scaleAmplitude * depth * intro;
         const opacity =
-          0.975 + (depth + 1) * 0.0125;
+          0.965 + (depth + 1) * 0.0175;
         const brightness =
-          0.985 +
-          (depth + 1) * 0.012 +
-          Math.sin(timeSec * 0.72 + config.phase) * 0.008;
+          0.975 +
+          (depth + 1) * 0.018 +
+          Math.sin(timeSec * 0.9 + config.phase) * 0.012;
 
         frameCtx.save();
         frameCtx.translate(x, y);
