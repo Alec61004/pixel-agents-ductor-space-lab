@@ -200,25 +200,25 @@ function seededUnit(seed: number): number {
   return value - Math.floor(value);
 }
 
-const STAR_FIELD: readonly StarMapPoint[] = Array.from({ length: 48 }, (_, index) => {
-  const radius = 97 + seededUnit(index + 1) * 46;
+const STAR_FIELD: readonly StarMapPoint[] = Array.from({ length: 26 }, (_, index) => {
+  const radius = 98 + seededUnit(index + 1) * 43;
   const angle = seededUnit(index + 101) * Math.PI * 2;
   return {
     radius,
     angle,
-    size: 0.55 + seededUnit(index + 201) * 1.25,
+    size: 1.1 + seededUnit(index + 201) * 1.55,
     phase: seededUnit(index + 301) * Math.PI * 2,
-    warm: seededUnit(index + 401) > 0.78,
+    warm: seededUnit(index + 401) > 0.72,
   };
 });
 
-const ASTEROID_BELT: readonly StarMapPoint[] = Array.from({ length: 54 }, (_, index) => {
-  const radius = 82 + (seededUnit(index + 501) - 0.5) * 7;
+const ASTEROID_BELT: readonly StarMapPoint[] = Array.from({ length: 42 }, (_, index) => {
+  const radius = 82 + (seededUnit(index + 501) - 0.5) * 8.5;
   const angle = seededUnit(index + 601) * Math.PI * 2;
   return {
     radius,
     angle,
-    size: 0.45 + seededUnit(index + 701) * 0.8,
+    size: 0.75 + seededUnit(index + 701) * 1.05,
     phase: seededUnit(index + 801) * Math.PI * 2,
     warm: seededUnit(index + 901) > 0.7,
   };
@@ -258,11 +258,11 @@ function drawNebulaPatch(
   const driftX = Math.sin(timeSec * 0.11 + phase) * 2.2;
   const driftY = Math.cos(timeSec * 0.09 + phase) * 1.2;
   const pulse = 0.88 + Math.sin(timeSec * 0.33 + phase) * 0.12;
-  const strength = (working ? 0.19 : 0.145) * pulse;
+  const strength = (working ? 0.34 : 0.26) * pulse;
 
   ctx.save();
   ctx.translate(x + driftX, y + driftY);
-  ctx.scale(1, 0.34);
+  ctx.scale(1, 0.48);
 
   const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, radius);
   gradient.addColorStop(
@@ -274,8 +274,8 @@ function drawNebulaPatch(
   gradient.addColorStop(
     0.42,
     purple
-      ? 'rgba(88, 44, 180, 0.085)'
-      : 'rgba(20, 110, 210, 0.080)',
+      ? 'rgba(88, 44, 180, 0.14)'
+      : 'rgba(20, 110, 210, 0.13)',
   );
   gradient.addColorStop(1, 'rgba(0, 24, 64, 0)');
 
@@ -313,14 +313,14 @@ function drawMiniGalaxy(
       if (step === 0) ctx.moveTo(px, py);
       else ctx.lineTo(px, py);
     }
-    ctx.strokeStyle = 'rgba(119, 205, 255, 0.18)';
-    ctx.lineWidth = 1.05;
+    ctx.strokeStyle = 'rgba(119, 205, 255, 0.42)';
+    ctx.lineWidth = 1.35;
     ctx.stroke();
   }
 
   const core = ctx.createRadialGradient(0, 0, 0, 0, 0, radius * 0.38);
-  core.addColorStop(0, 'rgba(236, 250, 255, 0.42)');
-  core.addColorStop(0.28, 'rgba(109, 191, 255, 0.18)');
+  core.addColorStop(0, 'rgba(236, 250, 255, 0.72)');
+  core.addColorStop(0.28, 'rgba(109, 191, 255, 0.34)');
   core.addColorStop(1, 'rgba(35, 90, 180, 0)');
   ctx.fillStyle = core;
   ctx.beginPath();
@@ -339,18 +339,18 @@ function drawStarNetworkLayer(
   clipToMap(ctx);
   ctx.globalCompositeOperation = 'screen';
 
-  drawNebulaPatch(ctx, CENTER_X - 108, CENTER_Y - 4, 42, timeSec, 0.5, working, false);
-  drawNebulaPatch(ctx, CENTER_X + 106, CENTER_Y + 7, 38, timeSec, 2.2, working, true);
+  drawNebulaPatch(ctx, CENTER_X - 104, CENTER_Y - 4, 50, timeSec, 0.5, working, false);
+  drawNebulaPatch(ctx, CENTER_X + 102, CENTER_Y + 6, 46, timeSec, 2.2, working, true);
 
-  drawMiniGalaxy(ctx, CENTER_X - 121, CENTER_Y - 18, 12.5, timeSec, 0.3);
-  drawMiniGalaxy(ctx, CENTER_X + 124, CENTER_Y + 14, 10.5, timeSec, 1.7);
+  drawMiniGalaxy(ctx, CENTER_X - 119, CENTER_Y - 17, 19, timeSec, 0.3);
+  drawMiniGalaxy(ctx, CENTER_X + 121, CENTER_Y + 12, 17, timeSec, 1.7);
 
   for (const star of STAR_FIELD) {
     const point = ellipsePoint(star.radius, star.angle);
     const twinkle =
       0.56 +
       0.44 * Math.sin(timeSec * (1.15 + star.size * 0.18) + star.phase);
-    const alpha = (working ? 0.62 : 0.48) * (0.72 + twinkle * 0.28);
+    const alpha = (working ? 0.88 : 0.72) * (0.78 + twinkle * 0.22);
 
     ctx.fillStyle = star.warm
       ? `rgba(255, 199, 112, ${alpha.toFixed(3)})`
@@ -363,11 +363,11 @@ function drawStarNetworkLayer(
   for (let groupIndex = 0; groupIndex < CONSTELLATION_GROUPS.length; groupIndex += 1) {
     const group = CONSTELLATION_GROUPS[groupIndex]!;
     const pulse =
-      0.11 +
-      0.045 * Math.sin(timeSec * 0.42 + groupIndex * 1.7);
+      0.30 +
+      0.07 * Math.sin(timeSec * 0.42 + groupIndex * 1.7);
 
     ctx.strokeStyle = `rgba(133, 220, 255, ${pulse.toFixed(3)})`;
-    ctx.lineWidth = 0.72;
+    ctx.lineWidth = 1.05;
     ctx.beginPath();
 
     group.forEach((node, index) => {
@@ -379,9 +379,9 @@ function drawStarNetworkLayer(
 
     for (const node of group) {
       const point = ellipsePoint(node.radius, node.angle);
-      ctx.fillStyle = 'rgba(220, 248, 255, 0.55)';
+      ctx.fillStyle = 'rgba(220, 248, 255, 0.86)';
       ctx.beginPath();
-      ctx.arc(point.x, point.y, 1.2, 0, Math.PI * 2);
+      ctx.arc(point.x, point.y, 2.05, 0, Math.PI * 2);
       ctx.fill();
     }
   }
@@ -405,7 +405,7 @@ function drawAsteroidBeltLayer(
     const shimmer =
       0.58 +
       0.42 * Math.sin(timeSec * 0.9 + asteroid.phase);
-    const alpha = (working ? 0.33 : 0.24) * shimmer;
+    const alpha = (working ? 0.58 : 0.44) * shimmer;
 
     ctx.fillStyle = asteroid.warm
       ? `rgba(255, 191, 105, ${alpha.toFixed(3)})`
@@ -428,7 +428,7 @@ function drawSectorRingLayer(
   ctx.globalCompositeOperation = 'screen';
 
   const outerRadius = 139;
-  const tickAlpha = working ? 0.31 : 0.22;
+  const tickAlpha = working ? 0.50 : 0.36;
 
   for (let index = 0; index < 32; index += 1) {
     const angle = (index / 32) * Math.PI * 2;
@@ -450,7 +450,7 @@ function drawSectorRingLayer(
   const sweep = timeSec * 0.16;
   const sweepStart = ellipsePoint(111, sweep);
   const sweepEnd = ellipsePoint(140, sweep);
-  const sweepAlpha = working ? 0.20 : 0.11;
+  const sweepAlpha = working ? 0.34 : 0.20;
   ctx.strokeStyle = `rgba(162, 239, 255, ${sweepAlpha.toFixed(3)})`;
   ctx.lineWidth = 0.8;
   ctx.beginPath();
