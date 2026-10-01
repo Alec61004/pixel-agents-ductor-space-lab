@@ -162,8 +162,6 @@ function insideEllipse(x: number, y: number): boolean {
 
 function readRegion(
   source: CanvasImageSource,
-  sourceWidth: number,
-  sourceHeight: number,
   region: PixelRegion,
 ): Uint8ClampedArray {
   const work = canvas(region.w, region.h);
@@ -394,7 +392,7 @@ export function analyzeKevinPixels(
     throw new Error('Kevin pixel analysis expects the authored 1926x816 V10 scene');
   }
 
-  const rgba = readRegion(source, sourceWidth, sourceHeight, KEVIN_REGION);
+  const rgba = readRegion(source, KEVIN_REGION);
   const brightMask = buildKevinBrightMask(rgba);
 
   // Remove one-pixel orbit/data filaments while detecting discrete objects.
