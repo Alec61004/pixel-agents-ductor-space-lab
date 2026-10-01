@@ -4,9 +4,9 @@
   "width": 1926,
   "height": 816,
   "sourceSHA256": "scene-v10-semantic-nonoverlap",
-  "limitations": "Scene V10 uses non-overlapping semantic masks. Every source pixel belongs to exactly one layer: no duplicated background and no stacked alpha pixels at the default layout.",
+  "limitations": "Scene V10 uses non-overlapping semantic masks. Every source pixel belongs to exactly one layer at idle. Working animation changes only explicitly named detail-mask pixels inside Alec, Kevin, or Benjamin station ownership; whole workstation layers never translate.",
   "sourceEditor": "Space_Lab_Layer_Editor_agents_v10_SEMANTIC_LAYERS.html",
-  "runtime": "v10-semantic-external-png",
+  "runtime": "v10-semantic-external-png-micro-motion",
   "layers": [
     {
       "id": "hull-base",
@@ -131,7 +131,109 @@
       "asset": "layers/alec-station.png",
       "maskPolygon": null,
       "maskQuality": "semantic-non-overlap",
-      "pixelCount": 114750
+      "pixelCount": 114750,
+      "details": [
+        {
+          "id": "main-radar",
+          "label": "Alec central tactical radar",
+          "polygon": [
+            [
+              198,
+              18
+            ],
+            [
+              392,
+              18
+            ],
+            [
+              392,
+              112
+            ],
+            [
+              198,
+              112
+            ]
+          ],
+          "animate": true
+        },
+        {
+          "id": "left-console",
+          "label": "Alec left data display",
+          "polygon": [
+            [
+              102,
+              38
+            ],
+            [
+              191,
+              38
+            ],
+            [
+              191,
+              120
+            ],
+            [
+              102,
+              120
+            ]
+          ],
+          "animate": true
+        },
+        {
+          "id": "right-console",
+          "label": "Alec right data display",
+          "polygon": [
+            [
+              397,
+              40
+            ],
+            [
+              482,
+              40
+            ],
+            [
+              482,
+              121
+            ],
+            [
+              397,
+              121
+            ]
+          ],
+          "animate": true
+        },
+        {
+          "id": "desk-controls",
+          "label": "Alec desk control strip",
+          "polygon": [
+            [
+              118,
+              112
+            ],
+            [
+              425,
+              112
+            ],
+            [
+              425,
+              151
+            ],
+            [
+              118,
+              151
+            ]
+          ],
+          "animate": true
+        }
+      ],
+      "working": {
+        "kind": "console",
+        "speed": 2.2,
+        "phase": 0.25,
+        "intensity": 0.34,
+        "motion": "scan-x",
+        "amplitude": 2
+      }
     },
     {
       "id": "bio-pedestal",
@@ -181,7 +283,88 @@
       "asset": "layers/kevin-station.png",
       "maskPolygon": null,
       "maskQuality": "semantic-non-overlap",
-      "pixelCount": 124200
+      "pixelCount": 124200,
+      "details": [
+        {
+          "id": "star-map",
+          "label": "Kevin orbital star map",
+          "polygon": [
+            [
+              142,
+              18
+            ],
+            [
+              399,
+              18
+            ],
+            [
+              399,
+              139
+            ],
+            [
+              142,
+              139
+            ]
+          ],
+          "animate": true
+        },
+        {
+          "id": "left-hud",
+          "label": "Kevin left HUD",
+          "polygon": [
+            [
+              77,
+              37
+            ],
+            [
+              137,
+              37
+            ],
+            [
+              137,
+              118
+            ],
+            [
+              77,
+              118
+            ]
+          ],
+          "animate": true
+        },
+        {
+          "id": "right-hud",
+          "label": "Kevin right HUD",
+          "polygon": [
+            [
+              410,
+              38
+            ],
+            [
+              474,
+              38
+            ],
+            [
+              474,
+              118
+            ],
+            [
+              410,
+              118
+            ]
+          ],
+          "animate": true
+        }
+      ],
+      "working": {
+        "kind": "console",
+        "speed": 1.35,
+        "phase": 0.8,
+        "intensity": 0.28,
+        "motion": "orbit",
+        "amplitude": 0.035,
+        "centerX": 270,
+        "centerY": 82
+      }
     },
     {
       "id": "benjamin-station",
@@ -206,7 +389,63 @@
       "asset": "layers/benjamin-station.png",
       "maskPolygon": null,
       "maskQuality": "semantic-non-overlap",
-      "pixelCount": 140000
+      "pixelCount": 140000,
+      "details": [
+        {
+          "id": "analysis-hologram",
+          "label": "Benjamin central analysis hologram",
+          "polygon": [
+            [
+              93,
+              69
+            ],
+            [
+              369,
+              69
+            ],
+            [
+              369,
+              190
+            ],
+            [
+              93,
+              190
+            ]
+          ],
+          "animate": true
+        },
+        {
+          "id": "rear-monitors",
+          "label": "Benjamin rear analysis monitors",
+          "polygon": [
+            [
+              58,
+              15
+            ],
+            [
+              399,
+              15
+            ],
+            [
+              399,
+              91
+            ],
+            [
+              58,
+              91
+            ]
+          ],
+          "animate": true
+        }
+      ],
+      "working": {
+        "kind": "console",
+        "speed": 1.75,
+        "phase": 1.6,
+        "intensity": 0.3,
+        "motion": "float-y",
+        "amplitude": 2
+      }
     }
   ],
   "groups": {
