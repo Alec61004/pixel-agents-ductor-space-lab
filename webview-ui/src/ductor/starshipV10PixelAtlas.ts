@@ -39,7 +39,7 @@ export type KevinAuthoredObjectId =
   | 'marker_star'
   | 'planet_purple_small';
 
-interface KevinAuthoredObjectDefinition {
+export interface KevinAuthoredObjectDefinition {
   id: KevinAuthoredObjectId;
   /** Row-major [start,length] runs over the exact 540x230 authored PNG. */
   runs: readonly (readonly [number, number])[];
