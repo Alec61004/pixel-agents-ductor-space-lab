@@ -74,7 +74,7 @@ export function HtmlLayerScene({ sceneRef, activity, onReady, onError }: HtmlLay
       ctx.clearRect(0, 0, scene.width, scene.height);
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(scene.nativeArtwork, 0, 0);
-      drawV10RoomMotion(ctx, timeMs / 1000, activityRef.current);
+      drawV10RoomMotion(ctx, scene.nativeArtwork, timeMs / 1000, activityRef.current);
       ctx.restore();
 
       animationFrameRef.current = requestAnimationFrame(drawFrame);
