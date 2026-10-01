@@ -767,7 +767,11 @@ function buildSourceAndCleanBase(
   copyMapEllipse(source, sourceEllipseData.data);
 
   const cleanPixels = buildCleanBasePixels(source, sourceEllipseData.data);
-  const cleanBaseData = new ImageData(cleanPixels, WIDTH, HEIGHT);
+  const cleanBaseData = new ImageData(
+    new Uint8ClampedArray(cleanPixels),
+    WIDTH,
+    HEIGHT,
+  );
   const patches: PlanetPatch[] = [];
 
   for (const definition of KEVIN_AUTHORED_OBJECTS) {
