@@ -6,10 +6,27 @@ import {
   type KevinAuthoredObjectId,
 } from './starshipV10PixelAtlas.js';
 
+export type KevinMotionLayerKind =
+  | 'authored-static'
+  | 'generated-static'
+  | 'procedural-dynamic'
+  | 'planet-dynamic';
+
+export interface KevinMotionLayerAudit {
+  id: string;
+  kind: KevinMotionLayerKind;
+  z: number;
+  primitiveCount?: number;
+  sourcePixelCount?: number;
+  orbitRadius?: number;
+  orbitPeriodSec?: number;
+}
+
 export interface KevinPixelMotion {
   readonly width: 540;
   readonly height: 230;
   readonly restDiffPixels: 0;
+  readonly layerAudit: readonly KevinMotionLayerAudit[];
   render(timeSec: number, working: boolean): HTMLCanvasElement;
 }
 
@@ -297,26 +314,11 @@ function drawLegacyMapStar(
   ctx.fill();
 }
 
-function drawLegacyMapContext(
+function drawLegacyHazeLayer(
   ctx: CanvasRenderingContext2D,
   timeSec: number,
   working: boolean,
 ): void {
-  ctx.save();
-  ctx.beginPath();
-  ctx.ellipse(
-    KEVIN_DISC.cx,
-    KEVIN_DISC.cy,
-    KEVIN_DISC.rx,
-    KEVIN_DISC.ry,
-    0,
-    0,
-    Math.PI * 2,
-  );
-  ctx.clip();
-
-  // Same broad wisps as the original star-map renderer, transformed into the
-  // V10 ellipse instead of being positioned independently in room space.
   ctx.globalCompositeOperation = 'lighter';
   for (let cloud = 0; cloud < 12; cloud += 1) {
     const u = cloud / 11;
@@ -343,9 +345,13 @@ function drawLegacyMapContext(
     ctx.restore();
   }
   ctx.globalCompositeOperation = 'source-over';
+}
 
-  // Original fixed-seed dust distribution. Density is reduced from the legacy
-  // 420 points to 150 so the V10 art remains readable.
+function drawLegacyDustLayer(
+  ctx: CanvasRenderingContext2D,
+  timeSec: number,
+  working: boolean,
+): void {
   for (const mote of LEGACY_HOLOGRAM_DUST) {
     const drift = Math.sin(timeSec * 0.18 + mote.depth * 0.13);
     const point = mapLegacyPoint(
@@ -368,8 +374,12 @@ function drawLegacyMapContext(
     ctx.arc(point.x, point.y, mappedRadius, 0, Math.PI * 2);
     ctx.fill();
   }
+}
 
-  // The same fine star grid used by the reference implementation.
+function drawLegacyStarGridLayer(
+  ctx: CanvasRenderingContext2D,
+  working: boolean,
+): void {
   for (let i = 0; i < 38; i += 1) {
     const x = 7 + ((i * 37.73) % 91);
     const y = 7 + ((i * 19.31) % 57);
@@ -383,8 +393,12 @@ function drawLegacyMapContext(
     ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
     ctx.fill();
   }
+}
 
-  // Port the original subdued navigation branches exactly in map coordinates.
+function drawLegacyNavigationLayer(
+  ctx: CanvasRenderingContext2D,
+  working: boolean,
+): void {
   const p32_15 = mapLegacyPoint(32, 15);
   const p54_38 = mapLegacyPoint(54, 38);
   const p86_20 = mapLegacyPoint(86, 20);
@@ -406,15 +420,23 @@ function drawLegacyMapContext(
   ctx.moveTo(p54_38.x, p54_38.y);
   ctx.bezierCurveTo(c5.x, c5.y, c6.x, c6.y, p87_51.x, p87_51.y);
   ctx.stroke();
+}
 
+function drawLegacyStarNodesLayer(
+  ctx: CanvasRenderingContext2D,
+  working: boolean,
+): void {
   drawLegacyMapStar(ctx, 32, 15, 0.42, '#ffae83', working ? 0.66 : 0.50);
   drawLegacyMapStar(ctx, 86, 20, 0.68, '#c1f3ff', working ? 0.82 : 0.64);
   drawLegacyMapStar(ctx, 87, 51, 0.50, '#bceeff', working ? 0.68 : 0.50);
   drawLegacyMapStar(ctx, 69, 27, 0.28, '#bceeff', working ? 0.74 : 0.56);
   drawLegacyMapStar(ctx, 18, 45, 0.30, '#bceeff', working ? 0.58 : 0.42);
+}
 
-  // Use the current V10 orbital geometry for structure, not guessed circles.
-  // Three low-alpha guide ellipses are derived from the measured planet radii.
+function drawLegacyGuideOrbitLayer(
+  ctx: CanvasRenderingContext2D,
+  working: boolean,
+): void {
   const guideRadii = [56, 91, 132] as const;
   ctx.strokeStyle = '#70c4d8';
   ctx.lineWidth = 0.62;
@@ -432,10 +454,36 @@ function drawLegacyMapContext(
     );
     ctx.stroke();
   }
+}
+
+function drawLegacyMapContext(
+  ctx: CanvasRenderingContext2D,
+  timeSec: number,
+  working: boolean,
+): void {
+  ctx.save();
+  ctx.beginPath();
+  ctx.ellipse(
+    KEVIN_DISC.cx,
+    KEVIN_DISC.cy,
+    KEVIN_DISC.rx,
+    KEVIN_DISC.ry,
+    0,
+    0,
+    Math.PI * 2,
+  );
+  ctx.clip();
+
+  // Keep the exact historical drawing order so this refactor is visual-no-op.
+  drawLegacyHazeLayer(ctx, timeSec, working);
+  drawLegacyDustLayer(ctx, timeSec, working);
+  drawLegacyStarGridLayer(ctx, working);
+  drawLegacyNavigationLayer(ctx, working);
+  drawLegacyStarNodesLayer(ctx, working);
+  drawLegacyGuideOrbitLayer(ctx, working);
 
   ctx.restore();
 }
-
 
 function copyMapEllipse(
   source: Uint8ClampedArray,
@@ -1144,6 +1192,70 @@ export async function loadKevinPixelMotion(
     );
   }
 
+  const sourcePixelCount = (id: KevinAuthoredObjectId): number =>
+    KEVIN_AUTHORED_OBJECTS.find((definition) => definition.id === id)?.pixelCount ?? 0;
+
+  const layerAudit: readonly KevinMotionLayerAudit[] = [
+    {
+      id: 'authored_sun',
+      kind: 'authored-static',
+      z: 10,
+      sourcePixelCount: sourcePixelCount('sun'),
+    },
+    {
+      id: 'haze_wisps',
+      kind: 'procedural-dynamic',
+      z: 20,
+      primitiveCount: 12,
+    },
+    {
+      id: 'dust_motes',
+      kind: 'procedural-dynamic',
+      z: 30,
+      primitiveCount: LEGACY_HOLOGRAM_DUST.length,
+    },
+    {
+      id: 'star_grid',
+      kind: 'generated-static',
+      z: 40,
+      primitiveCount: 38,
+    },
+    {
+      id: 'navigation_branches',
+      kind: 'generated-static',
+      z: 50,
+      primitiveCount: 3,
+    },
+    {
+      id: 'star_nodes',
+      kind: 'generated-static',
+      z: 60,
+      primitiveCount: 5,
+    },
+    {
+      id: 'guide_orbits',
+      kind: 'generated-static',
+      z: 70,
+      primitiveCount: 3,
+    },
+    {
+      id: 'measured_planet_orbits',
+      kind: 'generated-static',
+      z: 80,
+      primitiveCount: patches.length,
+    },
+    ...patches.map((patch, index): KevinMotionLayerAudit => ({
+      id: patch.id,
+      kind: 'planet-dynamic',
+      z: 100 + index,
+      sourcePixelCount: sourcePixelCount(patch.id),
+      orbitRadius: patch.orbitRadius,
+      orbitPeriodSec:
+        (Math.PI * 2) /
+        keplerAngularSpeed(patch.orbitRadius, patch.config.speed),
+    })),
+  ];
+
 
   const frameCanvas = createTransparentCanvas();
   const frameCtx = frameCanvas.getContext('2d');
@@ -1153,6 +1265,7 @@ export async function loadKevinPixelMotion(
     width: WIDTH,
     height: HEIGHT,
     restDiffPixels: 0,
+    layerAudit,
     render(timeSec: number, working: boolean): HTMLCanvasElement {
       if (timeSec <= 0.0001) return sourceEllipse;
 
