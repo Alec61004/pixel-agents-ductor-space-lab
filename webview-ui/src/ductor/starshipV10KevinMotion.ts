@@ -1,5 +1,6 @@
 import {
   KEVIN_AUTHORED_OBJECTS,
+  KEVIN_DISC,
   decodeKevinAuthoredMask,
   type KevinAuthoredObjectDefinition,
   type KevinAuthoredObjectId,
@@ -15,11 +16,13 @@ export interface KevinPixelMotion {
 const WIDTH = 540;
 const HEIGHT = 230;
 
-// Measured from the authored Kevin V10 crop.
-const CENTER_X = 308.7;
-const CENTER_Y = 54.2;
-const Y_SCALE = 0.32;
-const MAP_RADIUS = 148;
+// Two different geometries exist in the authored Kevin V10 crop:
+// 1) the physical star-map glass/disc, measured by the semantic atlas;
+// 2) the solar-system focus, measured from the authored Sun pixels.
+// Never use the Sun as the clipping center of the physical map.
+const SUN_X = 308.7;
+const SUN_Y = 54.2;
+const ORBIT_Y_SCALE = KEVIN_DISC.ry / KEVIN_DISC.rx;
 
 type MovingPlanetId = Exclude<KevinAuthoredObjectId, 'sun' | 'marker_star'>;
 type PlanetStyle = 'rocky' | 'gas_banded' | 'ringed_gas' | 'icy' | 'moon';
@@ -242,17 +245,17 @@ function mapLegacyPoint(x: number, y: number): { x: number; y: number } {
   const nx = (x - LEGACY_MAP_CENTER_X) / LEGACY_MAP_HALF_W;
   const ny = (y - LEGACY_MAP_CENTER_Y) / LEGACY_MAP_HALF_H;
   return {
-    x: CENTER_X + nx * MAP_RADIUS,
-    y: CENTER_Y + ny * MAP_RADIUS * Y_SCALE,
+    x: KEVIN_DISC.cx + nx * KEVIN_DISC.rx,
+    y: KEVIN_DISC.cy + ny * KEVIN_DISC.ry,
   };
 }
 
 function legacyRadiusX(radius: number): number {
-  return (radius / LEGACY_MAP_HALF_W) * MAP_RADIUS;
+  return (radius / LEGACY_MAP_HALF_W) * KEVIN_DISC.rx;
 }
 
 function legacyRadiusY(radius: number): number {
-  return (radius / LEGACY_MAP_HALF_H) * MAP_RADIUS * Y_SCALE;
+  return (radius / LEGACY_MAP_HALF_H) * KEVIN_DISC.ry;
 }
 
 function drawLegacyMapStar(
@@ -300,10 +303,10 @@ function drawLegacyMapContext(
   ctx.save();
   ctx.beginPath();
   ctx.ellipse(
-    CENTER_X,
-    CENTER_Y,
-    MAP_RADIUS,
-    MAP_RADIUS * Y_SCALE,
+    KEVIN_DISC.cx,
+    KEVIN_DISC.cy,
+    KEVIN_DISC.rx,
+    KEVIN_DISC.ry,
     0,
     0,
     Math.PI * 2,
@@ -417,10 +420,10 @@ function drawLegacyMapContext(
   for (const radius of guideRadii) {
     ctx.beginPath();
     ctx.ellipse(
-      CENTER_X,
-      CENTER_Y,
+      SUN_X,
+      SUN_Y,
       radius,
-      radius * Y_SCALE,
+      radius * ORBIT_Y_SCALE,
       0,
       0,
       Math.PI * 2,
@@ -437,17 +440,16 @@ function copyMapEllipse(
   target: Uint8ClampedArray,
 ): void {
   target.fill(0);
-  const verticalRadius = MAP_RADIUS * Y_SCALE;
-  const minX = Math.max(0, Math.floor(CENTER_X - MAP_RADIUS - 1));
-  const maxX = Math.min(WIDTH - 1, Math.ceil(CENTER_X + MAP_RADIUS + 1));
-  const minY = Math.max(0, Math.floor(CENTER_Y - verticalRadius - 1));
-  const maxY = Math.min(HEIGHT - 1, Math.ceil(CENTER_Y + verticalRadius + 1));
+  const minX = Math.max(0, Math.floor(KEVIN_DISC.cx - KEVIN_DISC.rx - 1));
+  const maxX = Math.min(WIDTH - 1, Math.ceil(KEVIN_DISC.cx + KEVIN_DISC.rx + 1));
+  const minY = Math.max(0, Math.floor(KEVIN_DISC.cy - KEVIN_DISC.ry - 1));
+  const maxY = Math.min(HEIGHT - 1, Math.ceil(KEVIN_DISC.cy + KEVIN_DISC.ry + 1));
 
   for (let y = minY; y <= maxY; y += 1) {
     for (let x = minX; x <= maxX; x += 1) {
-      const u = x - CENTER_X;
-      const v = (y - CENTER_Y) / Y_SCALE;
-      if (u * u + v * v > MAP_RADIUS * MAP_RADIUS) continue;
+      const dx = (x - KEVIN_DISC.cx) / KEVIN_DISC.rx;
+      const dy = (y - KEVIN_DISC.cy) / KEVIN_DISC.ry;
+      if (dx * dx + dy * dy > 1) continue;
       const offset = (y * WIDTH + x) * 4;
       target[offset] = source[offset]!;
       target[offset + 1] = source[offset + 1]!;
@@ -458,9 +460,9 @@ function copyMapEllipse(
 }
 
 function insideMap(x: number, y: number): boolean {
-  const u = x - CENTER_X;
-  const v = (y - CENTER_Y) / Y_SCALE;
-  return u * u + v * v <= MAP_RADIUS * MAP_RADIUS;
+  const dx = (x - KEVIN_DISC.cx) / KEVIN_DISC.rx;
+  const dy = (y - KEVIN_DISC.cy) / KEVIN_DISC.ry;
+  return dx * dx + dy * dy <= 1;
 }
 
 function addDilatedMask(
@@ -966,8 +968,8 @@ function buildPlanetPatch(
 
   const id = definition.id;
   const centroid = planetCentroid(mask);
-  const u = centroid.x - CENTER_X;
-  const v = (centroid.y - CENTER_Y) / Y_SCALE;
+  const u = centroid.x - SUN_X;
+  const v = (centroid.y - SUN_Y) / ORBIT_Y_SCALE;
   const visual = PLANET_VISUALS[id];
   const sprite = makePlanetSprite(visual);
 
@@ -1039,9 +1041,9 @@ function countEllipseDiff(
 
   for (let y = 0; y < HEIGHT; y += 1) {
     for (let x = 0; x < WIDTH; x += 1) {
-      const u = x - CENTER_X;
-      const v = (y - CENTER_Y) / Y_SCALE;
-      if (u * u + v * v > MAP_RADIUS * MAP_RADIUS) continue;
+      const dx = (x - KEVIN_DISC.cx) / KEVIN_DISC.rx;
+      const dy = (y - KEVIN_DISC.cy) / KEVIN_DISC.ry;
+      if (dx * dx + dy * dy > 1) continue;
       const offset = (y * WIDTH + x) * 4;
       if (
         source[offset] !== rendered[offset] ||
@@ -1143,9 +1145,9 @@ export async function loadKevinPixelMotion(
           const radius =
             patch.orbitRadius +
             config.radialAmplitude * radialWave * intro;
-          const x = CENTER_X + Math.cos(theta) * radius;
+          const x = SUN_X + Math.cos(theta) * radius;
           const y =
-            CENTER_Y + Math.sin(theta) * radius * Y_SCALE;
+            SUN_Y + Math.sin(theta) * radius * ORBIT_Y_SCALE;
           const depth = Math.sin(theta);
           return { patch, x, y, depth };
         })
