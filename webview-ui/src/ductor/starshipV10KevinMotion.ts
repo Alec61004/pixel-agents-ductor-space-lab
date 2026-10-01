@@ -1,6 +1,7 @@
 import {
   KEVIN_AUTHORED_OBJECTS,
   decodeKevinAuthoredMask,
+  type KevinAuthoredObjectDefinition,
   type KevinAuthoredObjectId,
 } from './starshipV10PixelAtlas.js';
 
