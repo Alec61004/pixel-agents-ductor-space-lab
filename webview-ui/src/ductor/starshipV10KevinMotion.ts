@@ -316,8 +316,23 @@ function buildProtectedMask(): Uint8Array {
     if (definition.id !== 'sun' && !MOVING_PLANETS.has(definition.id)) continue;
 
     const mask = decodeKevinAuthoredMask(definition);
-    for (let i = 0; i < mask.length; i += 1) {
-      if (mask[i]) protectedMask[i] = 1;
+    const radius = definition.id === 'sun' ? 12 : 7;
+    const radiusSq = radius * radius;
+
+    for (let pixel = 0; pixel < mask.length; pixel += 1) {
+      if (!mask[pixel]) continue;
+      const x = pixel % WIDTH;
+      const y = Math.floor(pixel / WIDTH);
+
+      for (let oy = -radius; oy <= radius; oy += 1) {
+        for (let ox = -radius; ox <= radius; ox += 1) {
+          if (ox * ox + oy * oy > radiusSq) continue;
+          const nx = x + ox;
+          const ny = y + oy;
+          if (nx < 0 || ny < 0 || nx >= WIDTH || ny >= HEIGHT) continue;
+          protectedMask[ny * WIDTH + nx] = 1;
+        }
+      }
     }
   }
 
@@ -391,6 +406,164 @@ function eraseMaskedArtifact(
       }
 
       target[offset + 3] = source[offset + 3]!;
+    }
+  }
+}
+
+function isDecorativeMarkerPixel(
+  data: Uint8ClampedArray,
+  pixel: number,
+  protectedMask: Uint8Array,
+): boolean {
+  if (protectedMask[pixel]) return false;
+
+  const x = pixel % WIDTH;
+  const y = Math.floor(pixel / WIDTH);
+  const u = x - CENTER_X;
+  const v = (y - CENTER_Y) / Y_SCALE;
+  if (u * u + v * v > MAP_RADIUS * MAP_RADIUS) return false;
+
+  const offset = pixel * 4;
+  const r = data[offset]!;
+  const g = data[offset + 1]!;
+  const b = data[offset + 2]!;
+  const a = data[offset + 3]!;
+  if (a < 8) return false;
+
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const chroma = max - min;
+  const brightness = (r + g + b) / 3;
+
+  // The authored map contains many small purple, amber/yellow and white
+  // navigation decorations. They are visually point-like even when their
+  // anti-aliased pixels touch nearby orbit lines.
+  const purple =
+    b >= 82 &&
+    r >= 52 &&
+    b > g * 1.10 &&
+    r > g * 0.70;
+
+  const warm =
+    r >= 104 &&
+    g >= 62 &&
+    b < g * 0.76 &&
+    r > b * 1.26;
+
+  const neutralBright =
+    brightness >= 142 &&
+    chroma <= 62;
+
+  return purple || warm || neutralBright;
+}
+
+function removeDecorativeMarkerComponents(
+  source: Uint8ClampedArray,
+  target: Uint8ClampedArray,
+  protectedMask: Uint8Array,
+): void {
+  const visited = new Uint8Array(WIDTH * HEIGHT);
+  const minX = Math.max(0, Math.floor(CENTER_X - MAP_RADIUS - 2));
+  const maxX = Math.min(WIDTH - 1, Math.ceil(CENTER_X + MAP_RADIUS + 2));
+  const minY = Math.max(0, Math.floor(CENTER_Y - MAP_RADIUS * Y_SCALE - 2));
+  const maxY = Math.min(HEIGHT - 1, Math.ceil(CENTER_Y + MAP_RADIUS * Y_SCALE + 2));
+
+  const neighbors = [
+    [-1, -1], [0, -1], [1, -1],
+    [-1, 0],            [1, 0],
+    [-1, 1],  [0, 1],   [1, 1],
+  ] as const;
+
+  for (let y = minY; y <= maxY; y += 1) {
+    for (let x = minX; x <= maxX; x += 1) {
+      const start = y * WIDTH + x;
+      if (visited[start]) continue;
+      if (!isDecorativeMarkerPixel(target, start, protectedMask)) continue;
+
+      const queue = [start];
+      const component: number[] = [];
+      visited[start] = 1;
+
+      let boxMinX = x;
+      let boxMaxX = x;
+      let boxMinY = y;
+      let boxMaxY = y;
+
+      while (queue.length) {
+        const pixel = queue.pop()!;
+        component.push(pixel);
+
+        const px = pixel % WIDTH;
+        const py = Math.floor(pixel / WIDTH);
+        boxMinX = Math.min(boxMinX, px);
+        boxMaxX = Math.max(boxMaxX, px);
+        boxMinY = Math.min(boxMinY, py);
+        boxMaxY = Math.max(boxMaxY, py);
+
+        for (const [dx, dy] of neighbors) {
+          const nx = px + dx;
+          const ny = py + dy;
+          if (nx < minX || nx > maxX || ny < minY || ny > maxY) continue;
+          const np = ny * WIDTH + nx;
+          if (visited[np]) continue;
+          if (!isDecorativeMarkerPixel(target, np, protectedMask)) continue;
+          visited[np] = 1;
+          queue.push(np);
+        }
+      }
+
+      const width = boxMaxX - boxMinX + 1;
+      const height = boxMaxY - boxMinY + 1;
+      const maxDim = Math.max(width, height);
+      const minDim = Math.max(1, Math.min(width, height));
+      const aspect = maxDim / minDim;
+
+      // This deliberately accepts short dash/rectangle markers that the old
+      // <=11px compact-speck rule missed, while rejecting long orbit arcs.
+      const markerLike =
+        component.length <= 180 &&
+        maxDim <= 30 &&
+        minDim <= 12 &&
+        aspect <= 8.0;
+
+      if (!markerLike) continue;
+
+      // Expand one pixel to remove anti-aliased marker fringes as well.
+      const erasePixels = new Set<number>();
+      for (const pixel of component) {
+        const px = pixel % WIDTH;
+        const py = Math.floor(pixel / WIDTH);
+        for (let oy = -1; oy <= 1; oy += 1) {
+          for (let ox = -1; ox <= 1; ox += 1) {
+            const nx = px + ox;
+            const ny = py + oy;
+            if (nx < minX || nx > maxX || ny < minY || ny > maxY) continue;
+            const np = ny * WIDTH + nx;
+            if (protectedMask[np]) continue;
+            erasePixels.add(np);
+          }
+        }
+      }
+
+      for (const pixel of erasePixels) {
+        const px = pixel % WIDTH;
+        const py = Math.floor(pixel / WIDTH);
+        const offset = pixel * 4;
+
+        for (let channel = 0; channel < 3; channel += 1) {
+          const samples = [
+            donorSample(source, px, py, 0.14, channel),
+            donorSample(source, px, py, 0.23, channel),
+            donorSample(source, px, py, 0.34, channel),
+            donorSample(source, px, py, 0.47, channel),
+            donorSample(source, px, py, 0.61, channel),
+          ].sort((a, b) => a - b);
+
+          target[offset + channel] = Math.round(samples[2]!);
+        }
+
+        target[offset + 3] = source[offset + 3]!;
+      }
     }
   }
 }
@@ -797,6 +970,7 @@ function buildSourceAndCleanBase(
     erasePlanetFromBase(source, cleanBaseData.data, definition, mask, config);
   }
 
+  removeDecorativeMarkerComponents(source, cleanBaseData.data, protectedMask);
   removeTinyArtifacts(source, cleanBaseData.data, protectedMask);
 
   const sourceEllipse = createTransparentCanvas();
