@@ -14,7 +14,6 @@ export interface StarshipPixelSceneLayer {
   details?: { id: string; label: string; polygon: [number, number][]; animate: boolean }[];
   working?: {
     kind: 'light-column' | 'console';
-    amplitude?: number;
     speed: number;
     phase: number;
     intensity: number;
