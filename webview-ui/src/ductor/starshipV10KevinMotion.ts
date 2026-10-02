@@ -305,15 +305,15 @@ const SEMANTIC_DUST_MOTES: readonly SemanticDustPoint[] = Array.from(
       return value - Math.floor(value);
     };
     const angle = index * 2.3999632297 + random(1) * 0.42;
-    const belt = 38 + random(2) * 58;
+    const belt = 34 + random(2) * 30;
     const localX = 54 + Math.cos(angle) * (belt / 120) * 49;
     const localY = 35.5 + Math.sin(angle) * (belt / 56) * 30.5;
     return {
       x: localX,
       y: localY,
       depth: random(3) * 12 - 6,
-      radius: 0.44 + random(4) * 0.56,
-      alpha: 0.36 + random(5) * 0.58,
+      radius: 0.085 + random(4) * 0.17,
+      alpha: 0.16 + random(5) * 0.34,
     };
   },
 );
@@ -455,24 +455,24 @@ function drawSemanticSunLayer(
   const pulse = 1 + Math.sin(timeSec * 1.1) * (working ? 0.06 : 0.035);
   ctx.save();
   ctx.globalCompositeOperation = 'screen';
-  const outer = ctx.createRadialGradient(SUN_X, SUN_Y, 0, SUN_X, SUN_Y, 44 * pulse);
+  const outer = ctx.createRadialGradient(SUN_X, SUN_Y, 0, SUN_X, SUN_Y, 37 * pulse);
   outer.addColorStop(0, 'rgba(255,244,190,0.96)');
   outer.addColorStop(0.20, 'rgba(255,196,56,0.75)');
   outer.addColorStop(0.48, 'rgba(255,131,18,0.30)');
   outer.addColorStop(1, 'rgba(255,104,0,0)');
   ctx.fillStyle = outer;
   ctx.beginPath();
-  ctx.arc(SUN_X, SUN_Y, 44 * pulse, 0, Math.PI * 2);
+  ctx.arc(SUN_X, SUN_Y, 37 * pulse, 0, Math.PI * 2);
   ctx.fill();
 
-  const core = ctx.createRadialGradient(SUN_X - 3, SUN_Y - 3, 0, SUN_X, SUN_Y, 17 * pulse);
-  core.addColorStop(0, '#fffde6');
-  core.addColorStop(0.38, '#fff09d');
-  core.addColorStop(0.75, '#ffbd24');
+  const core = ctx.createRadialGradient(SUN_X - 3, SUN_Y - 3, 0, SUN_X, SUN_Y, 14 * pulse);
+  core.addColorStop(0, '#fffbe0');
+  core.addColorStop(0.38, '#ffe666');
+  core.addColorStop(0.75, '#ffb20d');
   core.addColorStop(1, '#f47b0e');
   ctx.fillStyle = core;
   ctx.beginPath();
-  ctx.arc(SUN_X, SUN_Y, 17 * pulse, 0, Math.PI * 2);
+  ctx.arc(SUN_X, SUN_Y, 14 * pulse, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.globalAlpha = working ? 0.90 : 0.68;
@@ -520,9 +520,9 @@ function drawSemanticDustOwner(
   const mote = SEMANTIC_DUST_MOTES[index]!;
   const drift = Math.sin(timeSec * 0.20 + mote.depth * 0.20) * 0.72;
   const point = mapSemanticPoint(mote.x + drift, mote.y + drift * 0.36);
-  const mappedRadius = Math.max(0.78, semanticRadiusX(mote.radius));
-  ctx.globalAlpha = mote.alpha * (working ? 0.96 : 0.76);
-  ctx.fillStyle = mote.depth > 2.4 ? '#f8e5ba' : mote.depth < -2.4 ? '#5bcaff' : '#d9edff';
+  const mappedRadius = Math.max(0.24, semanticRadiusX(mote.radius));
+  ctx.globalAlpha = mote.alpha * (working ? 0.78 : 0.54);
+  ctx.fillStyle = mote.depth > 2.4 ? '#e4b882' : mote.depth < -2.4 ? '#58b5d7' : '#bad7e8';
   ctx.beginPath();
   ctx.arc(point.x, point.y, mappedRadius, 0, Math.PI * 2);
   ctx.fill();
