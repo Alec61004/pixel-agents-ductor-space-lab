@@ -325,13 +325,6 @@ function mapSemanticPoint(x: number, y: number): { x: number; y: number } {
     x: SUN_X + nx * 120,
     y: SUN_Y + ny * 56,
   };
-} {
-  const nx = (x - LEGACY_MAP_CENTER_X) / LEGACY_MAP_HALF_W;
-  const ny = (y - LEGACY_MAP_CENTER_Y) / LEGACY_MAP_HALF_H;
-  return {
-    x: KEVIN_DISC.cx + nx * KEVIN_DISC.rx,
-    y: KEVIN_DISC.cy + ny * KEVIN_DISC.ry,
-  };
 }
 
 function semanticRadiusX(radius: number): number {
