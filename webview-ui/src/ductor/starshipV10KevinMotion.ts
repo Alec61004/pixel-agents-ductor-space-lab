@@ -289,7 +289,7 @@ const LEGACY_MAP_CENTER_Y = 35.5;
 const LEGACY_MAP_HALF_W = 49;
 const LEGACY_MAP_HALF_H = 30.5;
 
-interface LegacyDustPoint {
+interface SemanticDustPoint {
   x: number;
   y: number;
   depth: number;
@@ -297,7 +297,7 @@ interface LegacyDustPoint {
   alpha: number;
 }
 
-const LEGACY_HOLOGRAM_DUST: readonly LegacyDustPoint[] = Array.from(
+const SEMANTIC_DUST_MOTES: readonly SemanticDustPoint[] = Array.from(
   { length: 150 },
   (_, index) => {
     const random = (salt: number) => {
@@ -318,7 +318,7 @@ const LEGACY_HOLOGRAM_DUST: readonly LegacyDustPoint[] = Array.from(
   },
 );
 
-function mapLegacyPoint(x: number, y: number): { x: number; y: number } {
+function mapSemanticPoint(x: number, y: number): { x: number; y: number } {
   const nx = (x - LEGACY_MAP_CENTER_X) / LEGACY_MAP_HALF_W;
   const ny = (y - LEGACY_MAP_CENTER_Y) / LEGACY_MAP_HALF_H;
   return {
@@ -327,15 +327,15 @@ function mapLegacyPoint(x: number, y: number): { x: number; y: number } {
   };
 }
 
-function legacyRadiusX(radius: number): number {
+function semanticRadiusX(radius: number): number {
   return (radius / LEGACY_MAP_HALF_W) * KEVIN_DISC.rx;
 }
 
-function legacyRadiusY(radius: number): number {
+function semanticRadiusY(radius: number): number {
   return (radius / LEGACY_MAP_HALF_H) * KEVIN_DISC.ry;
 }
 
-function drawLegacyMapStar(
+function drawSemanticMapStar(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
@@ -343,8 +343,8 @@ function drawLegacyMapStar(
   color: string,
   opacity: number,
 ): void {
-  const point = mapLegacyPoint(x, y);
-  const mappedRadius = Math.max(0.75, legacyRadiusX(radius));
+  const point = mapSemanticPoint(x, y);
+  const mappedRadius = Math.max(0.75, semanticRadiusX(radius));
 
   ctx.globalAlpha = opacity;
   const glow = ctx.createRadialGradient(
@@ -372,7 +372,7 @@ function drawLegacyMapStar(
   ctx.fill();
 }
 
-function drawLegacyHazeLayer(
+function drawSemanticHazeLayer(
   ctx: CanvasRenderingContext2D,
   timeSec: number,
   working: boolean,
@@ -385,10 +385,10 @@ function drawLegacyHazeLayer(
       53 -
       u * 36 +
       Math.sin(u * 6 + timeSec * 0.025) * 3;
-    const point = mapLegacyPoint(legacyX, legacyY);
-    const rx = legacyRadiusX(11) * 1.7;
+    const point = mapSemanticPoint(legacyX, legacyY);
+    const rx = semanticRadiusX(11) * 1.7;
     const ry =
-      legacyRadiusY(11) *
+      semanticRadiusY(11) *
       (0.6 + (cloud % 3) * 0.12);
 
     ctx.save();
@@ -405,14 +405,14 @@ function drawLegacyHazeLayer(
   ctx.globalCompositeOperation = 'source-over';
 }
 
-function drawLegacyDustLayer(
+function drawSemanticDustLayer(
   ctx: CanvasRenderingContext2D,
   timeSec: number,
   working: boolean,
 ): void {
-  for (const mote of LEGACY_HOLOGRAM_DUST) {
+  for (const mote of SEMANTIC_DUST_MOTES) {
     const drift = Math.sin(timeSec * 0.18 + mote.depth * 0.13);
-    const point = mapLegacyPoint(
+    const point = mapSemanticPoint(
       mote.x + drift * mote.depth * 0.65,
       mote.y +
         Math.cos(timeSec * 0.13 + mote.depth * 0.2) *
@@ -421,7 +421,7 @@ function drawLegacyDustLayer(
     );
     const mappedRadius = Math.max(
       0.28,
-      legacyRadiusX(mote.radius),
+      semanticRadiusX(mote.radius),
     );
     ctx.globalAlpha =
       mote.alpha *
@@ -434,14 +434,14 @@ function drawLegacyDustLayer(
   }
 }
 
-function drawLegacyStarGridLayer(
+function drawSemanticStarGridLayer(
   ctx: CanvasRenderingContext2D,
   working: boolean,
 ): void {
   for (let i = 0; i < 38; i += 1) {
     const x = 7 + ((i * 37.73) % 91);
     const y = 7 + ((i * 19.31) % 57);
-    const point = mapLegacyPoint(x, y);
+    const point = mapSemanticPoint(x, y);
     const radius = i % 7 === 0 ? 0.72 : 0.42;
     ctx.globalAlpha =
       (working ? 0.34 : 0.24) *
@@ -453,20 +453,20 @@ function drawLegacyStarGridLayer(
   }
 }
 
-function drawLegacyNavigationLayer(
+function drawSemanticNavigationLayer(
   ctx: CanvasRenderingContext2D,
   working: boolean,
 ): void {
-  const p32_15 = mapLegacyPoint(32, 15);
-  const p54_38 = mapLegacyPoint(54, 38);
-  const p86_20 = mapLegacyPoint(86, 20);
-  const p87_51 = mapLegacyPoint(87, 51);
-  const c1 = mapLegacyPoint(35, 28);
-  const c2 = mapLegacyPoint(43, 35);
-  const c3 = mapLegacyPoint(66, 32);
-  const c4 = mapLegacyPoint(76, 23);
-  const c5 = mapLegacyPoint(68, 44);
-  const c6 = mapLegacyPoint(79, 46);
+  const p32_15 = mapSemanticPoint(32, 15);
+  const p54_38 = mapSemanticPoint(54, 38);
+  const p86_20 = mapSemanticPoint(86, 20);
+  const p87_51 = mapSemanticPoint(87, 51);
+  const c1 = mapSemanticPoint(35, 28);
+  const c2 = mapSemanticPoint(43, 35);
+  const c3 = mapSemanticPoint(66, 32);
+  const c4 = mapSemanticPoint(76, 23);
+  const c5 = mapSemanticPoint(68, 44);
+  const c6 = mapSemanticPoint(79, 46);
 
   ctx.globalAlpha = working ? 0.24 : 0.16;
   ctx.strokeStyle = '#70c4d8';
@@ -480,18 +480,18 @@ function drawLegacyNavigationLayer(
   ctx.stroke();
 }
 
-function drawLegacyStarNodesLayer(
+function drawSemanticStarNodesLayer(
   ctx: CanvasRenderingContext2D,
   working: boolean,
 ): void {
-  drawLegacyMapStar(ctx, 32, 15, 0.42, '#ffae83', working ? 0.66 : 0.50);
-  drawLegacyMapStar(ctx, 86, 20, 0.68, '#c1f3ff', working ? 0.82 : 0.64);
-  drawLegacyMapStar(ctx, 87, 51, 0.50, '#bceeff', working ? 0.68 : 0.50);
-  drawLegacyMapStar(ctx, 69, 27, 0.28, '#bceeff', working ? 0.74 : 0.56);
-  drawLegacyMapStar(ctx, 18, 45, 0.30, '#bceeff', working ? 0.58 : 0.42);
+  drawSemanticMapStar(ctx, 32, 15, 0.42, '#ffae83', working ? 0.66 : 0.50);
+  drawSemanticMapStar(ctx, 86, 20, 0.68, '#c1f3ff', working ? 0.82 : 0.64);
+  drawSemanticMapStar(ctx, 87, 51, 0.50, '#bceeff', working ? 0.68 : 0.50);
+  drawSemanticMapStar(ctx, 69, 27, 0.28, '#bceeff', working ? 0.74 : 0.56);
+  drawSemanticMapStar(ctx, 18, 45, 0.30, '#bceeff', working ? 0.58 : 0.42);
 }
 
-function drawLegacyGuideOrbitLayer(
+function drawSemanticGuideOrbitLayer(
   ctx: CanvasRenderingContext2D,
   working: boolean,
 ): void {
@@ -514,7 +514,7 @@ function drawLegacyGuideOrbitLayer(
   }
 }
 
-function drawLegacyMapContext(
+function drawSemanticMapContext(
   ctx: CanvasRenderingContext2D,
   timeSec: number,
   working: boolean,
@@ -533,12 +533,12 @@ function drawLegacyMapContext(
   ctx.clip();
 
   // Keep the exact historical drawing order so this refactor is visual-no-op.
-  drawLegacyHazeLayer(ctx, timeSec, working);
-  drawLegacyDustLayer(ctx, timeSec, working);
-  drawLegacyStarGridLayer(ctx, working);
-  drawLegacyNavigationLayer(ctx, working);
-  drawLegacyStarNodesLayer(ctx, working);
-  drawLegacyGuideOrbitLayer(ctx, working);
+  drawSemanticHazeLayer(ctx, timeSec, working);
+  drawSemanticDustLayer(ctx, timeSec, working);
+  drawSemanticStarGridLayer(ctx, working);
+  drawSemanticNavigationLayer(ctx, working);
+  drawSemanticStarNodesLayer(ctx, working);
+  drawSemanticGuideOrbitLayer(ctx, working);
 
   ctx.restore();
 }
@@ -1148,6 +1148,174 @@ function buildSourceFrameOwnerMasks(): KevinOwnerMask[] {
   ];
 }
 
+
+function buildSemanticContextOwnerMasks(
+  timeSec: number,
+  working: boolean,
+  patches: readonly PlanetPatch[],
+): KevinOwnerMask[] {
+  const layers: KevinOwnerMask[] = [];
+  const add = (
+    definition: KevinPixelOwnerDefinition,
+    mask: Uint8Array,
+  ): void => {
+    layers.push({ definition, mask });
+  };
+
+  for (let cloud = 0; cloud < 12; cloud += 1) {
+    add(
+      {
+        id: `haze_${String(cloud + 1).padStart(3, '0')}`,
+        parentId: 'haze_wisps',
+        category: 'haze',
+        subpart: 'individual-haze-cloud',
+        dynamic: true,
+        z: 20,
+        primitiveIndex: cloud,
+      },
+      rasterizeSemanticHazeOwner(cloud, timeSec, working),
+    );
+  }
+
+  for (let index = 0; index < SEMANTIC_DUST_MOTES.length; index += 1) {
+    add(
+      {
+        id: `dust_${String(index + 1).padStart(3, '0')}`,
+        parentId: 'dust_motes',
+        category: 'dust',
+        subpart: 'individual-dust-mote',
+        dynamic: true,
+        z: 30,
+        primitiveIndex: index,
+      },
+      rasterizeSemanticDustOwner(index, timeSec, working),
+    );
+  }
+
+  for (let index = 0; index < 38; index += 1) {
+    add(
+      {
+        id: `star_grid_${String(index + 1).padStart(3, '0')}`,
+        parentId: 'star_grid',
+        category: 'star-grid',
+        subpart: 'individual-grid-star',
+        dynamic: false,
+        z: 40,
+        primitiveIndex: index,
+      },
+      rasterizeSemanticStarGridOwner(index, working),
+    );
+  }
+
+  for (let branch = 0; branch < 3; branch += 1) {
+    add(
+      {
+        id: `navigation_branch_${String(branch + 1).padStart(2, '0')}`,
+        parentId: 'navigation_branches',
+        category: 'navigation',
+        subpart: 'individual-navigation-branch',
+        dynamic: false,
+        z: 50,
+        primitiveIndex: branch,
+      },
+      rasterizeSemanticNavigationBranchOwner(branch, working),
+    );
+  }
+
+  for (let index = 0; index < SEMANTIC_STAR_NODE_SPECS.length; index += 1) {
+    add(
+      {
+        id: `star_node_${String(index + 1).padStart(2, '0')}`,
+        parentId: 'star_nodes',
+        category: 'star-node',
+        subpart: 'individual-glowing-node',
+        dynamic: false,
+        z: 60,
+        primitiveIndex: index,
+      },
+      rasterizeSemanticStarNodeOwner(index, working),
+    );
+  }
+
+  for (let index = 0; index < 3; index += 1) {
+    add(
+      {
+        id: `guide_orbit_${String(index + 1).padStart(2, '0')}`,
+        parentId: 'guide_orbits',
+        category: 'guide-orbit',
+        subpart: 'individual-guide-ellipse',
+        dynamic: false,
+        z: 70,
+        primitiveIndex: index,
+      },
+      rasterizeSemanticGuideOrbitOwner(index, working),
+    );
+  }
+
+  patches.forEach((patch, index) => {
+    add(
+      {
+        id: `planet_orbit_${patch.id}`,
+        parentId: patch.id,
+        category: 'planet-orbit',
+        subpart: 'measured-orbit',
+        dynamic: false,
+        z: 80,
+        primitiveIndex: index,
+      },
+      rasterizeSemanticMeasuredOrbitOwner(patch, working),
+    );
+  });
+
+  assertSemanticContextOwnerMasks(layers, patches.length);
+  return layers;
+}
+
+function assertSemanticContextOwnerMasks(
+  layers: readonly KevinOwnerMask[],
+  planetCount: number,
+): void {
+  const expectedByCategory: Readonly<Record<KevinPixelOwnerCategory, number>> = {
+    'map-base': 0,
+    'authored-detail': 0,
+    sun: 0,
+    haze: 12,
+    dust: 150,
+    'star-grid': 38,
+    navigation: 3,
+    'star-node': 5,
+    'guide-orbit': 3,
+    'planet-orbit': planetCount,
+    planet: 0,
+    transition: 0,
+  };
+  const ids = new Set<string>();
+  const counts = new Map<KevinPixelOwnerCategory, number>();
+
+  for (const layer of layers) {
+    if (!ids.add(layer.definition.id)) {
+      throw new Error(`Kevin semantic owner id is duplicated: ${layer.definition.id}`);
+    }
+    if (maskPixelCount(layer.mask) === 0) {
+      throw new Error(`Kevin semantic owner has no pixels: ${layer.definition.id}`);
+    }
+    counts.set(
+      layer.definition.category,
+      (counts.get(layer.definition.category) ?? 0) + 1,
+    );
+  }
+
+  for (const [category, expected] of Object.entries(expectedByCategory)) {
+    if (!expected) continue;
+    const actual = counts.get(category as KevinPixelOwnerCategory) ?? 0;
+    if (actual !== expected) {
+      throw new Error(
+        `Kevin semantic owner count mismatch for ${category}: expected ${expected}, got ${actual}`,
+      );
+    }
+  }
+}
+
 function buildOwnershipSnapshotFromMasks(
   timeSec: number,
   working: boolean,
@@ -1200,7 +1368,7 @@ function buildOwnershipSnapshotFromMasks(
   };
 }
 
-function rasterizeLegacyHazeOwner(
+function rasterizeSemanticHazeOwner(
   cloud: number,
   timeSec: number,
   working: boolean,
@@ -1213,10 +1381,10 @@ function rasterizeLegacyHazeOwner(
       53 -
       u * 36 +
       Math.sin(u * 6 + timeSec * 0.025) * 3;
-    const point = mapLegacyPoint(legacyX, legacyY);
-    const rx = legacyRadiusX(11) * 1.7;
+    const point = mapSemanticPoint(legacyX, legacyY);
+    const rx = semanticRadiusX(11) * 1.7;
     const ry =
-      legacyRadiusY(11) *
+      semanticRadiusY(11) *
       (0.6 + (cloud % 3) * 0.12);
 
     ctx.save();
@@ -1232,22 +1400,22 @@ function rasterizeLegacyHazeOwner(
   });
 }
 
-function rasterizeLegacyDustOwner(
+function rasterizeSemanticDustOwner(
   index: number,
   timeSec: number,
   working: boolean,
 ): Uint8Array {
-  const mote = LEGACY_HOLOGRAM_DUST[index]!;
+  const mote = SEMANTIC_DUST_MOTES[index]!;
   return rasterizeOwner((ctx) => {
     const drift = Math.sin(timeSec * 0.18 + mote.depth * 0.13);
-    const point = mapLegacyPoint(
+    const point = mapSemanticPoint(
       mote.x + drift * mote.depth * 0.65,
       mote.y +
         Math.cos(timeSec * 0.13 + mote.depth * 0.2) *
           mote.depth *
           0.3,
     );
-    const mappedRadius = Math.max(0.28, legacyRadiusX(mote.radius));
+    const mappedRadius = Math.max(0.28, semanticRadiusX(mote.radius));
     ctx.globalAlpha =
       mote.alpha *
       (working ? 0.72 : 0.52) *
@@ -1259,14 +1427,14 @@ function rasterizeLegacyDustOwner(
   });
 }
 
-function rasterizeLegacyStarGridOwner(
+function rasterizeSemanticStarGridOwner(
   index: number,
   working: boolean,
 ): Uint8Array {
   return rasterizeOwner((ctx) => {
     const x = 7 + ((index * 37.73) % 91);
     const y = 7 + ((index * 19.31) % 57);
-    const point = mapLegacyPoint(x, y);
+    const point = mapSemanticPoint(x, y);
     const radius = index % 7 === 0 ? 0.72 : 0.42;
     ctx.globalAlpha =
       (working ? 0.34 : 0.24) *
@@ -1278,21 +1446,21 @@ function rasterizeLegacyStarGridOwner(
   });
 }
 
-function rasterizeNavigationBranchOwner(
+function rasterizeSemanticNavigationBranchOwner(
   branch: number,
   working: boolean,
 ): Uint8Array {
   return rasterizeOwner((ctx) => {
-    const p32_15 = mapLegacyPoint(32, 15);
-    const p54_38 = mapLegacyPoint(54, 38);
-    const p86_20 = mapLegacyPoint(86, 20);
-    const p87_51 = mapLegacyPoint(87, 51);
-    const c1 = mapLegacyPoint(35, 28);
-    const c2 = mapLegacyPoint(43, 35);
-    const c3 = mapLegacyPoint(66, 32);
-    const c4 = mapLegacyPoint(76, 23);
-    const c5 = mapLegacyPoint(68, 44);
-    const c6 = mapLegacyPoint(79, 46);
+    const p32_15 = mapSemanticPoint(32, 15);
+    const p54_38 = mapSemanticPoint(54, 38);
+    const p86_20 = mapSemanticPoint(86, 20);
+    const p87_51 = mapSemanticPoint(87, 51);
+    const c1 = mapSemanticPoint(35, 28);
+    const c2 = mapSemanticPoint(43, 35);
+    const c3 = mapSemanticPoint(66, 32);
+    const c4 = mapSemanticPoint(76, 23);
+    const c5 = mapSemanticPoint(68, 44);
+    const c6 = mapSemanticPoint(79, 46);
 
     ctx.globalAlpha = working ? 0.24 : 0.16;
     ctx.strokeStyle = '#70c4d8';
@@ -1313,7 +1481,7 @@ function rasterizeNavigationBranchOwner(
   });
 }
 
-const LEGACY_STAR_NODE_SPECS = [
+const SEMANTIC_STAR_NODE_SPECS = [
   [32, 15, 0.42, '#ffae83'],
   [86, 20, 0.68, '#c1f3ff'],
   [87, 51, 0.50, '#bceeff'],
@@ -1321,11 +1489,11 @@ const LEGACY_STAR_NODE_SPECS = [
   [18, 45, 0.30, '#bceeff'],
 ] as const;
 
-function rasterizeLegacyStarNodeOwner(
+function rasterizeSemanticStarNodeOwner(
   index: number,
   working: boolean,
 ): Uint8Array {
-  const [x, y, radius, color] = LEGACY_STAR_NODE_SPECS[index]!;
+  const [x, y, radius, color] = SEMANTIC_STAR_NODE_SPECS[index]!;
   const opacity = [
     working ? 0.66 : 0.50,
     working ? 0.82 : 0.64,
@@ -1334,11 +1502,11 @@ function rasterizeLegacyStarNodeOwner(
     working ? 0.58 : 0.42,
   ][index]!;
   return rasterizeOwner((ctx) => {
-    drawLegacyMapStar(ctx, x, y, radius, color, opacity);
+    drawSemanticMapStar(ctx, x, y, radius, color, opacity);
   });
 }
 
-function rasterizeGuideOrbitOwner(
+function rasterizeSemanticGuideOrbitOwner(
   index: number,
   working: boolean,
 ): Uint8Array {
@@ -1362,7 +1530,7 @@ function rasterizeGuideOrbitOwner(
   });
 }
 
-function rasterizeMeasuredOrbitOwner(
+function rasterizeSemanticMeasuredOrbitOwner(
   patch: PlanetPatch,
   working: boolean,
 ): Uint8Array {
@@ -1945,7 +2113,7 @@ export async function loadKevinPixelMotion(
       id: 'dust_motes',
       kind: 'procedural-dynamic',
       z: 30,
-      primitiveCount: LEGACY_HOLOGRAM_DUST.length,
+      primitiveCount: SEMANTIC_DUST_MOTES.length,
     },
     {
       id: 'star_grid',
@@ -2017,110 +2185,7 @@ export async function loadKevinPixelMotion(
         mask: owner.mask,
       }));
 
-      for (let cloud = 0; cloud < 12; cloud += 1) {
-        layers.push({
-          definition: {
-            id: `haze_${String(cloud + 1).padStart(3, '0')}`,
-            parentId: 'haze_wisps',
-            category: 'haze',
-            subpart: 'individual-haze-cloud',
-            dynamic: true,
-            z: 20,
-            primitiveIndex: cloud,
-          },
-          mask: rasterizeLegacyHazeOwner(cloud, timeSec, working),
-        });
-      }
-
-      for (let index = 0; index < LEGACY_HOLOGRAM_DUST.length; index += 1) {
-        layers.push({
-          definition: {
-            id: `dust_${String(index + 1).padStart(3, '0')}`,
-            parentId: 'dust_motes',
-            category: 'dust',
-            subpart: 'individual-dust-mote',
-            dynamic: true,
-            z: 30,
-            primitiveIndex: index,
-          },
-          mask: rasterizeLegacyDustOwner(index, timeSec, working),
-        });
-      }
-
-      for (let index = 0; index < 38; index += 1) {
-        layers.push({
-          definition: {
-            id: `star_grid_${String(index + 1).padStart(3, '0')}`,
-            parentId: 'star_grid',
-            category: 'star-grid',
-            subpart: 'individual-grid-star',
-            dynamic: false,
-            z: 40,
-            primitiveIndex: index,
-          },
-          mask: rasterizeLegacyStarGridOwner(index, working),
-        });
-      }
-
-      for (let branch = 0; branch < 3; branch += 1) {
-        layers.push({
-          definition: {
-            id: `navigation_branch_${String(branch + 1).padStart(2, '0')}`,
-            parentId: 'navigation_branches',
-            category: 'navigation',
-            subpart: 'individual-navigation-branch',
-            dynamic: false,
-            z: 50,
-            primitiveIndex: branch,
-          },
-          mask: rasterizeNavigationBranchOwner(branch, working),
-        });
-      }
-
-      for (let index = 0; index < LEGACY_STAR_NODE_SPECS.length; index += 1) {
-        layers.push({
-          definition: {
-            id: `star_node_${String(index + 1).padStart(2, '0')}`,
-            parentId: 'star_nodes',
-            category: 'star-node',
-            subpart: 'individual-glowing-node',
-            dynamic: false,
-            z: 60,
-            primitiveIndex: index,
-          },
-          mask: rasterizeLegacyStarNodeOwner(index, working),
-        });
-      }
-
-      for (let index = 0; index < 3; index += 1) {
-        layers.push({
-          definition: {
-            id: `guide_orbit_${String(index + 1).padStart(2, '0')}`,
-            parentId: 'guide_orbits',
-            category: 'guide-orbit',
-            subpart: 'individual-guide-ellipse',
-            dynamic: false,
-            z: 70,
-            primitiveIndex: index,
-          },
-          mask: rasterizeGuideOrbitOwner(index, working),
-        });
-      }
-
-      patches.forEach((patch, index) => {
-        layers.push({
-          definition: {
-            id: `planet_orbit_${patch.id}`,
-            parentId: patch.id,
-            category: 'planet-orbit',
-            subpart: 'measured-orbit',
-            dynamic: false,
-            z: 80,
-            primitiveIndex: index,
-          },
-          mask: rasterizeMeasuredOrbitOwner(patch, working),
-        });
-      });
+      layers.push(...buildSemanticContextOwnerMasks(timeSec, working, patches));
 
       const states = patches
         .map((patch) => {
@@ -2188,7 +2253,7 @@ export async function loadKevinPixelMotion(
       // Context is ported from the original Kevin star-map renderer and mapped
       // into the exact physical V10 glass. The solar system keeps its authored
       // Sun focus inside that glass; these are intentionally separate centers.
-      drawLegacyMapContext(frameCtx, timeSec, working);
+      drawSemanticMapContext(frameCtx, timeSec, working);
       drawMeasuredOrbitTracks(frameCtx, patches, working);
 
       const states = patches
