@@ -1,6 +1,7 @@
 import {
   KEVIN_AUTHORED_OBJECTS,
   KEVIN_DISC,
+  KEVIN_STAR_MAP_POLYGON,
   decodeKevinAuthoredMask,
   type KevinAuthoredObjectDefinition,
   type KevinAuthoredObjectId,
@@ -100,6 +101,39 @@ const SUN_Y = 54.2;
 const ORBIT_Y_SCALE = KEVIN_DISC.ry / KEVIN_DISC.rx;
 const KEPLER_REFERENCE_RADIUS = 60;
 const KEPLER_REFERENCE_PERIOD_SEC = 18;
+
+// The atlas polygon is the measured edge of the actual glass map. The old
+// ellipse is only a conservative bounding approximation and clips valid source
+// area along the upper edge.
+function traceKevinStarMap(ctx: CanvasRenderingContext2D): void {
+  const [first, ...rest] = KEVIN_STAR_MAP_POLYGON;
+  ctx.beginPath();
+  ctx.moveTo(first[0], first[1]);
+  for (const [x, y] of rest) ctx.lineTo(x, y);
+  ctx.closePath();
+}
+
+function clipToKevinStarMap(ctx: CanvasRenderingContext2D): void {
+  traceKevinStarMap(ctx);
+  ctx.clip();
+}
+
+function insideMap(x: number, y: number): boolean {
+  let inside = false;
+  for (
+    let index = 0, previous = KEVIN_STAR_MAP_POLYGON.length - 1;
+    index < KEVIN_STAR_MAP_POLYGON.length;
+    previous = index, index += 1
+  ) {
+    const [xi, yi] = KEVIN_STAR_MAP_POLYGON[index]!;
+    const [xj, yj] = KEVIN_STAR_MAP_POLYGON[previous]!;
+    const crosses = (yi > y) !== (yj > y);
+    if (crosses && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
 
 type MovingPlanetId = Exclude<KevinAuthoredObjectId, 'sun' | 'marker_star'>;
 type PlanetStyle = 'rocky' | 'gas_banded' | 'ringed_gas' | 'icy' | 'moon';
@@ -520,17 +554,7 @@ function drawSemanticMapContext(
   working: boolean,
 ): void {
   ctx.save();
-  ctx.beginPath();
-  ctx.ellipse(
-    KEVIN_DISC.cx,
-    KEVIN_DISC.cy,
-    KEVIN_DISC.rx,
-    KEVIN_DISC.ry,
-    0,
-    0,
-    Math.PI * 2,
-  );
-  ctx.clip();
+  clipToKevinStarMap(ctx);
 
   // Keep the exact historical drawing order so this refactor is visual-no-op.
   drawSemanticHazeLayer(ctx, timeSec, working);
@@ -543,21 +567,14 @@ function drawSemanticMapContext(
   ctx.restore();
 }
 
-function copyMapEllipse(
+function copyMapSurface(
   source: Uint8ClampedArray,
   target: Uint8ClampedArray,
 ): void {
   target.fill(0);
-  const minX = Math.max(0, Math.floor(KEVIN_DISC.cx - KEVIN_DISC.rx - 1));
-  const maxX = Math.min(WIDTH - 1, Math.ceil(KEVIN_DISC.cx + KEVIN_DISC.rx + 1));
-  const minY = Math.max(0, Math.floor(KEVIN_DISC.cy - KEVIN_DISC.ry - 1));
-  const maxY = Math.min(HEIGHT - 1, Math.ceil(KEVIN_DISC.cy + KEVIN_DISC.ry + 1));
-
-  for (let y = minY; y <= maxY; y += 1) {
-    for (let x = minX; x <= maxX; x += 1) {
-      const dx = (x - KEVIN_DISC.cx) / KEVIN_DISC.rx;
-      const dy = (y - KEVIN_DISC.cy) / KEVIN_DISC.ry;
-      if (dx * dx + dy * dy > 1) continue;
+  for (let y = 0; y < HEIGHT; y += 1) {
+    for (let x = 0; x < WIDTH; x += 1) {
+      if (!insideMap(x, y)) continue;
       const offset = (y * WIDTH + x) * 4;
       target[offset] = source[offset]!;
       target[offset + 1] = source[offset + 1]!;
@@ -565,12 +582,6 @@ function copyMapEllipse(
       target[offset + 3] = source[offset + 3]!;
     }
   }
-}
-
-function insideMap(x: number, y: number): boolean {
-  const dx = (x - KEVIN_DISC.cx) / KEVIN_DISC.rx;
-  const dy = (y - KEVIN_DISC.cy) / KEVIN_DISC.ry;
-  return dx * dx + dy * dy <= 1;
 }
 
 function addDilatedMask(
@@ -896,17 +907,7 @@ function rasterizeOwner(
 
   ctx.save();
   if (clipToMap) {
-    ctx.beginPath();
-    ctx.ellipse(
-      KEVIN_DISC.cx,
-      KEVIN_DISC.cy,
-      KEVIN_DISC.rx,
-      KEVIN_DISC.ry,
-      0,
-      0,
-      Math.PI * 2,
-    );
-    ctx.clip();
+    clipToKevinStarMap(ctx);
   }
   draw(ctx);
   ctx.restore();
@@ -1625,17 +1626,7 @@ function buildPlanetOwnerMasks(
   if (!ctx) throw new Error('Kevin planet owner raster requires 2D canvas');
 
   ctx.save();
-  ctx.beginPath();
-  ctx.ellipse(
-    KEVIN_DISC.cx,
-    KEVIN_DISC.cy,
-    KEVIN_DISC.rx,
-    KEVIN_DISC.ry,
-    0,
-    0,
-    Math.PI * 2,
-  );
-  ctx.clip();
+  clipToKevinStarMap(ctx);
   ctx.translate(x, y);
   ctx.scale(scale, scale);
   ctx.globalAlpha = opacity;
@@ -1957,17 +1948,7 @@ function drawMeasuredOrbitTracks(
   working: boolean,
 ): void {
   ctx.save();
-  ctx.beginPath();
-  ctx.ellipse(
-    KEVIN_DISC.cx,
-    KEVIN_DISC.cy,
-    KEVIN_DISC.rx,
-    KEVIN_DISC.ry,
-    0,
-    0,
-    Math.PI * 2,
-  );
-  ctx.clip();
+  clipToKevinStarMap(ctx);
 
   ctx.globalCompositeOperation = 'screen';
   ctx.strokeStyle = working
@@ -2037,7 +2018,7 @@ function buildSourceAndCleanBase(
   patches: PlanetPatch[];
 } {
   const sourceEllipseData = new ImageData(WIDTH, HEIGHT);
-  copyMapEllipse(source, sourceEllipseData.data);
+  copyMapSurface(source, sourceEllipseData.data);
 
   const cleanPixels = buildCleanBasePixels(source, sourceEllipseData.data);
   const cleanBaseData = new ImageData(
@@ -2090,9 +2071,7 @@ function countEllipseDiff(
 
   for (let y = 0; y < HEIGHT; y += 1) {
     for (let x = 0; x < WIDTH; x += 1) {
-      const dx = (x - KEVIN_DISC.cx) / KEVIN_DISC.rx;
-      const dy = (y - KEVIN_DISC.cy) / KEVIN_DISC.ry;
-      if (dx * dx + dy * dy > 1) continue;
+      if (!insideMap(x, y)) continue;
       const offset = (y * WIDTH + x) * 4;
       if (
         source[offset] !== rendered[offset] ||
@@ -2134,7 +2113,7 @@ export async function loadKevinPixelMotion(
   const restDiffPixels = countEllipseDiff(source, sourceEllipse);
   if (restDiffPixels !== 0) {
     throw new Error(
-      `Kevin source ellipse reconstruction failed: ${restDiffPixels} pixels differ`,
+      `Kevin source-map reconstruction failed: ${restDiffPixels} pixels differ`,
     );
   }
 
@@ -2328,17 +2307,7 @@ export async function loadKevinPixelMotion(
       // Planet sprites belong to the holographic glass as well. Clip them to
       // the authored disc so rings/glow can never float over the metal table.
       frameCtx.save();
-      frameCtx.beginPath();
-      frameCtx.ellipse(
-        KEVIN_DISC.cx,
-        KEVIN_DISC.cy,
-        KEVIN_DISC.rx,
-        KEVIN_DISC.ry,
-        0,
-        0,
-        Math.PI * 2,
-      );
-      frameCtx.clip();
+      clipToKevinStarMap(frameCtx);
 
       for (const state of states) {
         const { patch, x, y, depth } = state;
