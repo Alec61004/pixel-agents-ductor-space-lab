@@ -1092,9 +1092,7 @@ function buildAuthoredOwnerMasks(
   ];
 }
 
-function buildSourceFrameOwnerMasks(
-  source: Uint8ClampedArray,
-): KevinOwnerMask[] {
+function buildSourceFrameOwnerMasks(): KevinOwnerMask[] {
   const mapMask = createMapMask();
   const claimed = new Uint8Array(mapMask.length);
   const owners: KevinOwnerMask[] = [];
@@ -1925,7 +1923,7 @@ export async function loadKevinPixelMotion(
   }
 
   const authoredOwnerMasks = buildAuthoredOwnerMasks(source, cleanPixels);
-  const sourceFrameOwnerMasks = buildSourceFrameOwnerMasks(source);
+  const sourceFrameOwnerMasks = buildSourceFrameOwnerMasks();
 
   const sourcePixelCount = (id: KevinAuthoredObjectId): number =>
     KEVIN_AUTHORED_OBJECTS.find((definition) => definition.id === id)?.pixelCount ?? 0;
