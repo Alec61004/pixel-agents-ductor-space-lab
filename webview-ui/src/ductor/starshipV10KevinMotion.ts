@@ -577,21 +577,22 @@ function drawSemanticNavigationBranch(
   branch: number,
   working: boolean,
 ): void {
-  const nodes = [
+  const nodes: readonly (readonly (readonly [number, number])[])[] = [
     [[15, 17], [31, 24], [43, 16], [54, 28]],
     [[58, 15], [71, 24], [88, 18], [94, 34]],
     [[18, 51], [33, 44], [51, 55], [70, 46], [90, 52]],
-  ] as const;
+  ];
   const branchNodes = nodes[branch]!;
   ctx.globalAlpha = working ? 0.62 : 0.40;
   ctx.strokeStyle = branch === 2 ? '#c38eff' : '#78e4ff';
   ctx.lineWidth = 0.72;
   ctx.beginPath();
-  branchNodes.forEach((node, index) => {
+  for (let index = 0; index < branchNodes.length; index += 1) {
+    const node = branchNodes[index]!;
     const point = mapSemanticPoint(node[0], node[1]);
     if (index === 0) ctx.moveTo(point.x, point.y);
     else ctx.lineTo(point.x, point.y);
-  });
+  }
   ctx.stroke();
   for (const node of branchNodes) {
     const point = mapSemanticPoint(node[0], node[1]);
@@ -1536,13 +1537,13 @@ function rasterizeSemanticNavigationBranchOwner(branch: number, working: boolean
   return rasterizeOwner((ctx) => drawSemanticNavigationBranch(ctx, branch, working));
 }
 
-const SEMANTIC_STAR_NODE_SPECS = [
+const SEMANTIC_STAR_NODE_SPECS: readonly (readonly [number, number, number, string])[] = [
   [16, 18, 0.95, '#c89bff'],
   [87, 18, 1.12, '#b8efff'],
   [90, 51, 1.04, '#d39aff'],
   [22, 52, 0.92, '#9dc9ff'],
   [66, 14, 0.76, '#bceeff'],
-] as const;
+];
 
 function rasterizeSemanticStarNodeOwner(index: number, working: boolean): Uint8Array {
   return rasterizeOwner((ctx) => drawSemanticStarNode(ctx, index, working));
