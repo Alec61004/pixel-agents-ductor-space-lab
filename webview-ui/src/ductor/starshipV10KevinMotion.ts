@@ -1012,6 +1012,78 @@ function buildSunOwnerMasks(
   ];
 }
 
+function buildSourceMapBaseOwners(
+  source: Uint8ClampedArray,
+  claimed: Uint8Array,
+  prefix: 'source' | 'authored',
+): KevinOwnerMask[] {
+  const mapMask = createMapMask();
+  const buckets = {
+    glass: new Uint8Array(WIDTH * HEIGHT),
+    rim: new Uint8Array(WIDTH * HEIGHT),
+    orbit: new Uint8Array(WIDTH * HEIGHT),
+    warm: new Uint8Array(WIDTH * HEIGHT),
+    violet: new Uint8Array(WIDTH * HEIGHT),
+    emission: new Uint8Array(WIDTH * HEIGHT),
+  };
+
+  for (let pixel = 0; pixel < mapMask.length; pixel += 1) {
+    if (!mapMask[pixel] || claimed[pixel]) continue;
+    const x = pixel % WIDTH;
+    const y = Math.floor(pixel / WIDTH);
+    const offset = pixel * 4;
+    const r = source[offset]!;
+    const g = source[offset + 1]!;
+    const b = source[offset + 2]!;
+    const a = source[offset + 3]!;
+    const brightness = (r + g + b) / 3;
+    const radial = Math.hypot(
+      (x - KEVIN_DISC.cx) / KEVIN_DISC.rx,
+      (y - KEVIN_DISC.cy) / KEVIN_DISC.ry,
+    );
+    const cyan = b > r * 1.13 && g > r * 1.04 && b > 56;
+    const warm = r > b * 1.24 && g > b * 1.04 && r > 78;
+    const violet = b > g * 1.04 && r > g * 0.72 && b > 72;
+
+    if (a < 8 || brightness < 42) buckets.glass[pixel] = 1;
+    else if (radial >= 0.86 && brightness >= 56) buckets.rim[pixel] = 1;
+    else if (cyan && brightness >= 64) buckets.orbit[pixel] = 1;
+    else if (warm) buckets.warm[pixel] = 1;
+    else if (violet) buckets.violet[pixel] = 1;
+    else if (brightness >= 104) buckets.emission[pixel] = 1;
+    else buckets.glass[pixel] = 1;
+  }
+
+  const definitions: readonly [keyof typeof buckets, string, KevinPixelOwnerCategory, number][] = [
+    ['glass', 'glass-field', 'map-base', 0],
+    ['rim', 'rim-hud', 'authored-detail', 4],
+    ['orbit', 'source-filament', 'guide-orbit', 5],
+    ['warm', 'warm-marker', 'authored-detail', 6],
+    ['violet', 'violet-marker', 'authored-detail', 6],
+    ['emission', 'neutral-emission', 'authored-detail', 6],
+  ];
+
+  return definitions
+    .map(([key, subpart, category, z]): KevinOwnerMask | null => {
+      const mask = buckets[key];
+      const count = maskPixelCount(mask);
+      if (!count) return null;
+      return {
+        definition: {
+          id: prefix + '_map_' + key,
+          parentId: prefix === 'source' ? null : 'authored_map',
+          category,
+          subpart,
+          dynamic: false,
+          z,
+          sourcePixelCount: count,
+        },
+        mask,
+      };
+    })
+    .filter((owner): owner is KevinOwnerMask => owner !== null);
+}
+
 function buildAuthoredOwnerMasks(
   source: Uint8ClampedArray,
   cleanPixels: Uint8ClampedArray,
@@ -1024,6 +1096,14 @@ function buildAuthoredOwnerMasks(
   for (const owner of sunOwners) {
     for (let pixel = 0; pixel < owner.mask.length; pixel += 1) {
       if (owner.mask[pixel]) claimed[pixel] = 1;
+    }
+  }
+
+  for (const definition of KEVIN_AUTHORED_OBJECTS) {
+    if (!MOVING_PLANETS.has(definition.id)) continue;
+    const exact = decodeKevinAuthoredMask(definition);
+    for (let pixel = 0; pixel < exact.length; pixel += 1) {
+      if (exact[pixel]) claimed[pixel] = 1;
     }
   }
 
@@ -1069,30 +1149,14 @@ function buildAuthoredOwnerMasks(
     });
   });
 
-  const base = new Uint8Array(WIDTH * HEIGHT);
-  for (let pixel = 0; pixel < mapMask.length; pixel += 1) {
-    if (mapMask[pixel] && !claimed[pixel]) base[pixel] = 1;
-  }
-
   return [
-    {
-      definition: {
-        id: 'authored_map_base',
-        parentId: null,
-        category: 'map-base',
-        subpart: 'glass-and-unclassified-source-pixels',
-        dynamic: false,
-        z: 0,
-        sourcePixelCount: maskPixelCount(base),
-      },
-      mask: base,
-    },
+    ...buildSourceMapBaseOwners(cleanPixels, claimed, 'authored'),
     ...owners,
     ...sunOwners,
   ];
 }
 
-function buildSourceFrameOwnerMasks(): KevinOwnerMask[] {
+function buildSourceFrameOwnerMasks(source: Uint8ClampedArray): KevinOwnerMask[] {
   const mapMask = createMapMask();
   const claimed = new Uint8Array(mapMask.length);
   const owners: KevinOwnerMask[] = [];
@@ -1126,24 +1190,8 @@ function buildSourceFrameOwnerMasks(): KevinOwnerMask[] {
     });
   }
 
-  const base = new Uint8Array(mapMask.length);
-  for (let pixel = 0; pixel < mapMask.length; pixel += 1) {
-    if (mapMask[pixel] && !claimed[pixel]) base[pixel] = 1;
-  }
-
   return [
-    {
-      definition: {
-        id: 'source_map_base',
-        parentId: null,
-        category: 'map-base',
-        subpart: 'authored-source-background',
-        dynamic: false,
-        z: 0,
-        sourcePixelCount: maskPixelCount(base),
-      },
-      mask: base,
-    },
+    ...buildSourceMapBaseOwners(source, claimed, 'source'),
     ...owners,
   ];
 }
@@ -2091,7 +2139,7 @@ export async function loadKevinPixelMotion(
   }
 
   const authoredOwnerMasks = buildAuthoredOwnerMasks(source, cleanPixels);
-  const sourceFrameOwnerMasks = buildSourceFrameOwnerMasks();
+  const sourceFrameOwnerMasks = buildSourceFrameOwnerMasks(source);
 
   const sourcePixelCount = (id: KevinAuthoredObjectId): number =>
     KEVIN_AUTHORED_OBJECTS.find((definition) => definition.id === id)?.pixelCount ?? 0;
