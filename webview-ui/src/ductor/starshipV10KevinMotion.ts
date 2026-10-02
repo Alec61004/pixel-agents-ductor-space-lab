@@ -874,18 +874,6 @@ function maskPixelCount(mask: Uint8Array): number {
   return count;
 }
 
-function maskToAlphaCanvas(mask: Uint8Array): HTMLCanvasElement {
-  const canvas = createTransparentCanvas();
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Kevin owner mask requires a 2D canvas');
-  const image = ctx.createImageData(WIDTH, HEIGHT);
-  for (let pixel = 0; pixel < mask.length; pixel += 1) {
-    if (!mask[pixel]) continue;
-    image.data[pixel * 4 + 3] = 255;
-  }
-  ctx.putImageData(image, 0, 0);
-  return canvas;
-}
 
 function alphaMaskFromCanvas(canvas: HTMLCanvasElement): Uint8Array {
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
