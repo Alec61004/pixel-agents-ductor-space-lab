@@ -395,9 +395,9 @@ function drawSemanticHazeLayer(
     ctx.translate(point.x, point.y);
     ctx.scale(1, ry / Math.max(0.001, rx));
     const haze = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
-    haze.addColorStop(0, working ? '#56bdd632' : '#56bdd622');
-    haze.addColorStop(0.35, '#348da918');
-    haze.addColorStop(1, '#16435b00');
+    haze.addColorStop(0, working ? '#8b6bd22e' : '#8b6bd21f');
+    haze.addColorStop(0.35, '#43a7d91a');
+    haze.addColorStop(1, '#172e6100');
     ctx.fillStyle = haze;
     ctx.fillRect(-rx, -rx, rx * 2, rx * 2);
     ctx.restore();
@@ -427,7 +427,7 @@ function drawSemanticDustLayer(
       mote.alpha *
       (working ? 0.72 : 0.52) *
       (0.8 + Math.sin(timeSec * 0.8 + mote.x) * 0.2);
-    ctx.fillStyle = mote.depth > 0 ? '#beedf0' : '#5ba8c3';
+    ctx.fillStyle = mote.depth > 2.4 ? '#e7f9ff' : mote.depth < -2.4 ? '#5cb8df' : '#b9e1f2';
     ctx.beginPath();
     ctx.arc(point.x, point.y, mappedRadius, 0, Math.PI * 2);
     ctx.fill();
@@ -442,11 +442,13 @@ function drawSemanticStarGridLayer(
     const x = 7 + ((i * 37.73) % 91);
     const y = 7 + ((i * 19.31) % 57);
     const point = mapSemanticPoint(x, y);
-    const radius = i % 7 === 0 ? 0.72 : 0.42;
+    const accent = i % 9 === 4;
+    const anchor = i % 11 === 0;
+    const radius = anchor ? 0.82 : accent ? 0.56 : 0.40;
     ctx.globalAlpha =
-      (working ? 0.34 : 0.24) *
-      (0.68 + (i % 4) * 0.08);
-    ctx.fillStyle = '#bedee8';
+      (working ? 0.40 : 0.28) *
+      (anchor ? 1 : 0.72 + (i % 4) * 0.08);
+    ctx.fillStyle = accent ? '#c8a6ff' : anchor ? '#e9fbff' : '#aadff3';
     ctx.beginPath();
     ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
     ctx.fill();
@@ -468,9 +470,9 @@ function drawSemanticNavigationLayer(
   const c5 = mapSemanticPoint(68, 44);
   const c6 = mapSemanticPoint(79, 46);
 
-  ctx.globalAlpha = working ? 0.24 : 0.16;
-  ctx.strokeStyle = '#70c4d8';
-  ctx.lineWidth = 0.75;
+  ctx.globalAlpha = working ? 0.22 : 0.14;
+  ctx.strokeStyle = '#78d8ef';
+  ctx.lineWidth = 0.66;
   ctx.beginPath();
   ctx.moveTo(p32_15.x, p32_15.y);
   ctx.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, p54_38.x, p54_38.y);
@@ -484,9 +486,9 @@ function drawSemanticStarNodesLayer(
   ctx: CanvasRenderingContext2D,
   working: boolean,
 ): void {
-  drawSemanticMapStar(ctx, 32, 15, 0.42, '#ffae83', working ? 0.66 : 0.50);
+  drawSemanticMapStar(ctx, 32, 15, 0.42, '#cba1ff', working ? 0.66 : 0.50);
   drawSemanticMapStar(ctx, 86, 20, 0.68, '#c1f3ff', working ? 0.82 : 0.64);
-  drawSemanticMapStar(ctx, 87, 51, 0.50, '#bceeff', working ? 0.68 : 0.50);
+  drawSemanticMapStar(ctx, 87, 51, 0.50, '#9dc9ff', working ? 0.68 : 0.50);
   drawSemanticMapStar(ctx, 69, 27, 0.28, '#bceeff', working ? 0.74 : 0.56);
   drawSemanticMapStar(ctx, 18, 45, 0.30, '#bceeff', working ? 0.58 : 0.42);
 }
@@ -496,9 +498,9 @@ function drawSemanticGuideOrbitLayer(
   working: boolean,
 ): void {
   const guideRadii = [56, 91, 132] as const;
-  ctx.strokeStyle = '#70c4d8';
-  ctx.lineWidth = 0.62;
-  ctx.globalAlpha = working ? 0.16 : 0.10;
+  ctx.strokeStyle = '#73cee7';
+  ctx.lineWidth = 0.58;
+  ctx.globalAlpha = working ? 0.14 : 0.085;
   for (const radius of guideRadii) {
     ctx.beginPath();
     ctx.ellipse(
@@ -1391,9 +1393,9 @@ function rasterizeSemanticHazeOwner(
     ctx.translate(point.x, point.y);
     ctx.scale(1, ry / Math.max(0.001, rx));
     const haze = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
-    haze.addColorStop(0, working ? '#56bdd632' : '#56bdd622');
-    haze.addColorStop(0.35, '#348da918');
-    haze.addColorStop(1, '#16435b00');
+    haze.addColorStop(0, working ? '#8b6bd22e' : '#8b6bd21f');
+    haze.addColorStop(0.35, '#43a7d91a');
+    haze.addColorStop(1, '#172e6100');
     ctx.fillStyle = haze;
     ctx.fillRect(-rx, -rx, rx * 2, rx * 2);
     ctx.restore();
@@ -1420,7 +1422,7 @@ function rasterizeSemanticDustOwner(
       mote.alpha *
       (working ? 0.72 : 0.52) *
       (0.8 + Math.sin(timeSec * 0.8 + mote.x) * 0.2);
-    ctx.fillStyle = mote.depth > 0 ? '#beedf0' : '#5ba8c3';
+    ctx.fillStyle = mote.depth > 2.4 ? '#e7f9ff' : mote.depth < -2.4 ? '#5cb8df' : '#b9e1f2';
     ctx.beginPath();
     ctx.arc(point.x, point.y, mappedRadius, 0, Math.PI * 2);
     ctx.fill();
@@ -1435,11 +1437,13 @@ function rasterizeSemanticStarGridOwner(
     const x = 7 + ((index * 37.73) % 91);
     const y = 7 + ((index * 19.31) % 57);
     const point = mapSemanticPoint(x, y);
-    const radius = index % 7 === 0 ? 0.72 : 0.42;
+    const accent = index % 9 === 4;
+    const anchor = index % 11 === 0;
+    const radius = anchor ? 0.82 : accent ? 0.56 : 0.40;
     ctx.globalAlpha =
-      (working ? 0.34 : 0.24) *
-      (0.68 + (index % 4) * 0.08);
-    ctx.fillStyle = '#bedee8';
+      (working ? 0.40 : 0.28) *
+      (anchor ? 1 : 0.72 + (index % 4) * 0.08);
+    ctx.fillStyle = accent ? '#c8a6ff' : anchor ? '#e9fbff' : '#aadff3';
     ctx.beginPath();
     ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
     ctx.fill();
@@ -1482,9 +1486,9 @@ function rasterizeSemanticNavigationBranchOwner(
 }
 
 const SEMANTIC_STAR_NODE_SPECS = [
-  [32, 15, 0.42, '#ffae83'],
+  [32, 15, 0.42, '#cba1ff'],
   [86, 20, 0.68, '#c1f3ff'],
-  [87, 51, 0.50, '#bceeff'],
+  [87, 51, 0.50, '#9dc9ff'],
   [69, 27, 0.28, '#bceeff'],
   [18, 45, 0.30, '#bceeff'],
 ] as const;
@@ -1537,8 +1541,8 @@ function rasterizeSemanticMeasuredOrbitOwner(
   return rasterizeOwner((ctx) => {
     ctx.globalCompositeOperation = 'screen';
     ctx.strokeStyle = working
-      ? 'rgba(112, 218, 242, 0.18)'
-      : 'rgba(100, 194, 224, 0.12)';
+      ? 'rgba(128, 226, 246, 0.20)'
+      : 'rgba(104, 201, 230, 0.125)';
     ctx.lineWidth = working ? 0.72 : 0.58;
     ctx.beginPath();
     ctx.ellipse(
