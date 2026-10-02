@@ -305,15 +305,15 @@ const SEMANTIC_DUST_MOTES: readonly SemanticDustPoint[] = Array.from(
       return value - Math.floor(value);
     };
     const angle = index * 2.3999632297 + random(1) * 0.42;
-    const belt = 33 + random(2) * 73;
+    const belt = 38 + random(2) * 58;
     const localX = 54 + Math.cos(angle) * (belt / 120) * 49;
     const localY = 35.5 + Math.sin(angle) * (belt / 56) * 30.5;
     return {
       x: localX,
       y: localY,
       depth: random(3) * 12 - 6,
-      radius: 0.18 + random(4) * 0.38,
-      alpha: 0.22 + random(5) * 0.62,
+      radius: 0.44 + random(4) * 0.56,
+      alpha: 0.36 + random(5) * 0.58,
     };
   },
 );
@@ -429,7 +429,7 @@ function drawSemanticMapBaseLayer(
   ctx.ellipse(KEVIN_DISC.cx, KEVIN_DISC.cy, KEVIN_DISC.rx * 0.76, KEVIN_DISC.ry * 0.72, 0, 0, Math.PI * 2);
   ctx.stroke();
   const pulse = 0.62 + Math.sin(timeSec * 0.45) * 0.12;
-  ctx.globalAlpha = working ? pulse : pulse * 0.7;
+  ctx.globalAlpha = working ? Math.min(1, pulse * 1.18) : pulse * 0.9;
   for (let tick = 0; tick < 48; tick += 1) {
     const a = (tick / 48) * Math.PI * 2;
     const x0 = KEVIN_DISC.cx + Math.cos(a) * KEVIN_DISC.rx * 0.87;
@@ -437,8 +437,8 @@ function drawSemanticMapBaseLayer(
     const long = tick % 6 === 0;
     const x1 = KEVIN_DISC.cx + Math.cos(a) * KEVIN_DISC.rx * (long ? 0.82 : 0.84);
     const y1 = KEVIN_DISC.cy + Math.sin(a) * KEVIN_DISC.ry * (long ? 0.82 : 0.84);
-    ctx.strokeStyle = long ? '#9beeff' : '#4eaed5';
-    ctx.lineWidth = long ? 0.72 : 0.40;
+    ctx.strokeStyle = long ? '#b8f7ff' : '#63c5e8';
+    ctx.lineWidth = long ? 1.05 : 0.62;
     ctx.beginPath();
     ctx.moveTo(x0, y0);
     ctx.lineTo(x1, y1);
@@ -455,33 +455,33 @@ function drawSemanticSunLayer(
   const pulse = 1 + Math.sin(timeSec * 1.1) * (working ? 0.06 : 0.035);
   ctx.save();
   ctx.globalCompositeOperation = 'screen';
-  const outer = ctx.createRadialGradient(SUN_X, SUN_Y, 0, SUN_X, SUN_Y, 36 * pulse);
+  const outer = ctx.createRadialGradient(SUN_X, SUN_Y, 0, SUN_X, SUN_Y, 44 * pulse);
   outer.addColorStop(0, 'rgba(255,244,190,0.96)');
   outer.addColorStop(0.20, 'rgba(255,196,56,0.75)');
   outer.addColorStop(0.48, 'rgba(255,131,18,0.30)');
   outer.addColorStop(1, 'rgba(255,104,0,0)');
   ctx.fillStyle = outer;
   ctx.beginPath();
-  ctx.arc(SUN_X, SUN_Y, 36 * pulse, 0, Math.PI * 2);
+  ctx.arc(SUN_X, SUN_Y, 44 * pulse, 0, Math.PI * 2);
   ctx.fill();
 
-  const core = ctx.createRadialGradient(SUN_X - 3, SUN_Y - 3, 0, SUN_X, SUN_Y, 13 * pulse);
+  const core = ctx.createRadialGradient(SUN_X - 3, SUN_Y - 3, 0, SUN_X, SUN_Y, 17 * pulse);
   core.addColorStop(0, '#fffde6');
   core.addColorStop(0.38, '#fff09d');
   core.addColorStop(0.75, '#ffbd24');
   core.addColorStop(1, '#f47b0e');
   ctx.fillStyle = core;
   ctx.beginPath();
-  ctx.arc(SUN_X, SUN_Y, 13 * pulse, 0, Math.PI * 2);
+  ctx.arc(SUN_X, SUN_Y, 17 * pulse, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.globalAlpha = working ? 0.70 : 0.50;
+  ctx.globalAlpha = working ? 0.90 : 0.68;
   ctx.strokeStyle = '#ffe779';
   ctx.lineWidth = 0.70;
   for (let ray = 0; ray < 5; ray += 1) {
     const start = ray * 1.256 + timeSec * 0.12;
     ctx.beginPath();
-    ctx.arc(SUN_X, SUN_Y, 18 + ray * 1.45, start, start + 0.72);
+    ctx.arc(SUN_X, SUN_Y, 23 + ray * 1.95, start, start + 0.88);
     ctx.stroke();
   }
   ctx.restore();
@@ -520,8 +520,8 @@ function drawSemanticDustOwner(
   const mote = SEMANTIC_DUST_MOTES[index]!;
   const drift = Math.sin(timeSec * 0.20 + mote.depth * 0.20) * 0.72;
   const point = mapSemanticPoint(mote.x + drift, mote.y + drift * 0.36);
-  const mappedRadius = Math.max(0.36, semanticRadiusX(mote.radius));
-  ctx.globalAlpha = mote.alpha * (working ? 0.90 : 0.62);
+  const mappedRadius = Math.max(0.78, semanticRadiusX(mote.radius));
+  ctx.globalAlpha = mote.alpha * (working ? 0.96 : 0.76);
   ctx.fillStyle = mote.depth > 2.4 ? '#f8e5ba' : mote.depth < -2.4 ? '#5bcaff' : '#d9edff';
   ctx.beginPath();
   ctx.arc(point.x, point.y, mappedRadius, 0, Math.PI * 2);
