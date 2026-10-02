@@ -22,11 +22,69 @@ export interface KevinMotionLayerAudit {
   orbitPeriodSec?: number;
 }
 
+export type KevinPixelOwnerCategory =
+  | 'map-base'
+  | 'authored-detail'
+  | 'sun'
+  | 'haze'
+  | 'dust'
+  | 'star-grid'
+  | 'navigation'
+  | 'star-node'
+  | 'guide-orbit'
+  | 'planet-orbit'
+  | 'planet'
+  | 'transition';
+
+export interface KevinPixelOwnerDefinition {
+  id: string;
+  parentId: string | null;
+  category: KevinPixelOwnerCategory;
+  subpart: string;
+  dynamic: boolean;
+  z: number;
+  sourcePixelCount?: number;
+  primitiveIndex?: number;
+}
+
+export interface KevinPixelOwnershipSnapshot {
+  readonly width: 540;
+  readonly height: 230;
+  readonly timeSec: number;
+  readonly working: boolean;
+  readonly owners: readonly KevinPixelOwnerDefinition[];
+  readonly primaryOwner: Uint16Array;
+  readonly stackOffsets: Uint32Array;
+  readonly stackOwnerIndices: Uint16Array;
+  readonly mapMask: Uint8Array;
+}
+
+export function getKevinPixelOwnerStack(
+  snapshot: KevinPixelOwnershipSnapshot,
+  x: number,
+  y: number,
+): readonly KevinPixelOwnerDefinition[] {
+  if (x < 0 || y < 0 || x >= snapshot.width || y >= snapshot.height) return [];
+  const pixel = y * snapshot.width + x;
+  const start = snapshot.stackOffsets[pixel]!;
+  const end = snapshot.stackOffsets[pixel + 1]!;
+  const owners: KevinPixelOwnerDefinition[] = [];
+  for (let index = start; index < end; index += 1) {
+    const owner = snapshot.owners[snapshot.stackOwnerIndices[index]!];
+    if (owner) owners.push(owner);
+  }
+  return owners;
+}
+
 export interface KevinPixelMotion {
   readonly width: 540;
   readonly height: 230;
   readonly restDiffPixels: 0;
   readonly layerAudit: readonly KevinMotionLayerAudit[];
+  buildPixelOwnership(
+    timeSec: number,
+    working: boolean,
+  ): KevinPixelOwnershipSnapshot;
   render(timeSec: number, working: boolean): HTMLCanvasElement;
 }
 
@@ -791,6 +849,686 @@ function buildCleanBasePixels(
   return clean;
 }
 
+
+interface KevinOwnerMask {
+  definition: KevinPixelOwnerDefinition;
+  mask: Uint8Array;
+}
+
+
+const NO_OWNER = 0xffff;
+
+function createMapMask(): Uint8Array {
+  const mask = new Uint8Array(WIDTH * HEIGHT);
+  for (let y = 0; y < HEIGHT; y += 1) {
+    for (let x = 0; x < WIDTH; x += 1) {
+      if (insideMap(x, y)) mask[y * WIDTH + x] = 1;
+    }
+  }
+  return mask;
+}
+
+function maskPixelCount(mask: Uint8Array): number {
+  let count = 0;
+  for (const value of mask) count += value ? 1 : 0;
+  return count;
+}
+
+function maskToAlphaCanvas(mask: Uint8Array): HTMLCanvasElement {
+  const canvas = createTransparentCanvas();
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Kevin owner mask requires a 2D canvas');
+  const image = ctx.createImageData(WIDTH, HEIGHT);
+  for (let pixel = 0; pixel < mask.length; pixel += 1) {
+    if (!mask[pixel]) continue;
+    image.data[pixel * 4 + 3] = 255;
+  }
+  ctx.putImageData(image, 0, 0);
+  return canvas;
+}
+
+function alphaMaskFromCanvas(canvas: HTMLCanvasElement): Uint8Array {
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) throw new Error('Kevin owner raster requires a readable 2D canvas');
+  const rgba = ctx.getImageData(0, 0, WIDTH, HEIGHT).data;
+  const mask = new Uint8Array(WIDTH * HEIGHT);
+  for (let pixel = 0; pixel < mask.length; pixel += 1) {
+    if (rgba[pixel * 4 + 3]! > 0) mask[pixel] = 1;
+  }
+  return mask;
+}
+
+function rasterizeOwner(
+  draw: (ctx: CanvasRenderingContext2D) => void,
+  clipToMap = true,
+): Uint8Array {
+  const canvas = createTransparentCanvas();
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Kevin owner raster requires a 2D canvas');
+
+  ctx.save();
+  if (clipToMap) {
+    ctx.beginPath();
+    ctx.ellipse(
+      KEVIN_DISC.cx,
+      KEVIN_DISC.cy,
+      KEVIN_DISC.rx,
+      KEVIN_DISC.ry,
+      0,
+      0,
+      Math.PI * 2,
+    );
+    ctx.clip();
+  }
+  draw(ctx);
+  ctx.restore();
+
+  return alphaMaskFromCanvas(canvas);
+}
+
+function classifyAuthoredDetail(
+  rgba: Uint8ClampedArray,
+  component: PixelComponent,
+): string {
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  for (const pixel of component.pixels) {
+    const offset = pixel * 4;
+    r += rgba[offset]!;
+    g += rgba[offset + 1]!;
+    b += rgba[offset + 2]!;
+  }
+  const count = Math.max(1, component.pixels.length);
+  r /= count;
+  g /= count;
+  b /= count;
+
+  if (b > r * 1.13 && g > r * 1.06) return 'cyan-detail';
+  if (r > b * 1.22 && g > b * 1.05) return 'warm-detail';
+  if (b > g * 1.03 && r > g * 0.72) return 'violet-detail';
+  return 'neutral-detail';
+}
+
+function buildSunOwnerMasks(
+  source: Uint8ClampedArray,
+): KevinOwnerMask[] {
+  const definition = KEVIN_AUTHORED_OBJECTS.find((item) => item.id === 'sun');
+  if (!definition) throw new Error('Kevin authored sun mask is missing');
+
+  const sourceMask = decodeKevinAuthoredMask(definition);
+  const core = new Uint8Array(sourceMask.length);
+  const inner = new Uint8Array(sourceMask.length);
+  const outer = new Uint8Array(sourceMask.length);
+
+  const cx = definition.bounds.x + (definition.bounds.w - 1) / 2;
+  const cy = definition.bounds.y + (definition.bounds.h - 1) / 2;
+  const rx = Math.max(1, definition.bounds.w / 2);
+  const ry = Math.max(1, definition.bounds.h / 2);
+
+  for (let pixel = 0; pixel < sourceMask.length; pixel += 1) {
+    if (!sourceMask[pixel]) continue;
+    const x = pixel % WIDTH;
+    const y = Math.floor(pixel / WIDTH);
+    const dx = (x - cx) / rx;
+    const dy = (y - cy) / ry;
+    const radial = Math.hypot(dx, dy);
+    const offset = pixel * 4;
+    const luma =
+      source[offset]! * 0.2126 +
+      source[offset + 1]! * 0.7152 +
+      source[offset + 2]! * 0.0722;
+
+    if (radial <= 0.43 || luma >= 220) core[pixel] = 1;
+    else if (radial <= 0.76 || luma >= 155) inner[pixel] = 1;
+    else outer[pixel] = 1;
+  }
+
+  return [
+    {
+      definition: {
+        id: 'sun_outer_glow',
+        parentId: 'sun',
+        category: 'sun',
+        subpart: 'outer-glow',
+        dynamic: false,
+        z: 10,
+        sourcePixelCount: maskPixelCount(outer),
+      },
+      mask: outer,
+    },
+    {
+      definition: {
+        id: 'sun_inner_glow',
+        parentId: 'sun',
+        category: 'sun',
+        subpart: 'inner-glow',
+        dynamic: false,
+        z: 11,
+        sourcePixelCount: maskPixelCount(inner),
+      },
+      mask: inner,
+    },
+    {
+      definition: {
+        id: 'sun_core',
+        parentId: 'sun',
+        category: 'sun',
+        subpart: 'core',
+        dynamic: false,
+        z: 12,
+        sourcePixelCount: maskPixelCount(core),
+      },
+      mask: core,
+    },
+  ];
+}
+
+function buildAuthoredOwnerMasks(
+  source: Uint8ClampedArray,
+  cleanPixels: Uint8ClampedArray,
+): KevinOwnerMask[] {
+  const mapMask = createMapMask();
+  const claimed = new Uint8Array(mapMask.length);
+  const owners: KevinOwnerMask[] = [];
+
+  const sunOwners = buildSunOwnerMasks(source);
+  for (const owner of sunOwners) {
+    for (let pixel = 0; pixel < owner.mask.length; pixel += 1) {
+      if (owner.mask[pixel]) claimed[pixel] = 1;
+    }
+  }
+
+  const protectedMask = claimed.slice();
+  const candidates = new Uint8Array(WIDTH * HEIGHT);
+  for (let pixel = 0; pixel < candidates.length; pixel += 1) {
+    if (isDecorativeSourcePixel(cleanPixels, pixel, protectedMask)) {
+      candidates[pixel] = 1;
+    }
+  }
+
+  const components = collectComponents(candidates)
+    .filter((component) => component.pixels.length >= 2)
+    .sort((a, b) => {
+      if (a.minY !== b.minY) return a.minY - b.minY;
+      if (a.minX !== b.minX) return a.minX - b.minX;
+      return a.pixels.length - b.pixels.length;
+    });
+
+  components.forEach((component, index) => {
+    const mask = new Uint8Array(WIDTH * HEIGHT);
+    for (const pixel of component.pixels) {
+      if (!mapMask[pixel] || claimed[pixel]) continue;
+      mask[pixel] = 1;
+      claimed[pixel] = 1;
+    }
+    const count = maskPixelCount(mask);
+    if (!count) return;
+
+    const semantic = classifyAuthoredDetail(cleanPixels, component);
+    owners.push({
+      definition: {
+        id: `authored_detail_${String(index + 1).padStart(3, '0')}`,
+        parentId: 'authored_map',
+        category: 'authored-detail',
+        subpart: semantic,
+        dynamic: false,
+        z: 5,
+        sourcePixelCount: count,
+        primitiveIndex: index,
+      },
+      mask,
+    });
+  });
+
+  const base = new Uint8Array(WIDTH * HEIGHT);
+  for (let pixel = 0; pixel < mapMask.length; pixel += 1) {
+    if (mapMask[pixel] && !claimed[pixel]) base[pixel] = 1;
+  }
+
+  return [
+    {
+      definition: {
+        id: 'authored_map_base',
+        parentId: null,
+        category: 'map-base',
+        subpart: 'glass-and-unclassified-source-pixels',
+        dynamic: false,
+        z: 0,
+        sourcePixelCount: maskPixelCount(base),
+      },
+      mask: base,
+    },
+    ...owners,
+    ...sunOwners,
+  ];
+}
+
+function buildSourceFrameOwnerMasks(
+  source: Uint8ClampedArray,
+): KevinOwnerMask[] {
+  const mapMask = createMapMask();
+  const claimed = new Uint8Array(mapMask.length);
+  const owners: KevinOwnerMask[] = [];
+
+  for (const definition of KEVIN_AUTHORED_OBJECTS) {
+    const exact = decodeKevinAuthoredMask(definition);
+    for (let pixel = 0; pixel < exact.length; pixel += 1) {
+      if (exact[pixel]) claimed[pixel] = 1;
+    }
+    owners.push({
+      definition: {
+        id: `source_${definition.id}`,
+        parentId:
+          definition.id === 'sun'
+            ? 'sun'
+            : definition.id === 'marker_star'
+              ? 'authored_map'
+              : definition.id,
+        category:
+          definition.id === 'sun'
+            ? 'sun'
+            : definition.id === 'marker_star'
+              ? 'authored-detail'
+              : 'planet',
+        subpart: 'authored-source-pixels',
+        dynamic: false,
+        z: 10,
+        sourcePixelCount: definition.pixelCount,
+      },
+      mask: exact,
+    });
+  }
+
+  const base = new Uint8Array(mapMask.length);
+  for (let pixel = 0; pixel < mapMask.length; pixel += 1) {
+    if (mapMask[pixel] && !claimed[pixel]) base[pixel] = 1;
+  }
+
+  return [
+    {
+      definition: {
+        id: 'source_map_base',
+        parentId: null,
+        category: 'map-base',
+        subpart: 'authored-source-background',
+        dynamic: false,
+        z: 0,
+        sourcePixelCount: maskPixelCount(base),
+      },
+      mask: base,
+    },
+    ...owners,
+  ];
+}
+
+function buildOwnershipSnapshotFromMasks(
+  timeSec: number,
+  working: boolean,
+  layers: readonly KevinOwnerMask[],
+): KevinPixelOwnershipSnapshot {
+  const mapMask = createMapMask();
+  const pixelCount = WIDTH * HEIGHT;
+  const counts = new Uint16Array(pixelCount);
+  const primaryOwner = new Uint16Array(pixelCount);
+  primaryOwner.fill(NO_OWNER);
+
+  layers.forEach((layer, ownerIndex) => {
+    if (ownerIndex >= NO_OWNER) {
+      throw new Error('Kevin pixel-owner index exceeds Uint16 capacity');
+    }
+    for (let pixel = 0; pixel < pixelCount; pixel += 1) {
+      if (!layer.mask[pixel]) continue;
+      counts[pixel] += 1;
+      primaryOwner[pixel] = ownerIndex;
+    }
+  });
+
+  const stackOffsets = new Uint32Array(pixelCount + 1);
+  for (let pixel = 0; pixel < pixelCount; pixel += 1) {
+    stackOffsets[pixel + 1] = stackOffsets[pixel]! + counts[pixel]!;
+  }
+
+  const stackOwnerIndices = new Uint16Array(stackOffsets[pixelCount]!);
+  const cursors = stackOffsets.slice(0, pixelCount);
+
+  layers.forEach((layer, ownerIndex) => {
+    for (let pixel = 0; pixel < pixelCount; pixel += 1) {
+      if (!layer.mask[pixel]) continue;
+      const cursor = cursors[pixel]!;
+      stackOwnerIndices[cursor] = ownerIndex;
+      cursors[pixel] = cursor + 1;
+    }
+  });
+
+  return {
+    width: WIDTH,
+    height: HEIGHT,
+    timeSec,
+    working,
+    owners: layers.map((layer) => layer.definition),
+    primaryOwner,
+    stackOffsets,
+    stackOwnerIndices,
+    mapMask,
+  };
+}
+
+function rasterizeLegacyHazeOwner(
+  cloud: number,
+  timeSec: number,
+  working: boolean,
+): Uint8Array {
+  return rasterizeOwner((ctx) => {
+    ctx.globalCompositeOperation = 'lighter';
+    const u = cloud / 11;
+    const legacyX = 14 + u * 78;
+    const legacyY =
+      53 -
+      u * 36 +
+      Math.sin(u * 6 + timeSec * 0.025) * 3;
+    const point = mapLegacyPoint(legacyX, legacyY);
+    const rx = legacyRadiusX(11) * 1.7;
+    const ry =
+      legacyRadiusY(11) *
+      (0.6 + (cloud % 3) * 0.12);
+
+    ctx.save();
+    ctx.translate(point.x, point.y);
+    ctx.scale(1, ry / Math.max(0.001, rx));
+    const haze = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
+    haze.addColorStop(0, working ? '#56bdd632' : '#56bdd622');
+    haze.addColorStop(0.35, '#348da918');
+    haze.addColorStop(1, '#16435b00');
+    ctx.fillStyle = haze;
+    ctx.fillRect(-rx, -rx, rx * 2, rx * 2);
+    ctx.restore();
+  });
+}
+
+function rasterizeLegacyDustOwner(
+  index: number,
+  timeSec: number,
+  working: boolean,
+): Uint8Array {
+  const mote = LEGACY_HOLOGRAM_DUST[index]!;
+  return rasterizeOwner((ctx) => {
+    const drift = Math.sin(timeSec * 0.18 + mote.depth * 0.13);
+    const point = mapLegacyPoint(
+      mote.x + drift * mote.depth * 0.65,
+      mote.y +
+        Math.cos(timeSec * 0.13 + mote.depth * 0.2) *
+          mote.depth *
+          0.3,
+    );
+    const mappedRadius = Math.max(0.28, legacyRadiusX(mote.radius));
+    ctx.globalAlpha =
+      mote.alpha *
+      (working ? 0.72 : 0.52) *
+      (0.8 + Math.sin(timeSec * 0.8 + mote.x) * 0.2);
+    ctx.fillStyle = mote.depth > 0 ? '#beedf0' : '#5ba8c3';
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, mappedRadius, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+function rasterizeLegacyStarGridOwner(
+  index: number,
+  working: boolean,
+): Uint8Array {
+  return rasterizeOwner((ctx) => {
+    const x = 7 + ((index * 37.73) % 91);
+    const y = 7 + ((index * 19.31) % 57);
+    const point = mapLegacyPoint(x, y);
+    const radius = index % 7 === 0 ? 0.72 : 0.42;
+    ctx.globalAlpha =
+      (working ? 0.34 : 0.24) *
+      (0.68 + (index % 4) * 0.08);
+    ctx.fillStyle = '#bedee8';
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+function rasterizeNavigationBranchOwner(
+  branch: number,
+  working: boolean,
+): Uint8Array {
+  return rasterizeOwner((ctx) => {
+    const p32_15 = mapLegacyPoint(32, 15);
+    const p54_38 = mapLegacyPoint(54, 38);
+    const p86_20 = mapLegacyPoint(86, 20);
+    const p87_51 = mapLegacyPoint(87, 51);
+    const c1 = mapLegacyPoint(35, 28);
+    const c2 = mapLegacyPoint(43, 35);
+    const c3 = mapLegacyPoint(66, 32);
+    const c4 = mapLegacyPoint(76, 23);
+    const c5 = mapLegacyPoint(68, 44);
+    const c6 = mapLegacyPoint(79, 46);
+
+    ctx.globalAlpha = working ? 0.24 : 0.16;
+    ctx.strokeStyle = '#70c4d8';
+    ctx.lineWidth = 0.75;
+    ctx.beginPath();
+
+    if (branch === 0) {
+      ctx.moveTo(p32_15.x, p32_15.y);
+      ctx.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, p54_38.x, p54_38.y);
+    } else if (branch === 1) {
+      ctx.moveTo(p54_38.x, p54_38.y);
+      ctx.bezierCurveTo(c3.x, c3.y, c4.x, c4.y, p86_20.x, p86_20.y);
+    } else {
+      ctx.moveTo(p54_38.x, p54_38.y);
+      ctx.bezierCurveTo(c5.x, c5.y, c6.x, c6.y, p87_51.x, p87_51.y);
+    }
+    ctx.stroke();
+  });
+}
+
+const LEGACY_STAR_NODE_SPECS = [
+  [32, 15, 0.42, '#ffae83'],
+  [86, 20, 0.68, '#c1f3ff'],
+  [87, 51, 0.50, '#bceeff'],
+  [69, 27, 0.28, '#bceeff'],
+  [18, 45, 0.30, '#bceeff'],
+] as const;
+
+function rasterizeLegacyStarNodeOwner(
+  index: number,
+  working: boolean,
+): Uint8Array {
+  const [x, y, radius, color] = LEGACY_STAR_NODE_SPECS[index]!;
+  const opacity = [
+    working ? 0.66 : 0.50,
+    working ? 0.82 : 0.64,
+    working ? 0.68 : 0.50,
+    working ? 0.74 : 0.56,
+    working ? 0.58 : 0.42,
+  ][index]!;
+  return rasterizeOwner((ctx) => {
+    drawLegacyMapStar(ctx, x, y, radius, color, opacity);
+  });
+}
+
+function rasterizeGuideOrbitOwner(
+  index: number,
+  working: boolean,
+): Uint8Array {
+  const radii = [56, 91, 132] as const;
+  const radius = radii[index]!;
+  return rasterizeOwner((ctx) => {
+    ctx.strokeStyle = '#70c4d8';
+    ctx.lineWidth = 0.62;
+    ctx.globalAlpha = working ? 0.16 : 0.10;
+    ctx.beginPath();
+    ctx.ellipse(
+      SUN_X,
+      SUN_Y,
+      radius,
+      radius * ORBIT_Y_SCALE,
+      0,
+      0,
+      Math.PI * 2,
+    );
+    ctx.stroke();
+  });
+}
+
+function rasterizeMeasuredOrbitOwner(
+  patch: PlanetPatch,
+  working: boolean,
+): Uint8Array {
+  return rasterizeOwner((ctx) => {
+    ctx.globalCompositeOperation = 'screen';
+    ctx.strokeStyle = working
+      ? 'rgba(112, 218, 242, 0.18)'
+      : 'rgba(100, 194, 224, 0.12)';
+    ctx.lineWidth = working ? 0.72 : 0.58;
+    ctx.beginPath();
+    ctx.ellipse(
+      SUN_X,
+      SUN_Y,
+      patch.orbitRadius,
+      patch.orbitRadius * ORBIT_Y_SCALE,
+      0,
+      0,
+      Math.PI * 2,
+    );
+    ctx.stroke();
+  });
+}
+
+function buildPlanetOwnerMasks(
+  patch: PlanetPatch,
+  x: number,
+  y: number,
+  depth: number,
+  intro: number,
+  timeSec: number,
+): KevinOwnerMask[] {
+  const config = patch.config;
+  const scale = 1 + config.scaleAmplitude * depth * intro;
+  const opacity = 0.95 + (depth + 1) * 0.025;
+  const hologramPulse =
+    Math.sin(timeSec * 0.65 + config.phase) * 0.005;
+  const brightness =
+    0.985 +
+    (depth + 1) * 0.016 +
+    hologramPulse;
+
+  const canvas = createTransparentCanvas();
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Kevin planet owner raster requires 2D canvas');
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.ellipse(
+    KEVIN_DISC.cx,
+    KEVIN_DISC.cy,
+    KEVIN_DISC.rx,
+    KEVIN_DISC.ry,
+    0,
+    0,
+    Math.PI * 2,
+  );
+  ctx.clip();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  ctx.globalAlpha = opacity;
+  ctx.filter = `brightness(${brightness.toFixed(3)})`;
+  ctx.drawImage(
+    patch.canvas,
+    -patch.localCenterX,
+    -patch.localCenterY,
+  );
+  ctx.restore();
+
+  const rgba = canvas
+    .getContext('2d', { willReadFrequently: true })!
+    .getImageData(0, 0, WIDTH, HEIGHT)
+    .data;
+
+  const masks = {
+    atmosphere: new Uint8Array(WIDTH * HEIGHT),
+    ring: new Uint8Array(WIDTH * HEIGHT),
+    highlight: new Uint8Array(WIDTH * HEIGHT),
+    surface: new Uint8Array(WIDTH * HEIGHT),
+    shadow: new Uint8Array(WIDTH * HEIGHT),
+  };
+
+  const radius = patch.visual.radius;
+  const cosTilt = Math.cos(-patch.visual.tilt);
+  const sinTilt = Math.sin(-patch.visual.tilt);
+
+  for (let pixel = 0; pixel < WIDTH * HEIGHT; pixel += 1) {
+    const alpha = rgba[pixel * 4 + 3]!;
+    if (!alpha) continue;
+
+    const px = pixel % WIDTH;
+    const py = Math.floor(pixel / WIDTH);
+    const localX = (px + 0.5 - x) / scale;
+    const localY = (py + 0.5 - y) / scale;
+    const radial = Math.hypot(localX, localY);
+
+    if (radial > radius) {
+      if (patch.visual.style === 'ringed_gas') {
+        const rx = localX * cosTilt - localY * sinTilt;
+        const ry = localX * sinTilt + localY * cosTilt;
+        const ringMetric = Math.sqrt(
+          (rx * rx) / ((radius * 2.02) ** 2) +
+          (ry * ry) / ((radius * 0.60) ** 2),
+        );
+        if (Math.abs(ringMetric - 1) <= 0.18) masks.ring[pixel] = 1;
+        else masks.atmosphere[pixel] = 1;
+      } else {
+        masks.atmosphere[pixel] = 1;
+      }
+      continue;
+    }
+
+    const offset = pixel * 4;
+    const luma =
+      rgba[offset]! * 0.2126 +
+      rgba[offset + 1]! * 0.7152 +
+      rgba[offset + 2]! * 0.0722;
+
+    if (luma >= 180) masks.highlight[pixel] = 1;
+    else if (luma <= 78) masks.shadow[pixel] = 1;
+    else masks.surface[pixel] = 1;
+  }
+
+  const prefix = patch.id;
+  const definitions: Array<[keyof typeof masks, string, number]> = [
+    ['atmosphere', 'atmosphere', 100],
+    ['ring', 'ring', 101],
+    ['shadow', 'body-shadow', 102],
+    ['surface', 'body-surface', 103],
+    ['highlight', 'body-highlight', 104],
+  ];
+
+  const output: KevinOwnerMask[] = [];
+  for (const [key, subpart, zOffset] of definitions) {
+    const mask = masks[key];
+    const count = maskPixelCount(mask);
+    if (!count) continue;
+    output.push({
+      definition: {
+        id: `${prefix}_${subpart.replaceAll('-', '_')}`,
+        parentId: prefix,
+        category: 'planet',
+        subpart,
+        dynamic: true,
+        z: zOffset,
+        sourcePixelCount: count,
+      },
+      mask,
+    });
+  }
+  return output;
+}
+
 function planetCentroid(mask: Uint8Array): { x: number; y: number } {
   let sumX = 0;
   let sumY = 0;
@@ -1093,6 +1831,7 @@ function buildSourceAndCleanBase(
 ): {
   sourceEllipse: HTMLCanvasElement;
   cleanBase: HTMLCanvasElement;
+  cleanPixels: Uint8ClampedArray;
   patches: PlanetPatch[];
 } {
   const sourceEllipseData = new ImageData(WIDTH, HEIGHT);
@@ -1130,7 +1869,12 @@ function buildSourceAndCleanBase(
   if (!cleanCtx) throw new Error('Kevin clean base requires 2D canvas');
   cleanCtx.putImageData(cleanBaseData, 0, 0);
 
-  return { sourceEllipse, cleanBase, patches };
+  return {
+    sourceEllipse,
+    cleanBase,
+    cleanPixels: new Uint8ClampedArray(cleanPixels),
+    patches,
+  };
 }
 
 function countEllipseDiff(
@@ -1182,7 +1926,7 @@ export async function loadKevinPixelMotion(
 
   const sourceData = sourceImageData(image);
   const source = sourceData.data;
-  const { sourceEllipse, cleanBase, patches } =
+  const { sourceEllipse, cleanBase, cleanPixels, patches } =
     buildSourceAndCleanBase(source);
 
   const restDiffPixels = countEllipseDiff(source, sourceEllipse);
@@ -1191,6 +1935,9 @@ export async function loadKevinPixelMotion(
       `Kevin source ellipse reconstruction failed: ${restDiffPixels} pixels differ`,
     );
   }
+
+  const authoredOwnerMasks = buildAuthoredOwnerMasks(source, cleanPixels);
+  const sourceFrameOwnerMasks = buildSourceFrameOwnerMasks(source);
 
   const sourcePixelCount = (id: KevinAuthoredObjectId): number =>
     KEVIN_AUTHORED_OBJECTS.find((definition) => definition.id === id)?.pixelCount ?? 0;
@@ -1266,6 +2013,179 @@ export async function loadKevinPixelMotion(
     height: HEIGHT,
     restDiffPixels: 0,
     layerAudit,
+    buildPixelOwnership(
+      timeSec: number,
+      working: boolean,
+    ): KevinPixelOwnershipSnapshot {
+      if (timeSec <= 0.0001) {
+        return buildOwnershipSnapshotFromMasks(
+          timeSec,
+          working,
+          sourceFrameOwnerMasks,
+        );
+      }
+
+      const intro = smoothstep(0, 0.65, timeSec);
+      const layers: KevinOwnerMask[] = authoredOwnerMasks.map((owner) => ({
+        definition: owner.definition,
+        mask: owner.mask,
+      }));
+
+      for (let cloud = 0; cloud < 12; cloud += 1) {
+        layers.push({
+          definition: {
+            id: `haze_${String(cloud + 1).padStart(3, '0')}`,
+            parentId: 'haze_wisps',
+            category: 'haze',
+            subpart: 'individual-haze-cloud',
+            dynamic: true,
+            z: 20,
+            primitiveIndex: cloud,
+          },
+          mask: rasterizeLegacyHazeOwner(cloud, timeSec, working),
+        });
+      }
+
+      for (let index = 0; index < LEGACY_HOLOGRAM_DUST.length; index += 1) {
+        layers.push({
+          definition: {
+            id: `dust_${String(index + 1).padStart(3, '0')}`,
+            parentId: 'dust_motes',
+            category: 'dust',
+            subpart: 'individual-dust-mote',
+            dynamic: true,
+            z: 30,
+            primitiveIndex: index,
+          },
+          mask: rasterizeLegacyDustOwner(index, timeSec, working),
+        });
+      }
+
+      for (let index = 0; index < 38; index += 1) {
+        layers.push({
+          definition: {
+            id: `star_grid_${String(index + 1).padStart(3, '0')}`,
+            parentId: 'star_grid',
+            category: 'star-grid',
+            subpart: 'individual-grid-star',
+            dynamic: false,
+            z: 40,
+            primitiveIndex: index,
+          },
+          mask: rasterizeLegacyStarGridOwner(index, working),
+        });
+      }
+
+      for (let branch = 0; branch < 3; branch += 1) {
+        layers.push({
+          definition: {
+            id: `navigation_branch_${String(branch + 1).padStart(2, '0')}`,
+            parentId: 'navigation_branches',
+            category: 'navigation',
+            subpart: 'individual-navigation-branch',
+            dynamic: false,
+            z: 50,
+            primitiveIndex: branch,
+          },
+          mask: rasterizeNavigationBranchOwner(branch, working),
+        });
+      }
+
+      for (let index = 0; index < LEGACY_STAR_NODE_SPECS.length; index += 1) {
+        layers.push({
+          definition: {
+            id: `star_node_${String(index + 1).padStart(2, '0')}`,
+            parentId: 'star_nodes',
+            category: 'star-node',
+            subpart: 'individual-glowing-node',
+            dynamic: false,
+            z: 60,
+            primitiveIndex: index,
+          },
+          mask: rasterizeLegacyStarNodeOwner(index, working),
+        });
+      }
+
+      for (let index = 0; index < 3; index += 1) {
+        layers.push({
+          definition: {
+            id: `guide_orbit_${String(index + 1).padStart(2, '0')}`,
+            parentId: 'guide_orbits',
+            category: 'guide-orbit',
+            subpart: 'individual-guide-ellipse',
+            dynamic: false,
+            z: 70,
+            primitiveIndex: index,
+          },
+          mask: rasterizeGuideOrbitOwner(index, working),
+        });
+      }
+
+      patches.forEach((patch, index) => {
+        layers.push({
+          definition: {
+            id: `planet_orbit_${patch.id}`,
+            parentId: patch.id,
+            category: 'planet-orbit',
+            subpart: 'measured-orbit',
+            dynamic: false,
+            z: 80,
+            primitiveIndex: index,
+          },
+          mask: rasterizeMeasuredOrbitOwner(patch, working),
+        });
+      });
+
+      const states = patches
+        .map((patch) => {
+          const omega = keplerAngularSpeed(
+            patch.orbitRadius,
+            patch.config.speed,
+          );
+          const theta = patch.orbitTheta + omega * timeSec;
+          const radius = patch.orbitRadius;
+          const x = SUN_X + Math.cos(theta) * radius;
+          const y =
+            SUN_Y + Math.sin(theta) * radius * ORBIT_Y_SCALE;
+          const depth = Math.sin(theta);
+          return { patch, x, y, depth };
+        })
+        .sort((a, b) => a.depth - b.depth);
+
+      for (const state of states) {
+        layers.push(
+          ...buildPlanetOwnerMasks(
+            state.patch,
+            state.x,
+            state.y,
+            state.depth,
+            intro,
+            timeSec,
+          ),
+        );
+      }
+
+      if (intro < 1) {
+        const sourceOverlayMask = alphaMaskFromCanvas(sourceEllipse);
+        layers.push({
+          definition: {
+            id: 'transition_source_overlay',
+            parentId: null,
+            category: 'transition',
+            subpart: 'authored-source-crossfade',
+            dynamic: true,
+            z: 1000,
+          },
+          mask: sourceOverlayMask,
+        });
+      }
+
+      return buildOwnershipSnapshotFromMasks(
+        timeSec,
+        working,
+        layers,
+      );
+    },
     render(timeSec: number, working: boolean): HTMLCanvasElement {
       if (timeSec <= 0.0001) return sourceEllipse;
 
