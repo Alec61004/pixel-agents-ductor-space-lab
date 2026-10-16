@@ -106,13 +106,13 @@ export const WORKSTATIONS: Record<DuctorRoleName, WorkstationConfig> = {
   Kevin: {
     agentName: 'Kevin',
     ...ORIGINAL_COMPUTER_BAYS.Kevin,
-    ...STAR_MAP_WORKSTATION,
-    // V10 lower-left star-map table: aligned with the actual star-map control console.
-    approachPoint: { x: 569, y: 656 },
-    interactionPoint: { x: 569, y: 638 },
+    approachPoint: { x: 530, y: 650 },
+    interactionPoint: { x: 530, y: 610 },
+    facing: 'back',
     displayBounds: { x: 282, y: 424, w: 449, h: 191 },
     displayAreas: [{ x: 360, y: 445, w: 330, h: 145 }],
     occlusionBounds: { x: 360, y: 535, w: 330, h: 80 },
+    label: 'Kevin — Build',
   },
   Benjamin: {
     agentName: 'Benjamin',
@@ -1202,27 +1202,26 @@ export const WORK_HAND_PHASE_OFFSETS = [
   { leftYOffset: 1, rightYOffset: 0, bob: -0.5 },
 ] as const;
 
-export const KEVIN_STARMAP_CYCLE = 6.0;
+const KEVIN_TOUCH_STARTS = [0.12, 0.6, 1.08] as const;
+const KEVIN_TOUCH_DURATION = 0.22;
+export const KEVIN_STARMAP_CYCLE = 8.4;
 
 export function getKevinStarMapCycle(timeSec: number) {
   const time = Math.max(0, timeSec);
   const cycle = Math.floor(time / KEVIN_STARMAP_CYCLE);
   const phase = time - cycle * KEVIN_STARMAP_CYCLE;
-  const frame = getKevinStarMapFrame(timeSec);
-  const contact = frame !== 0;
-  const response = Math.max(0, Math.min(1, (phase - 1.2) / 2.0));
+  const contact = KEVIN_TOUCH_STARTS.some(
+    (start) => phase >= start && phase < start + KEVIN_TOUCH_DURATION,
+  );
+  const response = Math.max(0, Math.min(1, (phase - 1.38) / 1.1));
   const settled = response * response * (3 - 2 * response);
   return { phase, contact, responseTime: (cycle + settled) * KEVIN_STARMAP_CYCLE };
 }
 
 export function getKevinStarMapFrame(timeSec: number): number {
-  const time = Math.max(0, timeSec);
-  const step = time % 6.0;
-  if (step < 1.2) return 1;
-  if (step < 2.0) return 0;
-  if (step < 3.4) return 2;
-  if (step < 4.8) return 3;
-  return 0;
+  const { phase, contact } = getKevinStarMapCycle(timeSec);
+  if (contact) return phase < 0.4 ? 1 : 2;
+  return phase > 3.8 ? 3 : 0;
 }
 
 /** @deprecated Compatibility name retained for existing host integrations. */
@@ -1551,6 +1550,15 @@ export function drawHologramTopGlow(
   ctx.shadowBlur = 0;
   ctx.translate(STAR_MAP_PANEL.x, STAR_MAP_PANEL.y);
   ctx.scale(STAR_MAP_PANEL.w / 106, STAR_MAP_PANEL.h / 71);
+  ctx.beginPath();
+  ctx.moveTo(14, 18);
+  ctx.lineTo(92, 18);
+  ctx.lineTo(84, 58);
+  ctx.lineTo(22, 58);
+  ctx.closePath();
+  ctx.clip();
+  ctx.fillStyle = '#0a202c';
+  ctx.fillRect(0, 0, 106, 71);
 
   // 1. Soft holographic projector aura on the circular dish
   const dishGlow = ctx.createRadialGradient(54, 38, 2, 54, 38, 52);
@@ -2145,8 +2153,8 @@ export function drawKevinStarMapControl(
     x: cx + hand.x * depth,
     y: a.y + hand.y * depth,
   }));
-  const tableDishX = 564;
-  const coreY = 476;
+  const tableDishX = a.y > 550 ? 610 : 564;
+  const coreY = a.y > 550 ? 580 : 476;
   const grip = contact ? 1 : 0;
   const breath = 0.5 + Math.sin(time * 2.0) * 0.5;
   ctx.save();
@@ -2478,7 +2486,7 @@ export function drawStage(
   if (!roomInDom) drawFloorMarkers(ctx, showStations);
   if (livingArtwork) drawHologramTopGlow(ctx, agents, timeSec);
   const mapOperator = agents.find((agent) => agent.name === 'Kevin');
-  if (livingArtwork && mapOperator) drawKevinStarMapControl(ctx, mapOperator);
+  if ((livingArtwork || roomInDom) && mapOperator) drawKevinStarMapControl(ctx, mapOperator);
 
   const sorted = [...agents].sort((a, b) => a.y - b.y);
   for (const a of sorted) {
@@ -2549,7 +2557,7 @@ export function drawStage(
   }
 
   // Foreground arcs wrap around Kevin's hands while preserving his intact sprite.
-  if (livingArtwork && mapOperator) drawKevinStarMapControl(ctx, mapOperator, true);
+  if ((livingArtwork || roomInDom) && mapOperator) drawKevinStarMapControl(ctx, mapOperator, true);
 
   // Crew members stand in front of the consoles in this top-down room. Do not
   // repaint the background over their lower bodies: that made walking sprites

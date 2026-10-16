@@ -1946,15 +1946,16 @@ function drawMeasuredOrbitTracks(
   ctx: CanvasRenderingContext2D,
   patches: readonly PlanetPatch[],
   working: boolean,
+  timeSec: number = 0,
 ): void {
   ctx.save();
   clipToKevinStarMap(ctx);
 
   ctx.globalCompositeOperation = 'screen';
   ctx.strokeStyle = working
-    ? 'rgba(112, 218, 242, 0.18)'
-    : 'rgba(100, 194, 224, 0.12)';
-  ctx.lineWidth = working ? 0.72 : 0.58;
+    ? 'rgba(77, 232, 247, 0.40)'
+    : 'rgba(77, 232, 247, 0.22)';
+  ctx.lineWidth = working ? 0.85 : 0.65;
 
   const uniqueRadii = [...patches]
     .map((patch) => patch.orbitRadius)
@@ -1972,6 +1973,20 @@ function drawMeasuredOrbitTracks(
       Math.PI * 2,
     );
     ctx.stroke();
+
+    // Traveling holographic photon beacon along each orbital track
+    const beaconSpeed = 0.8 / Math.sqrt(Math.max(1, radius / 40));
+    const beaconTheta = timeSec * beaconSpeed + (radius % 7);
+    const bx = SUN_X + Math.cos(beaconTheta) * radius;
+    const by = SUN_Y + Math.sin(beaconTheta) * radius * ORBIT_Y_SCALE;
+    const bGlow = ctx.createRadialGradient(bx, by, 0, bx, by, 3.5);
+    bGlow.addColorStop(0, '#ffffff');
+    bGlow.addColorStop(0.35, '#00f0ff');
+    bGlow.addColorStop(1, 'rgba(0, 240, 255, 0)');
+    ctx.fillStyle = bGlow;
+    ctx.beginPath();
+    ctx.arc(bx, by, 3.5, 0, Math.PI * 2);
+    ctx.fill();
   }
 
   ctx.restore();
@@ -2281,7 +2296,7 @@ export async function loadKevinPixelMotion(
       // into the exact physical V10 glass. The solar system keeps its authored
       // Sun focus inside that glass; these are intentionally separate centers.
       drawSemanticMapContext(frameCtx, timeSec, working);
-      drawMeasuredOrbitTracks(frameCtx, patches, working);
+      drawMeasuredOrbitTracks(frameCtx, patches, working, timeSec);
 
       const states = patches
         .map((patch) => {
@@ -2337,6 +2352,87 @@ export async function loadKevinPixelMotion(
         );
         frameCtx.restore();
       }
+
+      // Volumetric holographic overlay pass on the disc glass
+      frameCtx.globalCompositeOperation = 'screen';
+
+      // 1. Soft holographic dish aura
+      const dishGlow = frameCtx.createRadialGradient(
+        KEVIN_DISC.cx,
+        KEVIN_DISC.cy,
+        4,
+        KEVIN_DISC.cx,
+        KEVIN_DISC.cy,
+        KEVIN_DISC.rx * 0.95,
+      );
+      dishGlow.addColorStop(0, working ? 'rgba(0, 229, 255, 0.28)' : 'rgba(0, 190, 240, 0.15)');
+      dishGlow.addColorStop(0.4, working ? 'rgba(0, 140, 220, 0.14)' : 'rgba(0, 110, 190, 0.07)');
+      dishGlow.addColorStop(0.8, 'rgba(0, 70, 140, 0.03)');
+      dishGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      frameCtx.fillStyle = dishGlow;
+      frameCtx.beginPath();
+      frameCtx.ellipse(
+        KEVIN_DISC.cx,
+        KEVIN_DISC.cy,
+        KEVIN_DISC.rx * 0.95,
+        KEVIN_DISC.ry * 0.95,
+        0,
+        0,
+        Math.PI * 2,
+      );
+      frameCtx.fill();
+
+      // 2. Calibrated rotating outer bearing ring with azimuth ticks
+      const bearingSpin = timeSec * 0.07;
+      frameCtx.strokeStyle = 'rgba(77, 232, 247, 0.40)';
+      frameCtx.lineWidth = 0.6;
+      frameCtx.beginPath();
+      frameCtx.ellipse(KEVIN_DISC.cx, KEVIN_DISC.cy, 138, 138 * ORBIT_Y_SCALE, 0, 0, Math.PI * 2);
+      frameCtx.stroke();
+      for (let t = 0; t < 24; t++) {
+        const ang = bearingSpin + (t * Math.PI) / 12;
+        const r1 = t % 6 === 0 ? 133 : 135.5;
+        const r2 = 140;
+        frameCtx.beginPath();
+        frameCtx.moveTo(KEVIN_DISC.cx + Math.cos(ang) * r1, KEVIN_DISC.cy + Math.sin(ang) * r1 * ORBIT_Y_SCALE);
+        frameCtx.lineTo(KEVIN_DISC.cx + Math.cos(ang) * r2, KEVIN_DISC.cy + Math.sin(ang) * r2 * ORBIT_Y_SCALE);
+        frameCtx.strokeStyle = t % 6 === 0 ? 'rgba(0, 240, 255, 0.75)' : 'rgba(77, 232, 247, 0.35)';
+        frameCtx.lineWidth = t % 6 === 0 ? 0.75 : 0.4;
+        frameCtx.stroke();
+      }
+
+      // 3. Central Sun stellar corona and 4-point diffraction flares
+      const sunPulse = 0.5 + Math.sin(timeSec * 2.4) * 0.5;
+      const coronaRadius = 16 + sunPulse * 5;
+      const sunCorona = frameCtx.createRadialGradient(SUN_X, SUN_Y, 1, SUN_X, SUN_Y, coronaRadius);
+      sunCorona.addColorStop(0, 'rgba(255, 248, 190, 0.9)');
+      sunCorona.addColorStop(0.25, 'rgba(255, 180, 50, 0.55)');
+      sunCorona.addColorStop(0.65, 'rgba(0, 229, 255, 0.28)');
+      sunCorona.addColorStop(1, 'rgba(0, 160, 240, 0)');
+      frameCtx.fillStyle = sunCorona;
+      frameCtx.beginPath();
+      frameCtx.arc(SUN_X, SUN_Y, coronaRadius, 0, Math.PI * 2);
+      frameCtx.fill();
+
+      // 4-point solar diffraction spikes
+      const spikeLen = 22 + sunPulse * 6;
+      frameCtx.strokeStyle = 'rgba(255, 245, 190, 0.65)';
+      frameCtx.lineWidth = 0.6;
+      frameCtx.beginPath();
+      frameCtx.moveTo(SUN_X - spikeLen, SUN_Y);
+      frameCtx.lineTo(SUN_X + spikeLen, SUN_Y);
+      frameCtx.moveTo(SUN_X, SUN_Y - spikeLen * ORBIT_Y_SCALE);
+      frameCtx.lineTo(SUN_X, SUN_Y + spikeLen * ORBIT_Y_SCALE);
+      frameCtx.stroke();
+
+      // 4. Tactical sci-fi HUD vector text
+      frameCtx.font = "bold 6.5px 'JetBrains Mono', monospace";
+      frameCtx.fillStyle = 'rgba(77, 232, 247, 0.85)';
+      frameCtx.fillText('SYS.KEPLER // SEC-07', 156, 36);
+      frameCtx.font = "5px 'JetBrains Mono', monospace";
+      frameCtx.fillStyle = 'rgba(77, 232, 247, 0.55)';
+      frameCtx.fillText(working ? 'STATUS: ACTIVE TELEMETRY' : 'STATUS: PASSIVE RADAR', 156, 44);
+
       frameCtx.restore();
 
       if (intro < 1) {
