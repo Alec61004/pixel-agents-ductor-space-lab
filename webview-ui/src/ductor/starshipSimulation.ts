@@ -12,7 +12,6 @@ import {
 import type { DuctorRoleName, DuctorStatusSnapshot } from './ductorLabModel.js';
 import {
   ORIGINAL_COMPUTER_BAYS,
-  STAR_MAP_WORKSTATION,
   STAR_MAP_PANEL,
   drawAlecSeatBack,
   getCommandGesture,
