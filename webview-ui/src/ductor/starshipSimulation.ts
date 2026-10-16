@@ -107,9 +107,9 @@ export const WORKSTATIONS: Record<DuctorRoleName, WorkstationConfig> = {
     agentName: 'Kevin',
     ...ORIGINAL_COMPUTER_BAYS.Kevin,
     ...STAR_MAP_WORKSTATION,
-    // V10 lower-left star-map table.
-    approachPoint: { x: 530, y: 650 },
-    interactionPoint: { x: 530, y: 610 },
+    // V10 lower-left star-map table: aligned with the actual star-map control console.
+    approachPoint: { x: 569, y: 656 },
+    interactionPoint: { x: 569, y: 638 },
     displayBounds: { x: 282, y: 424, w: 449, h: 191 },
     displayAreas: [{ x: 360, y: 445, w: 330, h: 145 }],
     occlusionBounds: { x: 360, y: 535, w: 330, h: 80 },
@@ -1636,23 +1636,35 @@ export function drawHologramTopGlow(
   drawMapStar(ctx, 69, 27, 0.28, '#bceeff', open * 0.8);
   drawMapStar(ctx, 18, 45, 0.3, '#bceeff', open * 0.55);
 
-  // Sparse true orbital tracks preserve a readable overview.
-  ctx.strokeStyle = '#70c4d8';
-  ctx.lineWidth = 0.22;
-  ctx.globalAlpha = 0.12;
-  for (const world of [HOLOGRAM_WORLDS[0], HOLOGRAM_WORLDS[1], HOLOGRAM_WORLDS[7]]) {
+  // Vibrant multi-tiered orbital tracks with glowing cyan & purple filaments.
+  for (let idx = 0; idx < HOLOGRAM_WORLDS.length; idx++) {
+    const world = HOLOGRAM_WORLDS[idx]!;
     ctx.beginPath();
-    ctx.ellipse(54, 35.5, world.orbitX, world.orbitY, 0, 0, Math.PI * 2);
+    ctx.ellipse(54, 35.5, world.orbitX, world.orbitY, -0.08, 0, Math.PI * 2);
+    ctx.strokeStyle = idx % 2 === 0 ? '#4de8f7' : '#9d7bf5';
+    ctx.lineWidth = 0.28;
+    ctx.globalAlpha = open * (working ? 0.32 : 0.18);
     ctx.stroke();
   }
 
-  // The orange hub stays fixed; a ringed world actually travels around it.
-  const pulse = 0.5 + 0.5 * Math.sin(time * 1.1);
+  // The stellar core: central star with double corona pulse and radial energy corona.
+  const pulse = 0.5 + 0.5 * Math.sin(time * 1.5);
+  const coreGlow = ctx.createRadialGradient(54, 38, 0.5, 54, 38, 7.5);
+  coreGlow.addColorStop(0, '#ffffff');
+  coreGlow.addColorStop(0.2, '#fff1a8');
+  coreGlow.addColorStop(0.5, '#ff963888');
+  coreGlow.addColorStop(1, '#ff6a0000');
+  ctx.globalAlpha = open * (0.85 + pulse * 0.15);
+  ctx.fillStyle = coreGlow;
+  ctx.beginPath();
+  ctx.arc(54, 38, 7.5, 0, Math.PI * 2);
+  ctx.fill();
+
   const planets = getHologramPlanets(time);
   for (const planet of planets.filter(p => p.depth < 0).sort((a, b) => a.depth - b.depth)) {
     drawHologramPlanet(ctx, planet, time, open);
   }
-  drawMapStar(ctx, 54, 38, 1.65 + pulse * 0.05, '#ffb468', open);
+  drawMapStar(ctx, 54, 38, 2.1 + pulse * 0.18, '#ffa24b', open);
   for (const planet of planets.filter(p => p.depth >= 0).sort((a, b) => a.depth - b.depth)) {
     drawHologramPlanet(ctx, planet, time, open);
   }
