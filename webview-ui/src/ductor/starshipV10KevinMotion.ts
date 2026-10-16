@@ -2356,7 +2356,18 @@ export async function loadKevinPixelMotion(
       // Volumetric holographic overlay pass on the disc glass
       frameCtx.globalCompositeOperation = 'screen';
 
-      // 1. Soft holographic dish aura
+      // 1. Volumetric vertical light cylinder rising from the projector dish
+      const holoCol = frameCtx.createLinearGradient(0, 140, 0, 15);
+      holoCol.addColorStop(0, working ? 'rgba(0, 240, 255, 0.22)' : 'rgba(0, 180, 240, 0.10)');
+      holoCol.addColorStop(0.45, 'rgba(0, 150, 230, 0.08)');
+      holoCol.addColorStop(0.85, 'rgba(0, 80, 180, 0.03)');
+      holoCol.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      frameCtx.fillStyle = holoCol;
+      frameCtx.beginPath();
+      frameCtx.ellipse(KEVIN_DISC.cx, 75, 130, 58, 0, 0, Math.PI * 2);
+      frameCtx.fill();
+
+      // Soft base dish aura
       const dishGlow = frameCtx.createRadialGradient(
         KEVIN_DISC.cx,
         KEVIN_DISC.cy,
@@ -2365,9 +2376,9 @@ export async function loadKevinPixelMotion(
         KEVIN_DISC.cy,
         KEVIN_DISC.rx * 0.95,
       );
-      dishGlow.addColorStop(0, working ? 'rgba(0, 229, 255, 0.28)' : 'rgba(0, 190, 240, 0.15)');
-      dishGlow.addColorStop(0.4, working ? 'rgba(0, 140, 220, 0.14)' : 'rgba(0, 110, 190, 0.07)');
-      dishGlow.addColorStop(0.8, 'rgba(0, 70, 140, 0.03)');
+      dishGlow.addColorStop(0, working ? 'rgba(0, 229, 255, 0.32)' : 'rgba(0, 190, 240, 0.16)');
+      dishGlow.addColorStop(0.4, working ? 'rgba(0, 140, 220, 0.16)' : 'rgba(0, 110, 190, 0.08)');
+      dishGlow.addColorStop(0.8, 'rgba(0, 70, 140, 0.04)');
       dishGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
       frameCtx.fillStyle = dishGlow;
       frameCtx.beginPath();
@@ -2382,58 +2393,364 @@ export async function loadKevinPixelMotion(
       );
       frameCtx.fill();
 
-      // 2. Calibrated rotating outer bearing ring with azimuth ticks
+      // 2. Concentric tactical azimuth rings with rotating tick marks
       const bearingSpin = timeSec * 0.07;
-      frameCtx.strokeStyle = 'rgba(77, 232, 247, 0.40)';
-      frameCtx.lineWidth = 0.6;
+      frameCtx.strokeStyle = 'rgba(77, 232, 247, 0.45)';
+      frameCtx.lineWidth = 0.65;
       frameCtx.beginPath();
       frameCtx.ellipse(KEVIN_DISC.cx, KEVIN_DISC.cy, 138, 138 * ORBIT_Y_SCALE, 0, 0, Math.PI * 2);
       frameCtx.stroke();
+
       for (let t = 0; t < 24; t++) {
         const ang = bearingSpin + (t * Math.PI) / 12;
-        const r1 = t % 6 === 0 ? 133 : 135.5;
+        const r1 = t % 6 === 0 ? 132 : 135.5;
         const r2 = 140;
         frameCtx.beginPath();
         frameCtx.moveTo(KEVIN_DISC.cx + Math.cos(ang) * r1, KEVIN_DISC.cy + Math.sin(ang) * r1 * ORBIT_Y_SCALE);
         frameCtx.lineTo(KEVIN_DISC.cx + Math.cos(ang) * r2, KEVIN_DISC.cy + Math.sin(ang) * r2 * ORBIT_Y_SCALE);
-        frameCtx.strokeStyle = t % 6 === 0 ? 'rgba(0, 240, 255, 0.75)' : 'rgba(77, 232, 247, 0.35)';
-        frameCtx.lineWidth = t % 6 === 0 ? 0.75 : 0.4;
+        frameCtx.strokeStyle = t % 6 === 0 ? 'rgba(0, 240, 255, 0.85)' : 'rgba(77, 232, 247, 0.35)';
+        frameCtx.lineWidth = t % 6 === 0 ? 0.85 : 0.4;
         frameCtx.stroke();
       }
 
-      // 3. Central Sun stellar corona and 4-point diffraction flares
+      // Inner counter-rotating tactical range ring
+      frameCtx.beginPath();
+      frameCtx.ellipse(KEVIN_DISC.cx, KEVIN_DISC.cy, 88, 88 * ORBIT_Y_SCALE, 0, 0, Math.PI * 2);
+      frameCtx.strokeStyle = 'rgba(157, 123, 245, 0.35)';
+      frameCtx.lineWidth = 0.45;
+      frameCtx.stroke();
+      for (let t = 0; t < 12; t++) {
+        const ang = -bearingSpin * 1.5 + (t * Math.PI) / 6;
+        frameCtx.beginPath();
+        frameCtx.moveTo(KEVIN_DISC.cx + Math.cos(ang) * 85, KEVIN_DISC.cy + Math.sin(ang) * 85 * ORBIT_Y_SCALE);
+        frameCtx.lineTo(KEVIN_DISC.cx + Math.cos(ang) * 91, KEVIN_DISC.cy + Math.sin(ang) * 91 * ORBIT_Y_SCALE);
+        frameCtx.strokeStyle = 'rgba(157, 123, 245, 0.55)';
+        frameCtx.lineWidth = 0.35;
+        frameCtx.stroke();
+      }
+
+      // 3. Constellation Navigation Web & Warp Lanes
+      const navStars = [
+        { x: 185, y: 28, r: 1.1, c: '#4de8f7' },
+        { x: 232, y: 18, r: 0.9, c: '#befff1' },
+        { x: 382, y: 24, r: 1.2, c: '#ffcf6e' },
+        { x: 345, y: 14, r: 0.8, c: '#c1f3ff' },
+        { x: 165, y: 52, r: 1.0, c: '#9d7bf5' },
+        { x: 395, y: 62, r: 0.8, c: '#4de8f7' },
+      ];
+      frameCtx.strokeStyle = 'rgba(77, 232, 247, 0.22)';
+      frameCtx.lineWidth = 0.35;
+      frameCtx.beginPath();
+      frameCtx.moveTo(navStars[0]!.x, navStars[0]!.y);
+      frameCtx.lineTo(navStars[1]!.x, navStars[1]!.y);
+      frameCtx.lineTo(navStars[3]!.x, navStars[3]!.y);
+      frameCtx.lineTo(navStars[2]!.x, navStars[2]!.y);
+      frameCtx.moveTo(navStars[0]!.x, navStars[0]!.y);
+      frameCtx.lineTo(navStars[4]!.x, navStars[4]!.y);
+      frameCtx.moveTo(navStars[2]!.x, navStars[2]!.y);
+      frameCtx.lineTo(navStars[5]!.x, navStars[5]!.y);
+      frameCtx.stroke();
+
+      for (let sIdx = 0; sIdx < navStars.length; sIdx++) {
+        const star = navStars[sIdx]!;
+        const twinkle = 0.7 + Math.sin(timeSec * 2.5 + sIdx * 1.7) * 0.3;
+        frameCtx.fillStyle = star.c;
+        frameCtx.globalAlpha = twinkle * 0.85;
+        frameCtx.beginPath();
+        frameCtx.arc(star.x, star.y, star.r, 0, Math.PI * 2);
+        frameCtx.fill();
+        // Diamond flare
+        frameCtx.strokeStyle = star.c;
+        frameCtx.lineWidth = 0.25;
+        frameCtx.beginPath();
+        frameCtx.moveTo(star.x - star.r * 2.2, star.y);
+        frameCtx.lineTo(star.x + star.r * 2.2, star.y);
+        frameCtx.moveTo(star.x, star.y - star.r * 2.2);
+        frameCtx.lineTo(star.x, star.y + star.r * 2.2);
+        frameCtx.stroke();
+      }
+      frameCtx.globalAlpha = 1;
+
+      // 4. Shimmering Asteroid Belt orbiting between inner and outer worlds
+      for (let aIdx = 0; aIdx < 36; aIdx++) {
+        const aAng = (aIdx * 0.1745) + timeSec * 0.05;
+        const aDistX = 54 + Math.sin(aIdx * 37.1) * 3.5;
+        const aDistY = aDistX * ORBIT_Y_SCALE;
+        const ax = SUN_X + Math.cos(aAng) * aDistX;
+        const ay = SUN_Y + Math.sin(aAng) * aDistY;
+        const aTwinkle = 0.35 + 0.65 * Math.sin(timeSec * 3.0 + aIdx * 2.1);
+        frameCtx.fillStyle = aIdx % 3 === 0 ? '#bceeff' : '#ffea9f';
+        frameCtx.globalAlpha = 0.5 * aTwinkle;
+        frameCtx.beginPath();
+        frameCtx.arc(ax, ay, 0.45, 0, Math.PI * 2);
+        frameCtx.fill();
+      }
+      frameCtx.globalAlpha = 1;
+
+      // 5. Dynamic Orbital Comets (traveling neon pulses along each planet track)
+      for (const st of states) {
+        const orbitR = st.patch.orbitRadius;
+        // Orbit path
+        frameCtx.beginPath();
+        frameCtx.ellipse(SUN_X, SUN_Y, orbitR, orbitR * ORBIT_Y_SCALE, 0, 0, Math.PI * 2);
+        frameCtx.strokeStyle = st.patch.id === 'planet_cyan' ? 'rgba(77, 232, 247, 0.30)' : 'rgba(157, 123, 245, 0.24)';
+        frameCtx.lineWidth = 0.4;
+        frameCtx.stroke();
+
+        // Traveling photon beacon with fading tail
+        const curTheta = st.patch.orbitTheta + keplerAngularSpeed(st.patch.orbitRadius, st.patch.config.speed) * timeSec;
+        for (let tail = 0; tail < 5; tail++) {
+          const tAng = curTheta - tail * 0.04;
+          const tx = SUN_X + Math.cos(tAng) * orbitR;
+          const ty = SUN_Y + Math.sin(tAng) * orbitR * ORBIT_Y_SCALE;
+          frameCtx.fillStyle = '#4de8f7';
+          frameCtx.globalAlpha = (1 - tail / 5) * 0.65;
+          frameCtx.beginPath();
+          frameCtx.arc(tx, ty, 0.6 - tail * 0.08, 0, Math.PI * 2);
+          frameCtx.fill();
+        }
+
+        // Atmosphere aura around each planet
+        const haloR = 4.5;
+        const atmo = frameCtx.createRadialGradient(st.x, st.y, 0.5, st.x, st.y, haloR);
+        atmo.addColorStop(0, 'rgba(77, 232, 247, 0.45)');
+        atmo.addColorStop(0.6, 'rgba(0, 160, 240, 0.15)');
+        atmo.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        frameCtx.fillStyle = atmo;
+        frameCtx.beginPath();
+        frameCtx.arc(st.x, st.y, haloR, 0, Math.PI * 2);
+        frameCtx.fill();
+
+        // 3D holographic ring for the gas planet
+        if (st.patch.id === 'planet_cyan') {
+          frameCtx.beginPath();
+          frameCtx.ellipse(st.x, st.y, 7.5, 2.8, -0.22, 0, Math.PI * 2);
+          frameCtx.strokeStyle = 'rgba(120, 240, 255, 0.55)';
+          frameCtx.lineWidth = 0.55;
+          frameCtx.stroke();
+        }
+      }
+      frameCtx.globalAlpha = 1;
+
+      // 6. Central Sun stellar corona and 6-point diffraction flares
       const sunPulse = 0.5 + Math.sin(timeSec * 2.4) * 0.5;
-      const coronaRadius = 16 + sunPulse * 5;
+      const coronaRadius = 18 + sunPulse * 5;
       const sunCorona = frameCtx.createRadialGradient(SUN_X, SUN_Y, 1, SUN_X, SUN_Y, coronaRadius);
-      sunCorona.addColorStop(0, 'rgba(255, 248, 190, 0.9)');
-      sunCorona.addColorStop(0.25, 'rgba(255, 180, 50, 0.55)');
-      sunCorona.addColorStop(0.65, 'rgba(0, 229, 255, 0.28)');
+      sunCorona.addColorStop(0, 'rgba(255, 255, 230, 0.95)');
+      sunCorona.addColorStop(0.18, 'rgba(255, 230, 120, 0.85)');
+      sunCorona.addColorStop(0.42, 'rgba(255, 150, 40, 0.48)');
+      sunCorona.addColorStop(0.72, 'rgba(0, 229, 255, 0.24)');
       sunCorona.addColorStop(1, 'rgba(0, 160, 240, 0)');
       frameCtx.fillStyle = sunCorona;
       frameCtx.beginPath();
       frameCtx.arc(SUN_X, SUN_Y, coronaRadius, 0, Math.PI * 2);
       frameCtx.fill();
 
-      // 4-point solar diffraction spikes
-      const spikeLen = 22 + sunPulse * 6;
-      frameCtx.strokeStyle = 'rgba(255, 245, 190, 0.65)';
-      frameCtx.lineWidth = 0.6;
-      frameCtx.beginPath();
-      frameCtx.moveTo(SUN_X - spikeLen, SUN_Y);
-      frameCtx.lineTo(SUN_X + spikeLen, SUN_Y);
-      frameCtx.moveTo(SUN_X, SUN_Y - spikeLen * ORBIT_Y_SCALE);
-      frameCtx.lineTo(SUN_X, SUN_Y + spikeLen * ORBIT_Y_SCALE);
-      frameCtx.stroke();
+      // 6-point solar diffraction spikes with trigonometric rotation (never ctx.rotate)
+      const flareAngle = timeSec * 0.08;
+      const flareLen = 24 + sunPulse * 6;
+      for (let s = 0; s < 3; s++) {
+        const ang = flareAngle + (s * Math.PI) / 3;
+        const cosA = Math.cos(ang);
+        const sinA = Math.sin(ang);
+        const len = s === 0 ? flareLen : flareLen * 0.65;
+        frameCtx.strokeStyle = s === 0 ? 'rgba(255, 250, 210, 0.8)' : 'rgba(120, 240, 255, 0.5)';
+        frameCtx.lineWidth = s === 0 ? 0.75 : 0.45;
+        frameCtx.beginPath();
+        frameCtx.moveTo(SUN_X - cosA * len, SUN_Y - sinA * len * ORBIT_Y_SCALE);
+        frameCtx.lineTo(SUN_X + cosA * len, SUN_Y + sinA * len * ORBIT_Y_SCALE);
+        frameCtx.stroke();
+      }
 
-      // 4. Tactical sci-fi HUD vector text
-      frameCtx.font = "bold 6.5px 'JetBrains Mono', monospace";
-      frameCtx.fillStyle = 'rgba(77, 232, 247, 0.85)';
+      // 7. Tactical target reticle tracking primary exoplanet
+      if (states.length > 0) {
+        const targetWorld = states[0]!;
+        const tx = targetWorld.x;
+        const ty = targetWorld.y;
+        frameCtx.strokeStyle = 'rgba(77, 232, 247, 0.75)';
+        frameCtx.lineWidth = 0.45;
+        // Target brackets [ ]
+        frameCtx.beginPath();
+        frameCtx.moveTo(tx - 6, ty - 3); frameCtx.lineTo(tx - 6, ty - 5); frameCtx.lineTo(tx - 4, ty - 5);
+        frameCtx.moveTo(tx + 6, ty - 3); frameCtx.lineTo(tx + 6, ty - 5); frameCtx.lineTo(tx + 4, ty - 5);
+        frameCtx.moveTo(tx - 6, ty + 3); frameCtx.lineTo(tx - 6, ty + 5); frameCtx.lineTo(tx - 4, ty + 5);
+        frameCtx.moveTo(tx + 6, ty + 3); frameCtx.lineTo(tx + 6, ty + 5); frameCtx.lineTo(tx + 4, ty + 5);
+        frameCtx.stroke();
+
+        frameCtx.font = "bold 4.5px 'JetBrains Mono', monospace";
+        frameCtx.fillStyle = 'rgba(77, 232, 247, 0.9)';
+        frameCtx.fillText('KEPLER-452b', tx + 8, ty - 2);
+        frameCtx.font = "3.8px 'JetBrains Mono', monospace";
+        frameCtx.fillStyle = 'rgba(157, 123, 245, 0.8)';
+        frameCtx.fillText('SURVEY: LOCKED', tx + 8, ty + 3);
+      }
+
+      // 8. Holographic vertical scanning laser beam
+      const scanY = 16 + ((timeSec * 28) % 115);
+      const scanGrad = frameCtx.createLinearGradient(140, scanY, 400, scanY);
+      scanGrad.addColorStop(0, 'rgba(77, 232, 247, 0)');
+      scanGrad.addColorStop(0.3, 'rgba(77, 232, 247, 0.35)');
+      scanGrad.addColorStop(0.7, 'rgba(77, 232, 247, 0.35)');
+      scanGrad.addColorStop(1, 'rgba(77, 232, 247, 0)');
+      frameCtx.fillStyle = scanGrad;
+      frameCtx.fillRect(140, scanY, 260, 1.0);
+
+      // 9. Tactical sci-fi HUD vector text & brackets
+      frameCtx.font = "bold 6.8px 'JetBrains Mono', monospace";
+      frameCtx.fillStyle = 'rgba(77, 232, 247, 0.95)';
       frameCtx.fillText('SYS.KEPLER // SEC-07', 156, 36);
       frameCtx.font = "5px 'JetBrains Mono', monospace";
-      frameCtx.fillStyle = 'rgba(77, 232, 247, 0.55)';
+      frameCtx.fillStyle = 'rgba(77, 232, 247, 0.70)';
       frameCtx.fillText(working ? 'STATUS: ACTIVE TELEMETRY' : 'STATUS: PASSIVE RADAR', 156, 44);
+      frameCtx.font = "4px 'JetBrains Mono', monospace";
+      frameCtx.fillStyle = 'rgba(157, 123, 245, 0.65)';
+      frameCtx.fillText('RA 19h 44m · DEC +44°27\' // 6 BODIES', 156, 51);
+
+      // Corner HUD brackets
+      frameCtx.strokeStyle = 'rgba(77, 232, 247, 0.45)';
+      frameCtx.lineWidth = 0.45;
+      frameCtx.beginPath();
+      frameCtx.moveTo(150, 32); frameCtx.lineTo(146, 32); frameCtx.lineTo(146, 38);
+      frameCtx.moveTo(150, 54); frameCtx.lineTo(146, 54); frameCtx.lineTo(146, 48);
+      frameCtx.stroke();
 
       frameCtx.restore();
+
+      // =========================================================================
+      // KEVIN SIDE CONSOLE MONITORS (LEFT HUD & RIGHT HUD)
+      // =========================================================================
+      if (working || intro > 0) {
+        // --- LEFT MONITOR: RADAR SWEEP & OSCILLOSCOPE WAVE ---
+        // Polygon: [77, 37], [137, 37], [137, 118], [77, 118]
+        frameCtx.save();
+        frameCtx.beginPath();
+        frameCtx.moveTo(80, 40);
+        frameCtx.lineTo(134, 40);
+        frameCtx.lineTo(134, 115);
+        frameCtx.lineTo(80, 115);
+        frameCtx.closePath();
+        frameCtx.clip();
+
+        // Monitor CRT background glow
+        frameCtx.fillStyle = 'rgba(4, 21, 30, 0.88)';
+        frameCtx.fillRect(77, 37, 60, 81);
+
+        // Circular tactical radar display
+        const radarCx = 107;
+        const radarCy = 65;
+        const radarR = 21;
+        frameCtx.beginPath();
+        frameCtx.arc(radarCx, radarCy, radarR, 0, Math.PI * 2);
+        frameCtx.strokeStyle = 'rgba(77, 232, 247, 0.35)';
+        frameCtx.lineWidth = 0.5;
+        frameCtx.stroke();
+
+        frameCtx.beginPath();
+        frameCtx.arc(radarCx, radarCy, radarR * 0.5, 0, Math.PI * 2);
+        frameCtx.strokeStyle = 'rgba(77, 232, 247, 0.20)';
+        frameCtx.stroke();
+
+        // 360-degree radar sweep beam
+        const sweepAng = timeSec * 2.8;
+        frameCtx.beginPath();
+        frameCtx.moveTo(radarCx, radarCy);
+        frameCtx.lineTo(radarCx + Math.cos(sweepAng) * radarR, radarCy + Math.sin(sweepAng) * radarR);
+        frameCtx.strokeStyle = 'rgba(0, 255, 200, 0.85)';
+        frameCtx.lineWidth = 0.75;
+        frameCtx.stroke();
+
+        // Radar target blips
+        for (let b = 0; b < 3; b++) {
+          const bAng = b * 2.1 + 0.5;
+          const bDist = 8 + b * 5;
+          const bx = radarCx + Math.cos(bAng) * bDist;
+          const by = radarCy + Math.sin(bAng) * bDist;
+          const diff = ((sweepAng - bAng) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+          const bAlpha = Math.max(0, 1 - diff / 2.5);
+          frameCtx.fillStyle = 'rgba(0, 255, 180, ' + (bAlpha * 0.9).toFixed(2) + ')';
+          frameCtx.beginPath();
+          frameCtx.arc(bx, by, 1.0, 0, Math.PI * 2);
+          frameCtx.fill();
+        }
+
+        // Oscilloscope waveform across the lower screen
+        frameCtx.beginPath();
+        for (let wx = 82; wx <= 132; wx += 2) {
+          const wy = 100 + Math.sin(wx * 0.35 + timeSec * 6) * 4.5 + Math.cos(wx * 0.7 - timeSec * 4) * 2;
+          if (wx === 82) frameCtx.moveTo(wx, wy);
+          else frameCtx.lineTo(wx, wy);
+        }
+        frameCtx.strokeStyle = 'rgba(77, 232, 247, 0.75)';
+        frameCtx.lineWidth = 0.6;
+        frameCtx.stroke();
+
+        // Left monitor HUD text
+        frameCtx.font = "bold 3.8px 'JetBrains Mono', monospace";
+        frameCtx.fillStyle = 'rgba(77, 232, 247, 0.85)';
+        frameCtx.fillText('RADAR 360°', 83, 46);
+        frameCtx.font = "3.2px 'JetBrains Mono', monospace";
+        frameCtx.fillStyle = 'rgba(157, 123, 245, 0.75)';
+        frameCtx.fillText('SIG: +18.4 dB', 83, 110);
+
+        frameCtx.restore();
+
+        // --- RIGHT MONITOR: TELEMETRY BARS & MATRIX STREAM ---
+        // Polygon: [410, 38], [474, 38], [474, 118], [410, 118]
+        frameCtx.save();
+        frameCtx.beginPath();
+        frameCtx.moveTo(412, 40);
+        frameCtx.lineTo(471, 40);
+        frameCtx.lineTo(471, 115);
+        frameCtx.lineTo(412, 115);
+        frameCtx.closePath();
+        frameCtx.clip();
+
+        // Monitor CRT background glow
+        frameCtx.fillStyle = 'rgba(4, 21, 30, 0.88)';
+        frameCtx.fillRect(410, 38, 64, 80);
+
+        // Header
+        frameCtx.font = "bold 3.8px 'JetBrains Mono', monospace";
+        frameCtx.fillStyle = 'rgba(77, 232, 247, 0.85)';
+        frameCtx.fillText('ORBIT TELEMETRY', 415, 46);
+
+        // Dynamic multi-channel level bars
+        for (let bar = 0; bar < 6; bar++) {
+          const barX = 416 + bar * 9;
+          const barH = 14 + Math.sin(timeSec * 3.5 + bar * 1.2) * 8 + Math.cos(timeSec * 1.8 + bar) * 4;
+          const barY = 82 - Math.max(2, Math.min(24, barH));
+          const barGrad = frameCtx.createLinearGradient(0, 82, 0, barY);
+          barGrad.addColorStop(0, '#00e5ff');
+          barGrad.addColorStop(0.7, '#9d7bf5');
+          barGrad.addColorStop(1, '#ffea9f');
+          frameCtx.fillStyle = barGrad;
+          frameCtx.fillRect(barX, barY, 6, 82 - barY);
+        }
+
+        // Horizontal base line
+        frameCtx.strokeStyle = 'rgba(77, 232, 247, 0.4)';
+        frameCtx.lineWidth = 0.5;
+        frameCtx.beginPath();
+        frameCtx.moveTo(415, 83);
+        frameCtx.lineTo(469, 83);
+        frameCtx.stroke();
+
+        // Matrix readout text
+        frameCtx.font = "3.2px 'JetBrains Mono', monospace";
+        frameCtx.fillStyle = 'rgba(77, 232, 247, 0.8)';
+        frameCtx.fillText('VEL: 29.8 km/s', 415, 92);
+        frameCtx.fillText('MASS: 1.05 M⊕', 415, 98);
+        frameCtx.fillText('STATUS: LOCKED', 415, 104);
+
+        // Blinking green LED beacon
+        const ledOn = Math.sin(timeSec * 5) > 0;
+        frameCtx.fillStyle = ledOn ? '#00ff88' : '#006633';
+        frameCtx.beginPath();
+        frameCtx.arc(465, 103, 1.5, 0, Math.PI * 2);
+        frameCtx.fill();
+
+        frameCtx.restore();
+      }
 
       if (intro < 1) {
         frameCtx.globalAlpha = 1 - intro;

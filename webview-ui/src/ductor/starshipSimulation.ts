@@ -2153,8 +2153,8 @@ export function drawKevinStarMapControl(
     x: cx + hand.x * depth,
     y: a.y + hand.y * depth,
   }));
-  const tableDishX = a.y > 550 ? 610 : 564;
-  const coreY = a.y > 550 ? 580 : 476;
+  const tableDishX = a.y > 550 ? (a.x + 18) : 564;
+  const coreY = a.y > 550 ? (a.y - 52) : 476;
   const grip = contact ? 1 : 0;
   const breath = 0.5 + Math.sin(time * 2.0) * 0.5;
   ctx.save();
