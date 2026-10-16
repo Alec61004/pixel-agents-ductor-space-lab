@@ -1704,19 +1704,20 @@ export function drawHologramTopGlow(
   ctx.arc(54, 35.5, 8.5, 0, Math.PI * 2);
   ctx.fill();
 
-  // 4-point rotating stellar flare / diffraction spikes
-  ctx.save();
-  ctx.translate(54, 35.5);
-  ctx.rotate(time * 0.12);
+  // 4-point rotating stellar flare / diffraction spikes without ctx.rotate
+  const flareAngle = time * 0.12;
+  const cosA = Math.cos(flareAngle);
+  const sinA = Math.sin(flareAngle);
+  const flareLen = 8.5 + pulse * 1.5;
   ctx.strokeStyle = '#ffffff';
   ctx.lineWidth = 0.35;
   ctx.globalAlpha = open * (0.65 + pulse * 0.25);
-  const flareLen = 8.5 + pulse * 1.5;
   ctx.beginPath();
-  ctx.moveTo(-flareLen, 0); ctx.lineTo(flareLen, 0);
-  ctx.moveTo(0, -flareLen * 0.6); ctx.lineTo(0, flareLen * 0.6);
+  ctx.moveTo(54 - cosA * flareLen, 35.5 - sinA * flareLen);
+  ctx.lineTo(54 + cosA * flareLen, 35.5 + sinA * flareLen);
+  ctx.moveTo(54 + sinA * flareLen * 0.6, 35.5 - cosA * flareLen * 0.6);
+  ctx.lineTo(54 - sinA * flareLen * 0.6, 35.5 + cosA * flareLen * 0.6);
   ctx.stroke();
-  ctx.restore();
 
   const planets = getHologramPlanets(time);
   for (const planet of planets.filter(p => p.depth < 0).sort((a, b) => a.depth - b.depth)) {
