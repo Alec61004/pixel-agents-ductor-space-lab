@@ -1202,28 +1202,27 @@ export const WORK_HAND_PHASE_OFFSETS = [
   { leftYOffset: 1, rightYOffset: 0, bob: -0.5 },
 ] as const;
 
-// Kevin drives the star-map table with a short, readable touch/response loop.
-// This clock is separate from Alec's command-chair gesture clock.
-const KEVIN_TOUCH_STARTS = [0.12, 0.6, 1.08] as const;
-const KEVIN_TOUCH_DURATION = 0.22;
-const KEVIN_STARMAP_CYCLE = 8.4;
+export const KEVIN_STARMAP_CYCLE = 6.0;
 
 export function getKevinStarMapCycle(timeSec: number) {
   const time = Math.max(0, timeSec);
   const cycle = Math.floor(time / KEVIN_STARMAP_CYCLE);
   const phase = time - cycle * KEVIN_STARMAP_CYCLE;
-  const contact = KEVIN_TOUCH_STARTS.some(
-    (start) => phase >= start && phase < start + KEVIN_TOUCH_DURATION,
-  );
-  const response = Math.max(0, Math.min(1, (phase - 1.38) / 1.1));
+  const frame = getKevinStarMapFrame(timeSec);
+  const contact = frame !== 0;
+  const response = Math.max(0, Math.min(1, (phase - 1.2) / 2.0));
   const settled = response * response * (3 - 2 * response);
   return { phase, contact, responseTime: (cycle + settled) * KEVIN_STARMAP_CYCLE };
 }
 
 export function getKevinStarMapFrame(timeSec: number): number {
-  const { phase, contact } = getKevinStarMapCycle(timeSec);
-  if (contact) return phase < 0.4 ? 1 : 2;
-  return phase > 3.8 ? 3 : 0;
+  const time = Math.max(0, timeSec);
+  const step = time % 6.0;
+  if (step < 1.2) return 1;
+  if (step < 2.0) return 0;
+  if (step < 3.4) return 2;
+  if (step < 4.8) return 3;
+  return 0;
 }
 
 /** @deprecated Compatibility name retained for existing host integrations. */
@@ -1552,23 +1551,45 @@ export function drawHologramTopGlow(
   ctx.shadowBlur = 0;
   ctx.translate(STAR_MAP_PANEL.x, STAR_MAP_PANEL.y);
   ctx.scale(STAR_MAP_PANEL.w / 106, STAR_MAP_PANEL.h / 71);
+
+  // 1. Soft holographic projector aura on the circular dish
+  const dishGlow = ctx.createRadialGradient(54, 38, 2, 54, 38, 52);
+  dishGlow.addColorStop(0, '#00e5ff32');
+  dishGlow.addColorStop(0.35, '#0088cc18');
+  dishGlow.addColorStop(0.7, '#00446608');
+  dishGlow.addColorStop(1, '#00000000');
+  ctx.fillStyle = dishGlow;
   ctx.beginPath();
-  ctx.moveTo(3, 14);
-  ctx.quadraticCurveTo(3, 5, 15, 5);
-  ctx.quadraticCurveTo(53, -1, 92, 6);
-  ctx.quadraticCurveTo(103, 7, 103, 17);
-  ctx.lineTo(103, 61);
-  ctx.quadraticCurveTo(103, 68, 95, 68);
-  ctx.lineTo(10, 68);
-  ctx.quadraticCurveTo(3, 68, 3, 60);
-  ctx.closePath();
-  ctx.clip();
-  const glass = ctx.createLinearGradient(0, 0, 0, 71);
-  glass.addColorStop(0, '#0a202c');
-  glass.addColorStop(0.6, '#0b2635');
-  glass.addColorStop(1, '#123b4b');
-  ctx.fillStyle = glass;
-  ctx.fillRect(0, 0, 106, 71);
+  ctx.ellipse(54, 38, 52, 29, -0.05, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 2. Concentric holographic projector rings on the dish with rotating bearing ticks
+  const spinRing = time * 0.15;
+  for (let rIdx = 0; rIdx < 3; rIdx++) {
+    const rx = 45 - rIdx * 14;
+    const ry = 25 - rIdx * 7.5;
+    ctx.beginPath();
+    ctx.ellipse(54, 38, rx, ry, -0.05, 0, Math.PI * 2);
+    ctx.strokeStyle = rIdx === 0 ? '#4de8f740' : rIdx === 1 ? '#9d7bf530' : '#00f0ff50';
+    ctx.lineWidth = 0.3;
+    ctx.stroke();
+
+    if (rIdx === 0) {
+      for (let t = 0; t < 12; t++) {
+        const ang = spinRing + (t * Math.PI) / 6;
+        const tx1 = 54 + Math.cos(ang) * (rx - 1.2);
+        const ty1 = 38 + Math.sin(ang) * (ry - 0.7);
+        const tx2 = 54 + Math.cos(ang) * (rx + 1.2);
+        const ty2 = 38 + Math.sin(ang) * (ry + 0.7);
+        ctx.beginPath();
+        ctx.moveTo(tx1, ty1);
+        ctx.lineTo(tx2, ty2);
+        ctx.strokeStyle = '#4de8f755';
+        ctx.lineWidth = 0.25;
+        ctx.stroke();
+      }
+    }
+  }
 
   const navigation = getHologramNavigation(controlTime, working, time);
   const camera = kevin?.hologramCamera ?? getHologramCamera(controlTime, working, time);
@@ -1587,8 +1608,8 @@ export function drawHologramTopGlow(
     ctx.translate(x, y);
     ctx.scale(1.7, 0.6 + (cloud % 3) * 0.12);
     const haze = ctx.createRadialGradient(0, 0, 0, 0, 0, 11);
-    haze.addColorStop(0, '#56bdd624');
-    haze.addColorStop(0.35, '#348da918');
+    haze.addColorStop(0, '#56bdd628');
+    haze.addColorStop(0.35, '#348da91c');
     haze.addColorStop(1, '#16435b00');
     ctx.globalAlpha = open;
     ctx.fillStyle = haze;
@@ -1618,11 +1639,10 @@ export function drawHologramTopGlow(
     ctx.fill();
   }
 
-  // A few subdued navigation branches preserve the original map's identity.
-  // Most of the field is carried by star clusters rather than a polygon mesh.
-  ctx.globalAlpha = open * 0.14;
+  // Constellation navigation branches across key stars.
+  ctx.globalAlpha = open * 0.22;
   ctx.strokeStyle = '#70c4d8';
-  ctx.lineWidth = 0.28;
+  ctx.lineWidth = 0.32;
   ctx.beginPath();
   ctx.moveTo(32, 15);
   ctx.bezierCurveTo(35, 28, 43, 35, 54, 38);
@@ -1630,11 +1650,11 @@ export function drawHologramTopGlow(
   ctx.moveTo(54, 38);
   ctx.bezierCurveTo(68, 44, 79, 46, 87, 51);
   ctx.stroke();
-  drawMapStar(ctx, 32, 15, 0.42, '#ffae83', open * 0.65);
-  drawMapStar(ctx, 86, 20, 0.68, '#c1f3ff', open * 0.85);
-  drawMapStar(ctx, 87, 51, 0.5, '#bceeff', open * 0.65);
-  drawMapStar(ctx, 69, 27, 0.28, '#bceeff', open * 0.8);
-  drawMapStar(ctx, 18, 45, 0.3, '#bceeff', open * 0.55);
+  drawMapStar(ctx, 32, 15, 0.42, '#ffae83', open * 0.7);
+  drawMapStar(ctx, 86, 20, 0.68, '#c1f3ff', open * 0.9);
+  drawMapStar(ctx, 87, 51, 0.5, '#bceeff', open * 0.7);
+  drawMapStar(ctx, 69, 27, 0.28, '#bceeff', open * 0.85);
+  drawMapStar(ctx, 18, 45, 0.3, '#bceeff', open * 0.6);
 
   // Vibrant multi-tiered orbital tracks with glowing cyan & purple filaments.
   for (let idx = 0; idx < HOLOGRAM_WORLDS.length; idx++) {
@@ -1642,42 +1662,96 @@ export function drawHologramTopGlow(
     ctx.beginPath();
     ctx.ellipse(54, 35.5, world.orbitX, world.orbitY, -0.08, 0, Math.PI * 2);
     ctx.strokeStyle = idx % 2 === 0 ? '#4de8f7' : '#9d7bf5';
-    ctx.lineWidth = 0.28;
-    ctx.globalAlpha = open * (working ? 0.32 : 0.18);
+    ctx.lineWidth = 0.32;
+    ctx.globalAlpha = open * (working ? 0.42 : 0.25);
     ctx.stroke();
   }
 
+  // Shimmering Asteroid Belt orbiting between inner and outer planets
+  for (let aIdx = 0; aIdx < 36; aIdx++) {
+    const aAng = (aIdx * 0.1745) + time * 0.04;
+    const aDistX = 32.5 + Math.sin(aIdx * 37.1) * 2.2;
+    const aDistY = 17.5 + Math.sin(aIdx * 37.1) * 1.2;
+    const ax = 54 + Math.cos(aAng) * aDistX;
+    const ay = 35.5 + Math.sin(aAng) * aDistY;
+    const aTwinkle = 0.4 + 0.6 * Math.sin(time * 2.5 + aIdx);
+    ctx.fillStyle = aIdx % 3 === 0 ? '#bceeff' : '#ffea9f';
+    ctx.globalAlpha = open * 0.45 * aTwinkle;
+    ctx.beginPath();
+    ctx.arc(ax, ay, 0.22, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
   // The stellar core: central star with double corona pulse and radial energy corona.
-  const pulse = 0.5 + 0.5 * Math.sin(time * 1.5);
-  const coreGlow = ctx.createRadialGradient(54, 38, 0.5, 54, 38, 7.5);
+  const pulse = 0.5 + 0.5 * Math.sin(time * 2.0);
+  const coreGlow = ctx.createRadialGradient(54, 35.5, 0.4, 54, 35.5, 8.5);
   coreGlow.addColorStop(0, '#ffffff');
-  coreGlow.addColorStop(0.2, '#fff1a8');
-  coreGlow.addColorStop(0.5, '#ff963888');
-  coreGlow.addColorStop(1, '#ff6a0000');
-  ctx.globalAlpha = open * (0.85 + pulse * 0.15);
+  coreGlow.addColorStop(0.18, '#fff6a8');
+  coreGlow.addColorStop(0.42, '#ffaa3399');
+  coreGlow.addColorStop(0.75, '#ff440025');
+  coreGlow.addColorStop(1, '#ff220000');
+  ctx.globalAlpha = open * (0.9 + pulse * 0.1);
   ctx.fillStyle = coreGlow;
   ctx.beginPath();
-  ctx.arc(54, 38, 7.5, 0, Math.PI * 2);
+  ctx.arc(54, 35.5, 8.5, 0, Math.PI * 2);
   ctx.fill();
+
+  // 4-point rotating stellar flare / diffraction spikes
+  ctx.save();
+  ctx.translate(54, 35.5);
+  ctx.rotate(time * 0.12);
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 0.35;
+  ctx.globalAlpha = open * (0.65 + pulse * 0.25);
+  const flareLen = 8.5 + pulse * 1.5;
+  ctx.beginPath();
+  ctx.moveTo(-flareLen, 0); ctx.lineTo(flareLen, 0);
+  ctx.moveTo(0, -flareLen * 0.6); ctx.lineTo(0, flareLen * 0.6);
+  ctx.stroke();
+  ctx.restore();
 
   const planets = getHologramPlanets(time);
   for (const planet of planets.filter(p => p.depth < 0).sort((a, b) => a.depth - b.depth)) {
     drawHologramPlanet(ctx, planet, time, open);
   }
-  drawMapStar(ctx, 54, 38, 2.1 + pulse * 0.18, '#ffa24b', open);
+  drawMapStar(ctx, 54, 35.5, 2.2 + pulse * 0.2, '#ffa24b', open);
   for (const planet of planets.filter(p => p.depth >= 0).sort((a, b) => a.depth - b.depth)) {
     drawHologramPlanet(ctx, planet, time, open);
   }
   if (working) drawHologramNavigation(ctx, navigation);
+
+  // Floating tactical HUD readouts in the holographic space
+  ctx.save();
+  ctx.font = '3.2px monospace';
+  ctx.fillStyle = '#4de8f7';
+  ctx.globalAlpha = open * 0.65;
+  ctx.fillText('SYS.NAV // SECTOR-07', 8, 14);
+  ctx.font = '2.4px monospace';
+  ctx.fillStyle = '#9d7bf5';
+  ctx.globalAlpha = open * 0.5;
+  ctx.fillText('SOL-PRIME · 8 WORLDS TRACKED', 8, 18);
+  // Corner tactical brackets
+  ctx.strokeStyle = '#4de8f745';
+  ctx.lineWidth = 0.3;
+  ctx.beginPath();
+  ctx.moveTo(6, 12); ctx.lineTo(6, 8); ctx.lineTo(10, 8);
+  ctx.moveTo(96, 8); ctx.lineTo(100, 8); ctx.lineTo(100, 12);
+  ctx.moveTo(6, 60); ctx.lineTo(6, 64); ctx.lineTo(10, 64);
+  ctx.moveTo(96, 64); ctx.lineTo(100, 64); ctx.lineTo(100, 60);
+  ctx.stroke();
   ctx.restore();
 
-  // Restrained spill at the lower glass edge ties the projection to its cyan emitter.
-  ctx.globalAlpha = open;
-  const spill = ctx.createLinearGradient(0, 55, 0, 66);
-  spill.addColorStop(0, '#6ce8f000');
-  spill.addColorStop(1, '#6ce8f025');
-  ctx.fillStyle = spill;
-  ctx.fillRect(5, 55, 96, 11);
+  ctx.restore();
+
+  // Subtle cyan emitter aura at the table projector rim
+  ctx.globalAlpha = open * 0.4;
+  const rimGlow = ctx.createLinearGradient(0, 56, 0, 66);
+  rimGlow.addColorStop(0, '#6ce8f000');
+  rimGlow.addColorStop(1, '#6ce8f030');
+  ctx.fillStyle = rimGlow;
+  ctx.beginPath();
+  ctx.ellipse(54, 60, 48, 8, 0, 0, Math.PI * 2);
+  ctx.fill();
   ctx.restore();
 }
 
@@ -2071,94 +2145,106 @@ export function drawKevinStarMapControl(
     x: cx + hand.x * depth,
     y: a.y + hand.y * depth,
   }));
-  const coreY = a.y - 108 * depth;
+  const tableDishX = 564;
+  const coreY = 476;
   const grip = contact ? 1 : 0;
-  const breath = 0.5 + Math.sin(time * 1.8) * 0.5;
+  const breath = 0.5 + Math.sin(time * 2.0) * 0.5;
   ctx.save();
   ctx.globalCompositeOperation = 'source-over';
   ctx.lineWidth = 0.65;
   ctx.shadowBlur = 0;
 
   if (!foreground) {
-    // Two filaments rise beside the intact rear-view character to the table's emitter.
-    // The body occludes their middle sections naturally.
+    // Energy filaments rise directly from Kevin's gloves to the star-map projector dish.
     for (let index = 0; index < hands.length; index++) {
       const side = index === 0 ? -1 : 1;
       const hand = hands[index]!;
       const hx = hand.x;
       const handY = hand.y;
-      ctx.strokeStyle = '#6de1e6';
-      ctx.globalAlpha = 0.18 + grip * 0.18;
+      ctx.strokeStyle = '#4de8f7';
+      ctx.globalAlpha = 0.28 + grip * 0.35;
+      ctx.lineWidth = 0.55;
       ctx.beginPath();
       ctx.moveTo(hx, handY);
       ctx.bezierCurveTo(
-        cx + side * 37,
-        handY - 26,
-        cx + side * 33,
-        coreY + 15,
-        cx + side * 5,
-        coreY + 3,
+        cx + side * 32,
+        handY - 35,
+        tableDishX + side * 24,
+        coreY + 28,
+        tableDishX + side * 8,
+        coreY + 4,
       );
       ctx.stroke();
-      // An energy pulse travels toward the projector once the gesture is released.
-      if (phase >= 1.38 && phase < 2.48) {
-        const t = (phase - 1.38) / 1.1;
-        const inv = 1 - t;
-        const px =
-          inv ** 3 * hx +
-          3 * inv ** 2 * t * (cx + side * 37) +
-          3 * inv * t ** 2 * (cx + side * 33) +
-          t ** 3 * (cx + side * 5);
-        const py =
-          inv ** 3 * handY +
-          3 * inv ** 2 * t * (handY - 26) +
-          3 * inv * t ** 2 * (coreY + 15) +
-          t ** 3 * (coreY + 3);
-        drawMapStar(ctx, px, py, 0.38, '#9ef5ee', Math.sin(t * Math.PI) * 0.8);
-      }
+
+      // Energy pulses travel upward along the filaments into the projection dish
+      const pulseT = ((time * 1.6 + index * 0.5) % 1);
+      const inv = 1 - pulseT;
+      const px =
+        inv ** 3 * hx +
+        3 * inv ** 2 * pulseT * (cx + side * 32) +
+        3 * inv * pulseT ** 2 * (tableDishX + side * 24) +
+        pulseT ** 3 * (tableDishX + side * 8);
+      const py =
+        inv ** 3 * handY +
+        3 * inv ** 2 * pulseT * (handY - 35) +
+        3 * inv * pulseT ** 2 * (coreY + 28) +
+        pulseT ** 3 * (coreY + 4);
+      drawMapStar(ctx, px, py, 0.45, '#9ef5ee', Math.sin(pulseT * Math.PI) * 0.85);
     }
-    const glow = ctx.createRadialGradient(cx, coreY, 0, cx, coreY, 12);
-    glow.addColorStop(0, '#b6fcf750');
+
+    const glow = ctx.createRadialGradient(tableDishX, coreY, 0, tableDishX, coreY, 16);
+    glow.addColorStop(0, '#4de8f760');
     glow.addColorStop(0.5, '#62dfe428');
     glow.addColorStop(1, '#3dbad500');
-    ctx.globalAlpha = 0.65 + breath * 0.15;
+    ctx.globalAlpha = 0.7 + breath * 0.2;
     ctx.fillStyle = glow;
-    ctx.fillRect(cx - 12, coreY - 12, 24, 24);
-    // A small faceted control core, distinct from the planetary map above it.
-    const spin = responseTime * 0.35;
-    const r = 5.8 + grip * 0.5;
+    ctx.fillRect(tableDishX - 16, coreY - 16, 32, 32);
+
+    // Faceted control nodes on the pedestal console
+    const spin = responseTime * 0.4;
+    const r = 6.2 + grip * 0.8;
     for (let layer = 0; layer < 2; layer++) {
       ctx.beginPath();
       for (let i = 0; i <= 6; i++) {
         const angle = spin + (i * Math.PI) / 3 + layer * 0.6;
-        const px = cx + Math.cos(angle) * r;
+        const px = tableDishX + Math.cos(angle) * r;
         const py = coreY + Math.sin(angle) * r * (layer ? 0.55 : 1);
         if (i === 0) ctx.moveTo(px, py);
         else ctx.lineTo(px, py);
       }
       ctx.strokeStyle = layer ? '#baffef' : '#63bfdb';
-      ctx.globalAlpha = layer ? 0.7 : 0.45;
+      ctx.globalAlpha = layer ? 0.75 : 0.5;
       ctx.stroke();
     }
-    drawMapStar(ctx, cx, coreY, 0.7, '#9dffe9', 0.85);
+    drawMapStar(ctx, tableDishX, coreY, 0.75, '#9dffe9', 0.9);
   }
 
   // The two floating control fields sit on Kevin's actual rear-view glove positions.
-  // Render rear halves before the character and front halves after it.
   for (let index = 0; index < hands.length; index++) {
     const side = index === 0 ? -1 : 1;
     const hand = hands[index]!;
     const hx = hand.x;
     const handY = hand.y;
-    const radius = 8.2 - grip * 1.2;
+    const radius = 8.5 - grip * 1.0;
     if (!foreground) {
-      const halo = ctx.createRadialGradient(hx, handY, 0, hx, handY, radius + 4);
-      halo.addColorStop(0, '#a2ffed20');
-      halo.addColorStop(0.55, '#5ccdd918');
+      const halo = ctx.createRadialGradient(hx, handY, 0, hx, handY, radius + 5);
+      halo.addColorStop(0, '#4de8f735');
+      halo.addColorStop(0.55, '#5ccdd91c');
       halo.addColorStop(1, '#3caad500');
-      ctx.globalAlpha = 0.7;
+      ctx.globalAlpha = 0.8;
       ctx.fillStyle = halo;
-      ctx.fillRect(hx - 13, handY - 13, 26, 26);
+      ctx.fillRect(hx - 14, handY - 14, 28, 28);
+
+      // Tactile glove pulse ripples when actively working
+      if (grip) {
+        const ripple = (time * 16) % 14;
+        ctx.beginPath();
+        ctx.arc(hx, handY, radius + ripple * 0.8, 0, Math.PI * 2);
+        ctx.strokeStyle = '#62dfe4';
+        ctx.globalAlpha = Math.max(0, (1 - ripple / 14) * 0.6);
+        ctx.lineWidth = 0.4;
+        ctx.stroke();
+      }
     }
     for (let ring = 0; ring < 2; ring++) {
       ctx.beginPath();
@@ -2166,25 +2252,25 @@ export function drawKevinStarMapControl(
         hx,
         handY,
         radius + ring * 2.5,
-        4 + ring,
+        4.2 + ring,
         side * 0.18,
         foreground ? 0 : Math.PI,
         foreground ? Math.PI : Math.PI * 2,
       );
       ctx.strokeStyle = ring === 0 ? '#aff8e8' : '#64b8d2';
-      ctx.globalAlpha = (foreground ? 0.65 : 0.3) + grip * 0.18;
-      ctx.lineWidth = ring === 0 ? 0.7 : 0.4;
+      ctx.globalAlpha = (foreground ? 0.75 : 0.35) + grip * 0.2;
+      ctx.lineWidth = ring === 0 ? 0.75 : 0.4;
       ctx.stroke();
     }
     if (foreground) {
-      const angle = side * (time * 0.65 + 0.5);
+      const angle = side * (time * 0.8 + 0.5);
       drawMapStar(
         ctx,
         hx + Math.cos(angle) * radius,
         handY + Math.sin(angle) * 4,
-        0.32,
+        0.35,
         '#befff1',
-        0.75,
+        0.85,
       );
     }
   }
