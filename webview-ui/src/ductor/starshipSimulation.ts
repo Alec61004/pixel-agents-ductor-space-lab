@@ -2128,7 +2128,7 @@ export function drawKevinStarMapControl(
 ): void {
   if (!isKevinUsingStarMap(a)) return;
   const time = a.hologramTime ?? 0;
-  const { contact, phase, responseTime } = getKevinStarMapCycle(time);
+  const { contact, responseTime } = getKevinStarMapCycle(time);
   const cx = a.x;
   const depth = getDepthScale(a.y);
   const poseFrame = getKevinStarMapFrame(time);
