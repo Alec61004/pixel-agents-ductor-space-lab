@@ -81,7 +81,14 @@ function image(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const i = new Image();
     const timer = setTimeout(() => { i.onload = i.onerror = null; reject(new Error(`Image timed out: ${url}`)); }, 15000);
-    i.onload = () => { clearTimeout(timer); resolve(i); };
+    i.onload = () => {
+      clearTimeout(timer);
+      if (typeof i.decode === 'function') {
+        i.decode().then(() => resolve(i)).catch(() => resolve(i));
+      } else {
+        resolve(i);
+      }
+    };
     i.onerror = () => { clearTimeout(timer); reject(new Error(`Image failed: ${url}`)); };
     i.src = url;
   });
@@ -298,7 +305,7 @@ async function build(url: string, manifest: StarshipPixelSceneManifest): Promise
     world.drawImage(nativeArtwork,0,0,1600,678);
     lastKey=key; return artwork;
   };
-  const scene={width:manifest.width,height:manifest.height,artwork,nativeArtwork,manifest,render}; render(0,false); return scene;
+  const scene={width:manifest.width,height:manifest.height,artwork,nativeArtwork,manifest,render}; render(0,false); lastKey=''; return scene;
 }
 
 /** Reject visibly and evict failed loads so a retry can recover. */
