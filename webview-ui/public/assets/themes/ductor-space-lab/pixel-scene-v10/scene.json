@@ -334,7 +334,7 @@
               82
             ]
           ],
-          "animate": true
+          "animate": false
         },
         {
           "id": "left-hud",
@@ -382,17 +382,7 @@
           ],
           "animate": false
         }
-      ],
-      "working": {
-        "kind": "console",
-        "speed": 1.35,
-        "phase": 0.8,
-        "intensity": 0.28,
-        "motion": "orbit",
-        "amplitude": 0.018,
-        "centerX": 270,
-        "centerY": 82
-      }
+      ]
     },
     {
       "id": "benjamin-station",
