@@ -272,44 +272,33 @@ export async function loadKevinPixelMotion(
         const theta = p.startAngle + p.speed * timeSec * speedMult;
         const gx = DISH_CX + Math.cos(theta) * p.r;
         const gy = DISH_CY + Math.sin(theta) * (p.r * ORBIT_Y_RATIO);
-        const sx = gx;
-        const sy = gy - p.floatZ;
+        const normDepth = (gy - DISH_CY) / 51.0;
+        const scale = 1.0 + normDepth * 0.12;
         return {
           ...p,
           gx,
           gy,
-          sx,
-          sy,
           depth: gy,
+          scale,
         };
       });
-
-      // Draw ground anchor pulses and cyan vertical laser elevation stems
-      for (const s of states) {
-        // Ground anchor pulse
-        frameCtx.fillStyle = 'rgba(224, 242, 254, 0.95)';
-        frameCtx.beginPath();
-        frameCtx.ellipse(s.gx, s.gy, 1.8, 0.9, 0, 0, Math.PI * 2);
-        frameCtx.fill();
-
-        // Laser altitude drop-line
-        frameCtx.strokeStyle = 'rgba(56, 189, 248, 0.70)';
-        frameCtx.lineWidth = 1;
-        frameCtx.beginPath();
-        frameCtx.moveTo(s.gx, s.gy);
-        frameCtx.lineTo(s.sx, s.sy);
-        frameCtx.stroke();
-      }
 
       // Sort back-to-front (depth = gy)
       states.sort((a, b) => a.depth - b.depth);
 
-      // Render bodies behind the Sun (gy < DISH_CY - 2)
+      // Render bodies behind the Sun (gy < DISH_CY - 10)
+      const sunY = DISH_CY - 10;
       for (const s of states) {
-        if (s.depth < DISH_CY - 2) {
-          const iw = s.image.naturalWidth;
-          const ih = s.image.naturalHeight;
-          frameCtx.drawImage(s.image, Math.round(s.sx - iw / 2), Math.round(s.sy - ih / 2));
+        if (s.depth < sunY) {
+          const iw = Math.round(s.image.naturalWidth * s.scale);
+          const ih = Math.round(s.image.naturalHeight * s.scale);
+          frameCtx.drawImage(
+            s.image,
+            Math.round(s.gx - iw / 2),
+            Math.round(s.gy - ih / 2),
+            iw,
+            ih,
+          );
         }
       }
 
@@ -317,10 +306,10 @@ export async function loadKevinPixelMotion(
       const sunBreath = 0.5 + 0.5 * Math.sin(timeSec * 2.5);
       const sunGlow = frameCtx.createRadialGradient(
         DISH_CX,
-        DISH_CY - 12,
+        sunY,
         4,
         DISH_CX,
-        DISH_CY - 12,
+        sunY,
         22,
       );
       sunGlow.addColorStop(0, 'rgba(255, 245, 180, ' + (0.28 + sunBreath * 0.10).toFixed(3) + ')');
@@ -328,15 +317,21 @@ export async function loadKevinPixelMotion(
       sunGlow.addColorStop(1, 'rgba(255, 95, 0, 0)');
       frameCtx.fillStyle = sunGlow;
       frameCtx.beginPath();
-      frameCtx.arc(DISH_CX, DISH_CY - 12, 22, 0, Math.PI * 2);
+      frameCtx.arc(DISH_CX, sunY, 22, 0, Math.PI * 2);
       frameCtx.fill();
 
-      // Render bodies in front of the Sun (gy >= DISH_CY - 2)
+      // Render bodies in front of the Sun (gy >= DISH_CY - 10)
       for (const s of states) {
-        if (s.depth >= DISH_CY - 2) {
-          const iw = s.image.naturalWidth;
-          const ih = s.image.naturalHeight;
-          frameCtx.drawImage(s.image, Math.round(s.sx - iw / 2), Math.round(s.sy - ih / 2));
+        if (s.depth >= sunY) {
+          const iw = Math.round(s.image.naturalWidth * s.scale);
+          const ih = Math.round(s.image.naturalHeight * s.scale);
+          frameCtx.drawImage(
+            s.image,
+            Math.round(s.gx - iw / 2),
+            Math.round(s.gy - ih / 2),
+            iw,
+            ih,
+          );
         }
       }
 
