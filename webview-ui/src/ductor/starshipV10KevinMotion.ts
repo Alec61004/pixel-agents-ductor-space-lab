@@ -83,10 +83,10 @@ export interface KevinPixelMotion {
 const WIDTH = 540;
 const HEIGHT = 230;
 const DISH_CX = 309.5;
-const DISH_CY = 64.5;
-const DISH_RX = 135.0;
-const DISH_RY = 47.5;
-const ORBIT_Y_RATIO = DISH_RY / DISH_RX; // 0.35185
+const DISH_CY = 66.0;
+const DISH_RX = 136.0;
+const DISH_RY = 48.0;
+const ORBIT_Y_RATIO = DISH_RY / DISH_RX; // 0.3529
 
 interface PlanetConfig {
   id: string;
@@ -275,22 +275,7 @@ export async function loadKevinPixelMotion(
       frameCtx.ellipse(DISH_CX, DISH_CY, DISH_RX, DISH_RY, 0, 0, Math.PI * 2);
       frameCtx.clip();
 
-      // 1. Draw subtle, elegant celestial orbit paths
-      frameCtx.lineWidth = 1;
-      for (const p of loadedSprites) {
-        frameCtx.strokeStyle = 'rgba(56, 189, 248, 0.10)';
-        frameCtx.beginPath();
-        frameCtx.ellipse(
-          DISH_CX,
-          DISH_CY,
-          p.r,
-          p.r * ORBIT_Y_RATIO,
-          0,
-          0,
-          Math.PI * 2,
-        );
-        frameCtx.stroke();
-      }
+      // 1. Planetary motion in pure cosmic galaxy space (zero concentric blueprint rings)
 
       // 2. Compute 3D positions and draw dynamic trailing orbital wakes
       const trailLen = 0.40;
