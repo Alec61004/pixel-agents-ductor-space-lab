@@ -136,13 +136,7 @@ function insideMap(x: number, y: number): boolean {
 }
 
 type MovingPlanetId = Exclude<KevinAuthoredObjectId, 'sun' | 'marker_star'>;
-type PlanetStyle =
-  | 'rocky'
-  | 'gas_banded'
-  | 'ringed_gas'
-  | 'icy'
-  | 'moon'
-  | 'ocean_world';
+type PlanetStyle = 'rocky' | 'gas_banded' | 'ringed_gas' | 'icy' | 'moon';
 
 const MOVING_PLANETS = new Set<KevinAuthoredObjectId>([
   'planet_orange',
@@ -222,57 +216,51 @@ const PLANET_MOTION: Readonly<Record<MovingPlanetId, PlanetMotionConfig>> = {
 };
 
 const PLANET_VISUALS: Readonly<Record<MovingPlanetId, PlanetVisualSpec>> = {
-  // Jupiter-like gas giant: warm banded atmosphere with storm vortex
   planet_orange: {
     style: 'gas_banded',
-    radius: 7.8,
-    primary: '#d6975c',
-    secondary: '#733e22',
-    highlight: '#fae3c6',
-    accent: '#963c20',
-    tilt: -0.14,
+    radius: 7.5,
+    primary: '#c7814c',
+    secondary: '#6f3f2c',
+    highlight: '#f1c891',
+    accent: '#9c5635',
+    tilt: -0.12,
   },
-  // Desert terrestrial world: warm sunlit mineral ridges & impact basins
   planet_gold_small: {
     style: 'rocky',
-    radius: 5.2,
-    primary: '#d2ab5e',
-    secondary: '#795829',
-    highlight: '#fbf0c8',
-    accent: '#9a7638',
-    tilt: 0.16,
+    radius: 5.4,
+    primary: '#c9a85a',
+    secondary: '#70552f',
+    highlight: '#f2dfa3',
+    accent: '#8f713a',
+    tilt: 0.15,
   },
-  // Habitable ocean world (Earth-like): vibrant blue oceans, landmasses, swirling white clouds
   planet_cyan: {
-    style: 'ocean_world',
-    radius: 8.2,
-    primary: '#2b84cc',
-    secondary: '#113c66',
-    highlight: '#ffffff',
-    accent: '#398b50',
-    tilt: -0.10,
+    style: 'icy',
+    radius: 8.5,
+    primary: '#68bde4',
+    secondary: '#235a86',
+    highlight: '#d4f4ff',
+    accent: '#4c95ba',
+    tilt: -0.08,
   },
-  // Saturn-like ringed gas giant: delicate translucent Cassini rings & amber cloud bands
   planet_white: {
     style: 'ringed_gas',
-    radius: 9.2,
-    primary: '#ded6c1',
-    secondary: '#91846e',
-    highlight: '#fffceb',
-    accent: '#b9ab93',
-    ring: 'rgba(238,225,198,0.88)',
-    tilt: -0.32,
+    radius: 9.5,
+    primary: '#d9d2c3',
+    secondary: '#8e8577',
+    highlight: '#fff8e8',
+    accent: '#b5aa99',
+    ring: 'rgba(232,220,196,0.72)',
+    tilt: -0.28,
   },
-  // Mars-like terrestrial red world (REPLACED PURPLE WITH REALISTIC MARS):
-  // Iron-oxide rust red, canyon rift, crater basins, northern polar ice cap. ZERO PURPLE.
   planet_purple_small: {
-    style: 'rocky',
-    radius: 4.8,
-    primary: '#c45c38',
-    secondary: '#6c2814',
-    highlight: '#fba588',
-    accent: '#8c351b',
-    tilt: 0.24,
+    style: 'moon',
+    radius: 5.2,
+    primary: '#9d75c7',
+    secondary: '#4b3567',
+    highlight: '#dac8f4',
+    accent: '#6d4d8e',
+    tilt: 0.22,
   },
 };
 
@@ -707,8 +695,10 @@ function isDecorativeSourcePixel(
   const brightness = (r + g + b) / 3;
 
   const purple =
-    (b >= 68 && r >= 42 && b > g * 1.06 && r > g * 0.62) ||
-    (r >= 64 && b >= 64 && g < Math.min(r, b) * 0.82);
+    b >= 82 &&
+    r >= 52 &&
+    b > g * 1.10 &&
+    r > g * 0.70;
 
   const warm =
     r >= 104 &&
@@ -736,7 +726,7 @@ function buildCleanupMask(source: Uint8ClampedArray): Uint8Array {
     if (definition.id === 'sun') continue;
     if (definition.id !== 'marker_star' && !MOVING_PLANETS.has(definition.id)) continue;
 
-    const radius = definition.id === 'marker_star' ? 2 : 4;
+    const radius = definition.id === 'marker_star' ? 2 : 3;
     addDilatedMask(
       cleanup,
       decodeKevinAuthoredMask(definition),
@@ -764,9 +754,9 @@ function buildCleanupMask(source: Uint8ClampedArray): Uint8Array {
     // these limits. Long cyan orbit strokes do not.
     const markerLike =
       component.pixels.length >= 2 &&
-      component.pixels.length <= 260 &&
-      maxDim <= 40 &&
-      minDim <= 18;
+      component.pixels.length <= 180 &&
+      maxDim <= 30 &&
+      minDim <= 13;
 
     if (!markerLike) continue;
 
@@ -1747,7 +1737,7 @@ function planetCentroid(mask: Uint8Array): { x: number; y: number } {
 }
 
 function makePlanetSprite(spec: PlanetVisualSpec): HTMLCanvasElement {
-  const padding = spec.style === 'ringed_gas' ? 22 : 12;
+  const padding = spec.style === 'ringed_gas' ? 18 : 11;
   const size = Math.ceil((spec.radius + padding) * 2);
   const cx = size / 2;
   const cy = size / 2;
@@ -1760,90 +1750,57 @@ function makePlanetSprite(spec: PlanetVisualSpec): HTMLCanvasElement {
 
   ctx.clearRect(0, 0, size, size);
 
-  // 1. Atmosphere halo
-  if (spec.style === 'ocean_world') {
-    const atmo = ctx.createRadialGradient(
-      cx, cy, spec.radius * 0.7,
-      cx, cy, spec.radius * 1.5,
-    );
-    atmo.addColorStop(0, 'rgba(80, 190, 255, 0.22)');
-    atmo.addColorStop(0.5, 'rgba(40, 140, 240, 0.08)');
-    atmo.addColorStop(1, 'rgba(0, 100, 220, 0)');
-    ctx.fillStyle = atmo;
-    ctx.beginPath();
-    ctx.arc(cx, cy, spec.radius * 1.5, 0, Math.PI * 2);
-    ctx.fill();
-  } else if (spec.style === 'gas_banded' || spec.style === 'ringed_gas') {
-    const atmo = ctx.createRadialGradient(
-      cx, cy, spec.radius * 0.8,
-      cx, cy, spec.radius * 1.35,
-    );
-    atmo.addColorStop(0, 'rgba(255, 225, 170, 0.09)');
-    atmo.addColorStop(1, 'rgba(255, 200, 120, 0)');
-    ctx.fillStyle = atmo;
-    ctx.beginPath();
-    ctx.arc(cx, cy, spec.radius * 1.35, 0, Math.PI * 2);
-    ctx.fill();
-  }
+  // A subtle atmosphere only, avoiding the neon-dot look from earlier versions.
+  const atmosphere = ctx.createRadialGradient(
+    cx - spec.radius * 0.25,
+    cy - spec.radius * 0.25,
+    spec.radius * 0.25,
+    cx,
+    cy,
+    spec.radius * 1.45,
+  );
+  atmosphere.addColorStop(0, 'rgba(255,255,255,0.028)');
+  atmosphere.addColorStop(0.64, 'rgba(150,220,255,0.012)');
+  atmosphere.addColorStop(1, 'rgba(100,190,255,0)');
+  ctx.fillStyle = atmosphere;
+  ctx.beginPath();
+  ctx.arc(cx, cy, spec.radius * 1.45, 0, Math.PI * 2);
+  ctx.fill();
 
-  // 2. Back half of rings (for ringed_gas, behind the sphere from Math.PI to Math.PI * 2)
   if (spec.style === 'ringed_gas' && spec.ring) {
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(spec.tilt);
-
-    // Cassini outer A-ring back
+    ctx.strokeStyle = 'rgba(70,62,54,0.24)';
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, spec.radius * 2.02, spec.radius * 0.60, 0, 0, Math.PI * 2);
+    ctx.stroke();
     ctx.strokeStyle = spec.ring;
-    ctx.globalAlpha = 0.55;
-    ctx.lineWidth = 1.3;
+    ctx.lineWidth = 1.05;
     ctx.beginPath();
-    ctx.ellipse(0, 0, spec.radius * 2.22, spec.radius * 0.62, 0, Math.PI, Math.PI * 2);
+    ctx.ellipse(0, 0, spec.radius * 2.02, spec.radius * 0.60, 0, 0, Math.PI * 2);
     ctx.stroke();
-
-    // Dark Cassini division gap
-    ctx.strokeStyle = 'rgba(20, 18, 16, 0.4)';
-    ctx.lineWidth = 0.8;
-    ctx.beginPath();
-    ctx.ellipse(0, 0, spec.radius * 1.96, spec.radius * 0.55, 0, Math.PI, Math.PI * 2);
-    ctx.stroke();
-
-    // Dense main B-ring back
-    ctx.strokeStyle = spec.ring;
-    ctx.globalAlpha = 0.82;
-    ctx.lineWidth = 2.4;
-    ctx.beginPath();
-    ctx.ellipse(0, 0, spec.radius * 1.72, spec.radius * 0.48, 0, Math.PI, Math.PI * 2);
-    ctx.stroke();
-
-    // Faint inner C-ring back
-    ctx.strokeStyle = 'rgba(180, 165, 140, 0.35)';
-    ctx.lineWidth = 1.1;
-    ctx.beginPath();
-    ctx.ellipse(0, 0, spec.radius * 1.38, spec.radius * 0.39, 0, Math.PI, Math.PI * 2);
-    ctx.stroke();
-
     ctx.restore();
   }
 
-  // 3. Planet body with 3D sphere clipping
   ctx.save();
   ctx.beginPath();
   ctx.arc(cx, cy, spec.radius, 0, Math.PI * 2);
   ctx.clip();
 
-  // Base 3D sphere lighting (sun comes from top-left)
   const body = ctx.createRadialGradient(
-    cx - spec.radius * 0.38,
-    cy - spec.radius * 0.34,
-    spec.radius * 0.05,
-    cx + spec.radius * 0.18,
-    cy + spec.radius * 0.12,
-    spec.radius * 1.25,
+    cx - spec.radius * 0.42,
+    cy - spec.radius * 0.38,
+    spec.radius * 0.08,
+    cx + spec.radius * 0.2,
+    cy + spec.radius * 0.1,
+    spec.radius * 1.22,
   );
   body.addColorStop(0, spec.highlight);
-  body.addColorStop(0.36, spec.primary);
-  body.addColorStop(0.76, spec.secondary);
-  body.addColorStop(1, '#0e1017');
+  body.addColorStop(0.34, spec.primary);
+  body.addColorStop(0.78, spec.secondary);
+  body.addColorStop(1, '#11131a');
   ctx.fillStyle = body;
   ctx.fillRect(
     cx - spec.radius - 2,
@@ -1852,18 +1809,17 @@ function makePlanetSprite(spec: PlanetVisualSpec): HTMLCanvasElement {
     spec.radius * 2 + 4,
   );
 
-  // Surface texture / features
   ctx.save();
   ctx.translate(cx, cy);
   ctx.rotate(spec.tilt);
   ctx.translate(-cx, -cy);
 
   if (spec.style === 'gas_banded' || spec.style === 'ringed_gas') {
-    const bandCount = spec.style === 'gas_banded' ? 4 : 3;
+    const bandCount = spec.style === 'gas_banded' ? 3 : 2;
     for (let band = -bandCount; band <= bandCount; band += 1) {
-      const y = cy + band * (spec.radius * 0.22);
-      const thickness = spec.radius * (band % 2 === 0 ? 0.08 : 0.05);
-      ctx.globalAlpha = band % 2 === 0 ? 0.26 : 0.14;
+      const y = cy + band * (spec.radius * 0.24);
+      const thickness = spec.radius * (band % 2 === 0 ? 0.09 : 0.06);
+      ctx.globalAlpha = band % 2 === 0 ? 0.22 : 0.12;
       ctx.fillStyle =
         band % 3 === 0
           ? (spec.accent ?? spec.secondary)
@@ -1871,200 +1827,105 @@ function makePlanetSprite(spec: PlanetVisualSpec): HTMLCanvasElement {
             ? spec.highlight
             : spec.secondary;
       ctx.beginPath();
-      ctx.ellipse(cx, y, spec.radius * 1.05, thickness, 0, 0, Math.PI * 2);
+      ctx.ellipse(
+        cx,
+        y,
+        spec.radius * 1.05,
+        thickness,
+        0,
+        0,
+        Math.PI * 2,
+      );
       ctx.fill();
     }
 
     if (spec.style === 'gas_banded') {
-      // Great Red Spot storm vortex with rotating eye
-      ctx.globalAlpha = 0.52;
-      ctx.fillStyle = spec.accent ?? '#963c20';
+      ctx.globalAlpha = 0.34;
+      ctx.fillStyle = spec.accent ?? '#8d4e35';
       ctx.beginPath();
       ctx.ellipse(
-        cx + spec.radius * 0.26,
+        cx + spec.radius * 0.28,
         cy + spec.radius * 0.18,
-        spec.radius * 0.24,
-        spec.radius * 0.12,
+        spec.radius * 0.22,
+        spec.radius * 0.11,
         -0.12,
         0,
         Math.PI * 2,
       );
       ctx.fill();
-      ctx.globalAlpha = 0.35;
-      ctx.fillStyle = '#fce2c2';
-      ctx.beginPath();
-      ctx.arc(
-        cx + spec.radius * 0.24,
-        cy + spec.radius * 0.17,
-        spec.radius * 0.05,
-        0,
-        Math.PI * 2,
-      );
-      ctx.fill();
     }
-
-    if (spec.style === 'ringed_gas') {
-      // Shadow cast by the ring onto the planet surface
-      ctx.globalAlpha = 0.42;
-      ctx.fillStyle = '#141210';
-      ctx.beginPath();
-      ctx.ellipse(cx, cy + spec.radius * 0.08, spec.radius * 0.95, spec.radius * 0.12, 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  } else if (spec.style === 'ocean_world') {
-    // Continents / landmasses
-    ctx.globalAlpha = 0.68;
-    ctx.fillStyle = spec.accent ?? '#398b50';
-    // Continent 1: large northern/equatorial landmass
-    ctx.beginPath();
-    ctx.ellipse(cx - spec.radius * 0.2, cy - spec.radius * 0.15, spec.radius * 0.38, spec.radius * 0.28, 0.3, 0, Math.PI * 2);
-    ctx.fill();
-    // Continent 2: south-east archipelago
-    ctx.beginPath();
-    ctx.ellipse(cx + spec.radius * 0.28, cy + spec.radius * 0.25, spec.radius * 0.32, spec.radius * 0.22, -0.4, 0, Math.PI * 2);
-    ctx.fill();
-    // Continental sub-ridge
-    ctx.globalAlpha = 0.45;
-    ctx.fillStyle = '#5c9e42';
-    ctx.beginPath();
-    ctx.arc(cx - spec.radius * 0.15, cy - spec.radius * 0.22, spec.radius * 0.18, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Swirling atmospheric clouds drifting over ocean & continents
-    ctx.globalAlpha = 0.58;
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 1.1;
-    ctx.beginPath();
-    ctx.arc(cx - spec.radius * 0.1, cy - spec.radius * 0.32, spec.radius * 0.45, 0.2, 2.1);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(cx + spec.radius * 0.12, cy + spec.radius * 0.18, spec.radius * 0.52, 2.8, 4.9);
-    ctx.stroke();
-    // Cloud swirl / cyclone
-    ctx.lineWidth = 0.8;
-    ctx.beginPath();
-    ctx.ellipse(cx - spec.radius * 0.32, cy + spec.radius * 0.12, spec.radius * 0.22, spec.radius * 0.10, 0.4, 0, Math.PI * 2);
-    ctx.stroke();
-
-    // Polar ice cap (top)
-    ctx.globalAlpha = 0.85;
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath();
-    ctx.ellipse(cx, cy - spec.radius * 0.82, spec.radius * 0.38, spec.radius * 0.14, 0, 0, Math.PI * 2);
-    ctx.fill();
   } else if (spec.style === 'rocky' || spec.style === 'moon') {
-    const isMars = spec.primary === '#c45c38';
-    if (isMars) {
-      // Mars canyon rift (Valles Marineris)
-      ctx.globalAlpha = 0.55;
-      ctx.strokeStyle = spec.secondary;
-      ctx.lineWidth = 1.0;
-      ctx.beginPath();
-      ctx.moveTo(cx - spec.radius * 0.45, cy + spec.radius * 0.08);
-      ctx.lineTo(cx + spec.radius * 0.35, cy + spec.radius * 0.18);
-      ctx.stroke();
-      // Polar ice cap
-      ctx.globalAlpha = 0.78;
-      ctx.fillStyle = '#f7f2ed';
-      ctx.beginPath();
-      ctx.ellipse(cx, cy - spec.radius * 0.84, spec.radius * 0.32, spec.radius * 0.12, 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    // Impact craters with sunlit rim and dark interior shadow
-    const craterCount = isMars ? 3 : 4;
+    const craterCount = spec.style === 'rocky' ? 4 : 3;
     for (let i = 0; i < craterCount; i += 1) {
       const angle = i * 2.17 + spec.tilt;
-      const radial = spec.radius * (0.20 + (i % 3) * 0.16);
+      const radial = spec.radius * (0.18 + (i % 4) * 0.13);
       const px = cx + Math.cos(angle) * radial;
-      const py = cy + Math.sin(angle * 1.25) * radial * 0.72;
-      const craterRadius = spec.radius * (0.07 + (i % 2) * 0.035);
-
-      ctx.globalAlpha = 0.32;
-      ctx.fillStyle = spec.secondary;
+      const py = cy + Math.sin(angle * 1.31) * radial * 0.72;
+      const craterRadius =
+        spec.radius * (0.055 + (i % 3) * 0.027);
+      ctx.globalAlpha = 0.18 + (i % 2) * 0.06;
+      ctx.fillStyle = i % 2 === 0 ? spec.secondary : (spec.accent ?? spec.secondary);
       ctx.beginPath();
       ctx.arc(px, py, craterRadius, 0, Math.PI * 2);
       ctx.fill();
-
-      ctx.globalAlpha = 0.45;
+      ctx.globalAlpha = 0.12;
       ctx.strokeStyle = spec.highlight;
-      ctx.lineWidth = 0.6;
+      ctx.lineWidth = 0.55;
       ctx.beginPath();
-      ctx.arc(px - craterRadius * 0.25, py - craterRadius * 0.25, craterRadius, Math.PI * 0.6, Math.PI * 1.8);
+      ctx.arc(px - craterRadius * 0.2, py - craterRadius * 0.2, craterRadius, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  } else if (spec.style === 'icy') {
+    for (let i = -1; i <= 1; i += 1) {
+      ctx.globalAlpha = 0.10 + (i === 0 ? 0.05 : 0);
+      ctx.strokeStyle = i % 2 === 0 ? spec.highlight : (spec.accent ?? spec.primary);
+      ctx.lineWidth = 0.65;
+      ctx.beginPath();
+      ctx.moveTo(
+        cx - spec.radius * 0.86,
+        cy + i * spec.radius * 0.18,
+      );
+      ctx.quadraticCurveTo(
+        cx,
+        cy + i * spec.radius * 0.12 - spec.radius * 0.08,
+        cx + spec.radius * 0.88,
+        cy + i * spec.radius * 0.16,
+      );
       ctx.stroke();
     }
   }
 
   ctx.restore();
 
-  // Directional 3D spherical day/night shadow terminator
+  // Terminator: one side falls naturally into shadow instead of glowing uniformly.
   const terminator = ctx.createLinearGradient(
     cx - spec.radius,
-    cy - spec.radius * 0.2,
+    cy,
     cx + spec.radius,
-    cy + spec.radius * 0.2,
+    cy,
   );
-  terminator.addColorStop(0, 'rgba(255,255,255,0.06)');
-  terminator.addColorStop(0.36, 'rgba(255,255,255,0)');
-  terminator.addColorStop(0.64, 'rgba(0,0,0,0.18)');
-  terminator.addColorStop(1, 'rgba(0,0,0,0.68)');
+  terminator.addColorStop(0, 'rgba(255,255,255,0.12)');
+  terminator.addColorStop(0.38, 'rgba(255,255,255,0)');
+  terminator.addColorStop(0.68, 'rgba(0,0,0,0.12)');
+  terminator.addColorStop(1, 'rgba(0,0,0,0.58)');
   ctx.fillStyle = terminator;
   ctx.fillRect(
-    cx - spec.radius - 2,
-    cy - spec.radius - 2,
-    spec.radius * 2 + 4,
-    spec.radius * 2 + 4,
+    cx - spec.radius,
+    cy - spec.radius,
+    spec.radius * 2,
+    spec.radius * 2,
   );
 
   ctx.restore();
 
-  // 4. Front half of rings (for ringed_gas, in front of the sphere from 0 to Math.PI)
-  if (spec.style === 'ringed_gas' && spec.ring) {
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate(spec.tilt);
-
-    // Faint inner C-ring front
-    ctx.strokeStyle = 'rgba(180, 165, 140, 0.42)';
-    ctx.lineWidth = 1.1;
-    ctx.beginPath();
-    ctx.ellipse(0, 0, spec.radius * 1.38, spec.radius * 0.39, 0, 0, Math.PI);
-    ctx.stroke();
-
-    // Dense main B-ring front
-    ctx.strokeStyle = spec.ring;
-    ctx.globalAlpha = 0.92;
-    ctx.lineWidth = 2.4;
-    ctx.beginPath();
-    ctx.ellipse(0, 0, spec.radius * 1.72, spec.radius * 0.48, 0, 0, Math.PI);
-    ctx.stroke();
-
-    // Dark Cassini division gap
-    ctx.strokeStyle = 'rgba(20, 18, 16, 0.45)';
-    ctx.lineWidth = 0.8;
-    ctx.beginPath();
-    ctx.ellipse(0, 0, spec.radius * 1.96, spec.radius * 0.55, 0, 0, Math.PI);
-    ctx.stroke();
-
-    // Cassini outer A-ring front
-    ctx.strokeStyle = spec.ring;
-    ctx.globalAlpha = 0.65;
-    ctx.lineWidth = 1.3;
-    ctx.beginPath();
-    ctx.ellipse(0, 0, spec.radius * 2.22, spec.radius * 0.62, 0, 0, Math.PI);
-    ctx.stroke();
-
-    ctx.restore();
-  }
-
-  // 5. Directional sunlit rim light
-  ctx.strokeStyle = 'rgba(240,250,255,0.28)';
-  ctx.lineWidth = 0.7;
+  // Thin directional rim light, not a full neon ring.
+  ctx.strokeStyle = 'rgba(224,244,255,0.22)';
+  ctx.lineWidth = 0.65;
   ctx.beginPath();
   ctx.arc(
     cx,
     cy,
-    spec.radius - 0.35,
+    spec.radius - 0.4,
     Math.PI * 0.64,
     Math.PI * 1.58,
   );
@@ -2492,27 +2353,16 @@ export async function loadKevinPixelMotion(
         frameCtx.restore();
       }
 
-      // Luminous organic breathing plasma corona on the authored Sun core
-      const sunBreath = 0.5 + 0.5 * Math.sin(timeSec * 2.2);
-      const sunCorona = frameCtx.createRadialGradient(SUN_X, SUN_Y, 1, SUN_X, SUN_Y, 22);
-      sunCorona.addColorStop(0, 'rgba(255, 245, 210, ' + (0.34 + sunBreath * 0.08).toFixed(3) + ')');
-      sunCorona.addColorStop(0.32, 'rgba(255, 175, 45, ' + (0.16 + sunBreath * 0.05).toFixed(3) + ')');
-      sunCorona.addColorStop(0.68, 'rgba(255, 95, 20, ' + (0.06 + sunBreath * 0.03).toFixed(3) + ')');
-      sunCorona.addColorStop(1, 'rgba(255, 50, 0, 0)');
+      // Subtle organic breathing glow on the authored Sun core
+      const sunBreath = 0.5 + 0.5 * Math.sin(timeSec * 2.0);
+      const sunGlow = frameCtx.createRadialGradient(SUN_X, SUN_Y, 2, SUN_X, SUN_Y, 20);
+      sunGlow.addColorStop(0, 'rgba(255, 235, 160, ' + (0.22 + sunBreath * 0.08).toFixed(3) + ')');
+      sunGlow.addColorStop(0.5, 'rgba(255, 160, 40, ' + (0.10 + sunBreath * 0.05).toFixed(3) + ')');
+      sunGlow.addColorStop(1, 'rgba(255, 80, 0, 0)');
       frameCtx.globalCompositeOperation = 'screen';
-      frameCtx.fillStyle = sunCorona;
+      frameCtx.fillStyle = sunGlow;
       frameCtx.beginPath();
-      frameCtx.arc(SUN_X, SUN_Y, 22, 0, Math.PI * 2);
-      frameCtx.fill();
-
-      // Delicate solar core prominence shimmer
-      const coreGlow = frameCtx.createRadialGradient(SUN_X, SUN_Y, 0, SUN_X, SUN_Y, 7);
-      coreGlow.addColorStop(0, 'rgba(255, 255, 245, 0.45)');
-      coreGlow.addColorStop(0.55, 'rgba(255, 215, 110, 0.22)');
-      coreGlow.addColorStop(1, 'rgba(255, 130, 20, 0)');
-      frameCtx.fillStyle = coreGlow;
-      frameCtx.beginPath();
-      frameCtx.arc(SUN_X, SUN_Y, 7, 0, Math.PI * 2);
+      frameCtx.arc(SUN_X, SUN_Y, 20, 0, Math.PI * 2);
       frameCtx.fill();
 
       frameCtx.restore();
