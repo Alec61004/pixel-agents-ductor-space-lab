@@ -93,6 +93,17 @@ export function HtmlLayerScene({ sceneRef, activity, onReady, onError }: HtmlLay
           ctx.setTransform(1, 0, 0, 1, 0, 0);
           ctx.imageSmoothingEnabled = false;
           ctx.drawImage(
+            scene.nativeArtwork,
+            V10_KEVIN_POSITION.x,
+            V10_KEVIN_POSITION.y,
+            kevinMotion.width,
+            kevinMotion.height,
+            V10_KEVIN_POSITION.x,
+            V10_KEVIN_POSITION.y,
+            kevinMotion.width,
+            kevinMotion.height,
+          );
+          ctx.drawImage(
             kevinMotion.render(elapsedSec, activityRef.current.Kevin),
             V10_KEVIN_POSITION.x,
             V10_KEVIN_POSITION.y,
