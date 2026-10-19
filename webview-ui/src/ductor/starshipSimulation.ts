@@ -2486,7 +2486,7 @@ export function drawStage(
   if (!roomInDom) drawFloorMarkers(ctx, showStations);
   if (livingArtwork) drawHologramTopGlow(ctx, agents, timeSec);
   const mapOperator = agents.find((agent) => agent.name === 'Kevin');
-  if ((livingArtwork || roomInDom) && mapOperator) drawKevinStarMapControl(ctx, mapOperator);
+  if (livingArtwork && mapOperator) drawKevinStarMapControl(ctx, mapOperator);
 
   const sorted = [...agents].sort((a, b) => a.y - b.y);
   for (const a of sorted) {

@@ -82,11 +82,19 @@ export interface KevinPixelMotion {
 
 const WIDTH = 540;
 const HEIGHT = 230;
-const DISH_CX = 309.5;
-const DISH_CY = 66.0;
-const DISH_RX = 136.0;
-const DISH_RY = 48.0;
-const ORBIT_Y_RATIO = DISH_RY / DISH_RX; // 0.3529
+const DISH_CX = 290.0;
+const DISH_CY = 76.0;
+const DISH_RX = 152.0;
+const DISH_RY = 64.0;
+const ORBIT_Y_RATIO = DISH_RY / DISH_RX; // 0.42105
+
+const POLY_PERFECT: readonly (readonly [number, number])[] = [
+  [130, 80], [138, 48], [152, 28], [175, 16], [210, 8],
+  [253, 5], [300, 7], [337, 12], [365, 17], [385, 22],
+  [405, 27], [420, 32], [435, 36], [443, 48], [448, 65],
+  [447, 85], [440, 105], [425, 118], [395, 130], [347, 144],
+  [270, 147], [196, 144], [160, 134], [145, 120], [134, 102],
+];
 
 interface PlanetConfig {
   id: string;
@@ -94,57 +102,77 @@ interface PlanetConfig {
   startAngle: number;
   speed: number;
   color: string;
+  dw: number;
+  dh: number;
   spriteSrc: string;
 }
 
 const PLANETS: readonly PlanetConfig[] = [
   {
     id: 'mercury',
-    r: 17,
-    startAngle: 4.40,
-    speed: 0.85,
-    color: 'rgba(200, 215, 245,',
-    spriteSrc: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA0AAAANCAYAAABy6+R8AAACXklEQVR4nF2SvWsTcRzGn9+95C6XS2LSNpE0arHE1iE6tBW3Ogg6dBA3qeCm/4HgUELG2slFfIEO3R0EQUUpdRFtUbGvUpo2fc0lTXIx95K7S+73k0B18Ds98H0+y/M8BAAYY4QQwrr6ee6+cjGFrG40I0VDMn7aibXZmRmj+wNAunbyF7gKBOc+vnjoGPW7374uDTpciNRcgZkstHug1eaWV48fLy9/sLogYbkctzCSiocZfRsLK6M/Vnbwq3AIz2cslZBI9JSCii3g/fzS0uZO8frk5KTJkXyeMhp6mbk0MlpyRbeBCG0ggf5UnNy4lsFAOsZOq203HZfHQrI8lc/nqTA9/WQctHOrXNn3W2KPpMTaSKga9IaDT5/3QX2X1OxOwOWiNCiJ9yISngl9Ee62Ios4qlhI9lDEsxfgeG2sfl/DkSkgwFFQx0AgFONEKRhkPD8spNPx5MZ2HYbRRH9/FCzoYLfUgt7i0dsbhqpK8LQyKx9sQNebi+CVqvBlvd7wbZMxU0MkCoSUMDpWFX3xIKzfGhRGoCgcbK9DdMt5yphREIzG3juZJw+2NBs952RwLATDtGCTMFy7jcrulq8oPGm06HpNr5XSajwhKIHFN8XDoUVZ5K8Ut/c9z/VEw2GkqpdwWKrSAGTKGW1R0yrzqmS6AT+z120Y4xN3hs+EuQWjYSY7REaTJP2qViLMb3EcPHhW+bVWKjxSVbWqadoxyeVyXDf7ocvjA5kEpqlj36ybiFQsoQ4em9QzZ+uFlVdNoAmgczIloAuebAvZzNnzY8Opiexg78g/w3/3B2sDKP/z4UcNAAAAAElFTkSuQmCC',
+    r: 24,
+    startAngle: 4.2,
+    speed: 0.9,
+    color: 'rgba(200, 220, 255,',
+    dw: 12,
+    dh: 11,
+    spriteSrc:
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAALCAYAAABLcGxfAAAB9ElEQVR42gXBz24SQQAH4N/O/gF2C6WFYEysqK3BmwnRS5+j1jcwMdFTjx42xJtJrQcfwcTY9NTYxEtPJtQLTQk1tE0xpVAKXRiWHViY3Z3B71Ns2yalUknO922T5QvvDg9+ve5Sf81Xk3DD2CULlB+/j1pfK5Wfvg0QBQAuDr+vymiyS71ZsVa7QNsZY2kxhsySASWRwlH16rhab2yWy+UG2bF30oFuHaRW1ootD5Ej78lQT2P9xQrWXz6S2SSipzmjGJ/Lg3w+n9YePIxvpSxZaDrjMJ7L65lBDdKPcHJ6h5ihEB5MSZdpoZlKFxLO7ZZmGtjo9LkUYqQ+e/IYhDyHwwLU2i6MhAmdM4wjqNZiVgY83NBYpGXrf85JNmvN6SREs09wOxBQtDgWlpcRi0L4jarSvXaV0TTMktNr2h94rqSD7lyNaZgyikUTMPQ5vM4ZdDAomjrve770J7M+MdXhHp0EpEmlYMJCIICeO4EbGWjddFGpnKFDA9GnI2Jo2NO4FdvmM+eVDKPCZe0k6g0JYYyTG8eB7wlpxS05pB2dT93zNCHbCgB8eP9mtf6vt8sDUQyMHLrDCDM2gKYKBL6DoXN1HInxpufxhmrbNvn46TM1Uwvf7ieF5w/aGTZyLH/G+Gzc++vS1hfXHb7lXNwBIP8B68Eax2BUywcAAAAASUVORK5CYII=',
   },
   {
     id: 'venus',
-    r: 29,
-    startAngle: 2.70,
-    speed: 0.45,
-    color: 'rgba(245, 215, 140,',
-    spriteSrc: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAARCAYAAAA7bUf6AAADy0lEQVR4nFWU309bZRjHv+97zulv2h7aQimlAiOjCtOLYRxgIF2cRi+WeNFpFo0ajQmZ/g0nvfHCCxN/3MzswnnlSGZ0F5sRlQQ3NFlcRjESHD8GFVpaDi2U0572nPd9TbeQsOfiyfPkyTd58uT5fIFjMT2dlo61XSNnBiZTqVPnh4ZOpADEjwZCaBQAOeqPCiKEACFEDA/3Tr75UvJSXHWnAk4S9nllCEVBad8sL22W5278vvJFNrv5GyUEXIiW/lEiQmiEkIx4/43xz18fHfg4zCrIr26AiiYUBxX7NUai8QDcaggP9h345X7hytXrf3wkhGa1dPJ0Ok0JybCptya+fXe85+295Sxb3imhPSDRYGcb2dmpk/x2FUatKnxtRR7pCOGds/0fyBQBQjIXWicgrVVee/m5D7WLz1+uLt1rrqwVlMFBlVDKQSQJkqKAMRtNJnBQrqNmAVSSLdr1tHJ1dv29mzML31ABBF8c6tX4zib/M5uXt3WbmHULB5UGeNOCyyMjnOhEJK5CDblRLJqoMyJ5+Z4YGez+FD5fWJ4cfebVZ3t8sfpejkcjbsooEAgq2C1YME0BlA0cGhyxk91o1BoIqjXRHvERWW6IRESNjA/HzsrJ/s4z/XGPEG1tQlI4JMLRsGxEe4OoGU2YNQvCMrGb20V08CR6Dy3CZYqtwj7XDYhYyP8C9ba5oj6/TMIDCQSifuyVayhuH6JSrsOyBf5b28PDfwpwqX74OyIIRlXYnKH1EmAWkYjokesWKVG3Uzi9FH2nT8E2LeTWdeTWK4glAmiPq5BkBX7Vgzs3ZuByuyArMphlgxAqOIEuLy7n7qytqpeSfQoxm0Ao0QVf2I9yqQrJ4UAw5AVjDDM/LqBUqKBvoB0CAjWDE8vlIqWD8rx8+/birbtjfYVuj9SxWypwPV+lftUJ0+Tw+IDs/BYsBjz8t4gmKIzFEhgED3REkDOYPntv86ZMgMpcdkM7oSYuS+WDpuykjsL2IVaXShAWB6EEDIDNAcNi2NItOJySjWjAsVGqfoJqVafX0mnph58Wvr5+d+e7hqfHUcib9v2/8syoc9FgBMV9Gwc1DkohuM0YkWWmPtXreKA3r9369e/P0um09JgdTSMkkyEXz5/+crQvOOWq6Vhb2UJJN1Br2jzgdRAmOwjcXiiBduTr4sr3P2enNE3jmUzmEYBPUDw+njw30h+eku3mBKxGiNsMpsWhW3S3IaS5smF+NTe/PNvipSVpUXzcTlo0t3zicYRCsbGxwdQrqeELExPJc4lkoutopGlP+sn/OWXKzduJhgcAAAAASUVORK5CYII=',
+    r: 38,
+    startAngle: 2.4,
+    speed: 0.48,
+    color: 'rgba(255, 225, 150,',
+    dw: 16,
+    dh: 15,
+    spriteSrc:
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAPCAYAAADtc08vAAADPUlEQVR42mXTz2scZRwH4M/3nXdmdmZ/zGY3m92sSUxWQqUQJAS8SA5CUVHEFExvkYC34iEXD57WvQgFkSJSPAZKEemhQTyVqmCo9WCMKaZJakiaX5tms9nJTnZ2d2bnfV8PgiA+/8NDAFAug1UqkADwyUfvTE+WnPk4p2kGUTQsExG06onrL//y5HTx68UflwGgDLAKIEkpEBFUaark3Jh7/WZeD+aC50faxdk5EjYhkAq6ZSCdc1ALbLHrabc//WZ1wd3ZaSoFIqXK7Nq1R+kPXis8KAp3cuvxhiLRkbm8zaTG6emWi1BKVSjY0krGWX6sRJvN2Orn369fWX80e04AsPTVh/cum+7Mwx9+DdMZyxgs2vD9EMlMAq1mBzzG4Z51EEYSgVBhtvii8edFcunjG99d1b6ozL9bMruVjZU/orVtXy9kDUBKkJIwYxzOYB+S2RR0A2ictlE9k1rcjqKEk7l8aeKV31mpj1/Xw4ayTUUDeQsDgzY0BrR9gTCMUHtWh1QciYwDJxODkzKRySUoznyVscV1nnP4VI7pxFSaZfu7YJxgmjGkchzn9RY008Th5gHGX51AfpSgW3V0gx7b2z8iT/WmmG1rKaeYQe6lIglSOD7wcFbzEYQCXjPA5m/76AYS8Wwa/SNFcIsjEpKkiCDCMMW1hOXpsV4uf2lcMalIRDs4OW6h026gfziDIFIYnyxh+/E63JqHmG1CI1IiFGTYhsePjxorAxS92Q2lJG5qoxOjKIz58LwQ2YKDkZeHsL/bwE/3tzA8nEQ8aSCIhGRmggkttsI398JbeQNvob2h6idtMCYBEDTdwF9rewi7PezuNtFpR3i6fQ6dMyidVHw4R6c9eYsAYLEyc+8Fqs8ErVoIbhrPtmrw3ACcAEGEdijhBRJuW6Db7YWDY0VD5YaWvrzz8KqmymX22fru/awTf8MChp6sHah6vSOJMWq2BfmBBDGoKJKyFSpKFwY4+vKrJxLvz84eBv9euDI75bw9UriZiLy5xmFVq1ZduBcBdA2w7Bh8MmE5juBO+vZzEV+4e/fBPxf+t3HhvWm75893L1rTURAWg14PvuBVD8Yyj5mLd779+T8b/wZ/to6FnUoM4QAAAABJRU5ErkJggg==',
   },
   {
     id: 'earth',
-    r: 43,
-    startAngle: 1.85,
-    speed: 0.28,
-    color: 'rgba(56, 189, 248,',
-    spriteSrc: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABUAAAAVCAYAAACpF6WWAAAFiklEQVR4nG1Va2xTZRh+vnNrT69rdyl03RhbHdcxriIi4v3yxx/KMCYqiErUBH+oCfFXxbsRExNj5IcaiYmJFtQIQlREcTABhwzHLmVru421bju9np62O6fnnM+UZIri8/N53/fJk7zf+3zAtWC+oJRl/s05ANQDqJ0jCIAQpdW2/7TiSu0fhEIM88rLpmlSAPyK9sef2bFkcfumQENdrSkINlXXzdh0Kh6Px4+NH/jqEKZHzhJCQLdsYREOG9f66+qac3fdul0vHnj9x5P6/sQM7dMonTAp/XY8R/dfkukJhdJXIim6/cgp2vr8a18DCMzN/9tpVxfLhMOGKfquv2Pvm988sf0RX7uaR2lG0lNSgjk2mIGVMMTJa2iZ30pHUkUzzbDMWI2XSYwOJP94/+2HSeTcTzQUYrBnj0mqguTgQYPWtd5wy5tvfLflvvtdjtFoZYko8f4aCYfPDSMyZYfTSpFKD6FiWYSzQyZaXDZYOUNPLV7BXU5PFkfefWsjjZ//g2zdyhBKKSGEOFe/9E7fC7ufW5j6ecBYYo+wTjMO0ZKFxBvIquthYQg+7e7FL+cFEJVipd+NwegEaj28br/9Vm4yfum3sVefXR+ilHAMIdRzT9fO+x7ettB9KV2J5ct8nc8Ch1EPhqOQqYKlfisE21LcWWiDpzIMOivj+K8XoOoGZLPIXd7/mb5656Prig8+/tQeQj7gqntuveuuraLgodJIjAm4bZhUA1hplTBDRZzMdUJNZDAw+D2yowaM2Syi4zPIZNJwuwVksjJVZstEGBujbR1rd0mff/Qhh4bGFa6mYOfF32Kk9/wA6xBZDOc0PLYhCat/GY4MeJCKjKGp2YZx5TKmhuOolEtwOjjwBLByrCm6LMxE72ni3XRTO9rWdHCu9o7NbYH5Qv+xcUMaGmd5joB1ePFhTz1uWpPG0+sdmPQ24ouTCQgWitb2ZqxtrcfZC0PIFwowTYPRyqXy5FiR5zvSvLh8TSMnuu02k4K6WIoF7T7kCyUk0jlQoQ4n+tzoG07hzk4BLQvcKOcysPMGDKECg7dhtpyF3+clVOOso7FoNpNXa3kb5+c0RZlIyCoplFSiZ4vwOEUEG60INrogFSuQihx+j/AI1pfRGlShqRSnL5zCvIAVmRyhaUnOOqylXtMgDilT3mCWNJXLDvYPmXK6YrqdfHIkjnS+CAcPCEQDxzII1tqvvIJmDwu7ZQFEwYKg30Ss+yjcNg7FvMGPx4px01G72MKCKFLiIgcpOUST8Qlv842t0hmTchWFkcsGbE1uuO0C2upF2O02KEoeX3V/CVUF5HwOielpzOMs1GUXHJqVXa775i2jphbVe472V89djf566uOW+Rypa7CbAk+wLOhDs8+JUknBcCwJTS1CzhjwGG5Mxkcwk5hAQHRSC7EzBc31p1JGSli+ukYtKh9V9eYuynrbO/sGNm64d+HB98JGncVgC7kseJaFv96JRc0umIYBVpNRnBnAmdFBqiolUtYdMZGt8SUbFjFaoEnK79vbgdAuhblyqwwpH9+3b2fPpb5Kw6olbF6WdYEHUnkZ6VwW+UIeQ9E4zvZHaEYpwSZ6yZRsnYqOKodV/3UCAk188WLPo0BGxuAg+TulSDhsCKs33d350I4Dfk/AwUaGzWQ0TqemksQumJTnWMjSWMViZpEsWRTGs4B3dq51625nIdV7/AH1l0M/XIm/cNj4J6Q3hzic2KOjtmntoid37W1pCW7m8wWUJ8fx5+QUWGrCyc5iOKeD1DTAFfChpJtHp48d2I3Iuf45wWuT/6oCVm26ueWGm7eJNd6NZVVv0NSKRRA4TTMxNZvPdsvR/k/07iM918z9L0Ihprq8qxgBEP1oWxWE6K2mPP93a/WPqgbzf/AX1OS5NYO6KGgAAAAASUVORK5CYII=',
+    r: 54,
+    startAngle: 1.2,
+    speed: 0.32,
+    color: 'rgba(80, 200, 255,',
+    dw: 18,
+    dh: 18,
+    spriteSrc:
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABIAAAASCAYAAABWzo5XAAAEcklEQVR42l3UXWxTZQDG8ec97+l3u67d1pZtHfvogMEYQdGBDFw0EkmILMEZCVHkSoI33nhHXNALE700mUFUDAYNq4o4Y3SJmiFQBwNhGxFW9tWedrRbe876cc5pz8frhSFRn/vfc/kneLTBQUqiUYMBsO0Z2Lf/8KEjG5tDu1xOW6MCgrVKNX17QYglr/9xPnnuo7F/zAhF9CUD/zkBAFtz5LXPL4x+OnOPfZ3KsrjK2OWEyE5PJtjoUpmdWZDYG+PTrPeTi6PYvD3yyAIAwdAQR06dMm07n9s98PbJS4f799a1iALTizlz7MYkN7vqJGFXGQFfgEmqy5yXSly5pYUky2Ju5ruRg+WR01fZ0BBHGGOEbNvb+uL77918vudJn2d+Wu9yCzxnSeLH6RJMNENIx5AquzGT9CFkcaDeoumr6yP8mtcmTp397HF2eWSRI4Sw/uOvDx99erdPjE3rIWOKV6X7MJQEujs0PPPYBvTt2o/5TBBWmcKqa5iYEfj8+K+6Iyf5ug7sHyaEMFp36OizA68ce6dBqJhVRabb1ntQz+tQuSpMRxt0g8fywxDqiBUNVoYbkzPQNA2qXOaWp++aPX29nZVw6xU+vOfpY2V4WUpIMGbo+OqWjJc7s7im9iB62wqHsYjE3fsQZ5fwMLMKC6/D5yFQ5BJgVBmXFlhT55ZjdMfxNz+Q0qb/l++vkrnUCplM6qjaRJieEPgyxVK8CGeNjoJYRNjvAKU6KKUgTAcxVKJqMrE2htxcyG0PGoU11Do4oioKWKGA6LUmTE7J2B5WsXtLPTJpAx6/A71929DW2galYsBi4cCBkWxSQDGfD/KpkoZqlSDgdcLCu5ArVtAa9iOeZvgiXUBPxIUDOw2E3Cbuzk2gxDEwnkeNwwWvRUE8IyGzpoNXVSWj8d72WSHHaj0O4ndZwWtltFiqsLud4BQT3a1u2GgtqgWgsHITYq2BxQcyKlKekUATqWpGhqdSNmYLrm9LE940cqtUXNFQ4wijwetEe6ML1GoinclgOZuFoRm481ccLmZgU9CJBzIzzTo/x/FcjMtcv3E2YJeJp9ZG7LyBLR1BRJp8kMsl6BUZnA4sz4v4/eoYfv5tFDUc4IUdUoGiwnhia42QilI6S7N/Tiys63tqZ1//ns77t+K6jWjcQiKFvFREtaqCMgU8caLd7YEoidDKGkoVOzh4dLWthxpNLT8VTp98l2eMEdK794Ttreab/q0bfMsTMd00KrxaNdBQS5DJyZhbTGGdtQi/pwFC1oCQkPWOHd087YiIaznhBBgj9BTAkS/PiRlVvVLfvelguL3D7TMUVpZEc3FxgZQKEhEEAfnlOHuQksyiGSS+3n5qbOjKFRKzLygXPpwCwFGMjzMMDlL1YnQpm89+a9/c1W4PBTZ6ahwczxOyIusI1HmQ571E8m3ifD3dhIWCPyTv3RmsXjpzB4ODFMPDJvl3kxCNGgDgHHh1X/vWJ44wSneticVGyhHA5kirqhwrJufOy998PPZ/8zf7cjprLC/I1QAAAABJRU5ErkJggg==',
   },
   {
     id: 'mars',
-    r: 57,
-    startAngle: 5.25,
-    speed: 0.18,
-    color: 'rgba(240, 100, 60,',
-    spriteSrc: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAADQUlEQVR4nE1Tz2ucVRQ9930/hsk0sZpETG3NLxOjFYPa4iLSnXWTEt24qFCqG8GNi0JdiITiX6C4EDddCIJurOJKxR+ggpGkDcSaNJNJk0lmOjOZyczkm5nvfe+9e2WC0d7VgXvOuVzuPYT/SylFzCyHeOJk+szpiRMjcGI3i8Wd5fXOMgBNRBARBYC7RDoSExGLSPjGhem3zz03eXmwJ/P0wMCgp70MSvltLmznVnOlvc8++mblYwDRPKCuAUxd8AERs8ipD6/MfnVucux5W6giKtdQb7b5TlPQgFKUSeHEYBq7xeLKl3/ceiWb1xtdLYnMK6JrD3z67oXf5yZGpkp/50xAbW9vq640Cw6Y0NCMnyuOb3eUPTv+UGji6vqPy5szr791pXq4wtVLM9ffO3/2cu77RRMGJgAc2i2DMB10Z2OtFONWXbBUN2haMTOjx4K1Uvn6jcX8m2qoP5x66Zmxi7WVHCvd9JVzgBOke1KwTqESAbkDQbFt8FQGeDRgf7vYYHL82sgjx4f9l1+cmh1N+WFtp+geHOxRhgmZtI+4LTDWYedAI2LCcBoI2QEBUzUxUk1sZqgvmFWPDfSdpk4CFfrgIAAzIORBpQKIIoz0eRgMBV1j7bpNK4k1XGsn90BqXDknSIwTQ4LYCoKUj0YzwVbhALuRgQYw2gM4Z2WjLcaSolJsGpGTm07E83cr+6v6yVFKHKHTMPDDALl7Lew3NfzQx1bEGO+FNJ3QnRZrjmy+0+G7Qeg/zMzfqZ+Wsl8v5Ot6PzxOUcdJ1IghAtSNoKktPFis1BLablldid1CueUWDEstIBxzQt/6W8Vk9bfs7hcnh8YulQqSDFMnDJVgPRaUtUOvJ8zMVOi4feN4NbYu25uhOS/AD39mK1k1Pz+vFpduXt0pFzbzYV/4a43N3SjhqnaoaScbzcSuN7VtGdsxxrT70/Z8OuX1xIl5//ATj376heHUyNjo5I1Q/GmJYyTaYK+VcDsxYpwlJ1wPQwr8AGsJ86sL2drOYYaOwvRvujJzZ069E3jBRR3bqUg7z3VvD9ZEsgRPff7L7dInAOyR5sjgfpNuBc8+0T+dIf/xRNg60NriWvmv+/r/cf8BtIDwVLp9KZcAAAAASUVORK5CYII=',
+    r: 72,
+    startAngle: 5.6,
+    speed: 0.22,
+    color: 'rgba(255, 110, 70,',
+    dw: 15,
+    dh: 15,
+    spriteSrc:
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA8AAAAPCAYAAAA71pVKAAAC7UlEQVR42k3TTWgcdRjH8d/z/OdlM7uzmyaGWBe3TQVRUBv1Jm3RGlAQD4IUpbSX4lEDgrfCukfBg1fxoi2eCp69GCkRwRewwUIq1jTbZNPuJrub7OzO7Mz/5fFQBO/f7/FDANBsNrnVajkA+PyTty4+XV+8VJuJl8N4vloUZtTd2ry11314ffXL9W8f9eBWC47+G18/0zi1+s7KVwt+cJ6GY+hkgp3EoasZRjRqVR8s+drt3Z0Pvvjuz61mE0wiQm++evLE1QsrPzVcUB/e37Zpb0hHg5SGFtQvRO5lJL+PSZ5pzKmFyHR2D3tnvv7+rzYTEX/09tlrz7FX7/66oauSqoqy/Fis6Pl6CS8verRcI14KrPpls6O7B9P6PIfXiMDqs9WV99546smP99b/sCG0l42mgAjgeQApdBOHn7sFjBMc80Ttj3MbkTk5XwvueC81jl/Ruz0hm2FmtgRQABAjnTjsjy3ujgRljxCzgfIE9zODwyMtxsoVriicHveGFFRCNsqDBcObCRCWfAQeIfIAR0BZAbnWiJXjJMtpkpvTbHMbG+dgwoBIBJ7HyHPBfqJBTHj2GGOOHfqFoADg4OhhmmNqJfZy65IZ5jBPCrFRSDq32NodgpXCA014IhTEvuC3gUGiBQwjIwOKAk68g0m+MVuJz0/7hy4tCjV1QHts4ZFB6gj3BhaREhxowd2RRUmM85nZV7yhlh6v6jSYffdgkInNUrba4Kiw6GQOhQhEHNoTg38SjakViNVSDsFRia8SAPXh+ys/9sf+2VF7R78Qab9ngM3EwjiHiAWTwqKfO4xzrcu+8RcqvN54cf81FhE32vv7ckCTTlGu+O0p7NRYF7EIO4tBWkhWFA4mt3Oh9Rer3CmV+fKNG3D8KRF9c7O9Pdq7c+5EebLGZaU4VBySIc9pVJSmiqf5eCyqXuO1KKRzNze62wCI/q8EAC68snTRGlwaZ3p5qk0VwIgZt5jp+g+3HzxSBXALcP8C1BKaSaNKHwoAAAAASUVORK5CYII=',
   },
   {
     id: 'jupiter',
-    r: 72,
-    startAngle: 3.50,
-    speed: 0.09,
-    color: 'rgba(235, 190, 130,',
-    spriteSrc: 'data:image/png;base64,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',
+    r: 94,
+    startAngle: 3.6,
+    speed: 0.12,
+    color: 'rgba(245, 200, 140,',
+    dw: 24,
+    dh: 24,
+    spriteSrc:
+      'data:image/png;base64,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',
   },
   {
     id: 'saturn',
-    r: 88,
-    startAngle: 0.20,
-    speed: 0.05,
-    color: 'rgba(240, 220, 170,',
-    spriteSrc: 'data:image/png;base64,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',
+    r: 118,
+    startAngle: 0.4,
+    speed: 0.07,
+    color: 'rgba(245, 225, 180,',
+    dw: 34,
+    dh: 22,
+    spriteSrc:
+      'data:image/png;base64,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',
   },
 ];
 
@@ -178,6 +206,11 @@ export async function loadKevinPixelMotion(
     );
   }
 
+  // Optional clean galaxy dish plate for dynamic movement frames
+  const cleanPlateImg = await loadImage(
+    assetUrl.replace('kevin-station.png', 'kevin-clean-plate.png'),
+  ).catch(() => null);
+
   // Pre-load the 6 celestial body sprites
   const loadedSprites = await Promise.all(
     PLANETS.map(async (p) => ({
@@ -186,13 +219,26 @@ export async function loadKevinPixelMotion(
     })),
   );
 
-  // Base canvas containing the clean table, glowing concentric orbits, and central Sun
+  // Base canvas containing the master rest pose
   const baseCanvas = document.createElement('canvas');
   baseCanvas.width = WIDTH;
   baseCanvas.height = HEIGHT;
   const baseCtx = baseCanvas.getContext('2d');
   if (!baseCtx) throw new Error('2D context unavailable for Kevin base canvas');
   baseCtx.drawImage(baseImg, 0, 0);
+
+  // Clean plate canvas for motion
+  const cleanPlateCanvas = document.createElement('canvas');
+  cleanPlateCanvas.width = WIDTH;
+  cleanPlateCanvas.height = HEIGHT;
+  const cleanPlateCtx = cleanPlateCanvas.getContext('2d');
+  if (cleanPlateCtx) {
+    if (cleanPlateImg) {
+      cleanPlateCtx.drawImage(cleanPlateImg, 0, 0);
+    } else {
+      cleanPlateCtx.drawImage(baseImg, 0, 0);
+    }
+  }
 
   // Runtime animation composite frame canvas
   const frameCanvas = document.createElement('canvas');
@@ -212,7 +258,7 @@ export async function loadKevinPixelMotion(
       id: 'concentric_laser_orbits',
       kind: 'generated-static',
       z: 20,
-      primitiveCount: 6,
+      primitiveCount: 0,
     },
     ...PLANETS.map((p, idx): KevinMotionLayerAudit => ({
       id: p.id,
@@ -264,42 +310,47 @@ export async function loadKevinPixelMotion(
     },
 
     render(timeSec: number, working: boolean): HTMLCanvasElement {
+      if (!working || timeSec === 0) {
+        return baseCanvas;
+      }
+
       frameCtx.clearRect(0, 0, WIDTH, HEIGHT);
-      frameCtx.drawImage(baseCanvas, 0, 0);
+      frameCtx.drawImage(cleanPlateCanvas, 0, 0);
 
-      const speedMult = working ? 1.4 : 1.0;
+      const speedMult = 1.35;
 
-      // Strict elliptical design boundary
+      // Strict polygon design boundary
       frameCtx.save();
       frameCtx.beginPath();
-      frameCtx.ellipse(DISH_CX, DISH_CY, DISH_RX, DISH_RY, 0, 0, Math.PI * 2);
+      frameCtx.moveTo(POLY_PERFECT[0]![0], POLY_PERFECT[0]![1]);
+      for (let i = 1; i < POLY_PERFECT.length; i++) {
+        frameCtx.lineTo(POLY_PERFECT[i]![0], POLY_PERFECT[i]![1]);
+      }
+      frameCtx.closePath();
       frameCtx.clip();
 
-      // 1. Planetary motion in pure cosmic galaxy space (zero concentric blueprint rings)
+      // 1. Draw subtle cometary motion trail along orbital paths
+      const trailLen = 0.35;
+      const trailSteps = 8;
+      for (const p of loadedSprites) {
+        const theta = p.startAngle + p.speed * timeSec * speedMult;
+        for (let s = 0; s < trailSteps; s++) {
+          const frac = (s + 1) / trailSteps;
+          const tt = theta - (1.0 - frac) * trailLen;
+          const tx = DISH_CX + Math.cos(tt) * p.r;
+          const ty = DISH_CY + Math.sin(tt) * (p.r * ORBIT_Y_RATIO);
+          frameCtx.fillStyle = p.color + (frac * 0.42).toFixed(3) + ')';
+          frameCtx.fillRect(Math.round(tx), Math.round(ty), 1, 1);
+        }
+      }
 
-      // 2. Compute 3D positions and draw dynamic trailing orbital wakes
-      const trailLen = 0.40;
-      const trailSteps = 16;
+      // 2. Compute 3D positions
       const states = loadedSprites.map((p) => {
         const theta = p.startAngle + p.speed * timeSec * speedMult;
         const gx = DISH_CX + Math.cos(theta) * p.r;
         const gy = DISH_CY + Math.sin(theta) * (p.r * ORBIT_Y_RATIO);
         const normDepth = (gy - DISH_CY) / DISH_RY;
         const scale = 1.0 + normDepth * 0.12;
-
-        // Draw glowing cometary motion trail behind the planet along its orbit
-        for (let s = 0; s < trailSteps; s += 1) {
-          const frac = s / trailSteps;
-          const trailTheta = theta - (1.0 - frac) * trailLen;
-          const tx = DISH_CX + Math.cos(trailTheta) * p.r;
-          const ty = DISH_CY + Math.sin(trailTheta) * (p.r * ORBIT_Y_RATIO);
-          const alpha = (0.45 * Math.pow(frac, 2.0)).toFixed(3);
-          frameCtx.fillStyle = p.color + alpha + ')';
-          frameCtx.fillRect(Math.round(tx), Math.round(ty), 1, 1);
-          if (s > trailSteps - 5) {
-            frameCtx.fillRect(Math.round(tx), Math.round(ty) + 1, 1, 1);
-          }
-        }
 
         return {
           ...p,
@@ -316,8 +367,8 @@ export async function loadKevinPixelMotion(
       // Render bodies behind the Sun (gy < DISH_CY)
       for (const s of states) {
         if (s.depth < DISH_CY) {
-          const iw = Math.round(s.image.naturalWidth * s.scale);
-          const ih = Math.round(s.image.naturalHeight * s.scale);
+          const iw = Math.round(s.dw * s.scale);
+          const ih = Math.round(s.dh * s.scale);
           frameCtx.drawImage(
             s.image,
             Math.round(s.gx - iw / 2),
@@ -328,7 +379,7 @@ export async function loadKevinPixelMotion(
         }
       }
 
-      // Volumetric breathing solar corona
+      // Volumetric breathing solar corona in the center
       const sunBreath = 0.5 + 0.5 * Math.sin(timeSec * 2.8);
       const sunGlow = frameCtx.createRadialGradient(
         DISH_CX,
@@ -338,17 +389,17 @@ export async function loadKevinPixelMotion(
         DISH_CY,
         18 + sunBreath * 3,
       );
-      sunGlow.addColorStop(0, 'rgba(255, 255, 240, 0.45)');
-      sunGlow.addColorStop(0.3, 'rgba(255, 220, 110, ' + (0.28 + sunBreath * 0.10).toFixed(3) + ')');
-      sunGlow.addColorStop(0.7, 'rgba(255, 140, 30, ' + (0.12 + sunBreath * 0.06).toFixed(3) + ')');
+      sunGlow.addColorStop(0, 'rgba(255, 255, 240, 0.40)');
+      sunGlow.addColorStop(0.3, 'rgba(255, 220, 110, ' + (0.25 + sunBreath * 0.08).toFixed(3) + ')');
+      sunGlow.addColorStop(0.7, 'rgba(255, 140, 30, ' + (0.10 + sunBreath * 0.05).toFixed(3) + ')');
       sunGlow.addColorStop(1, 'rgba(255, 80, 0, 0)');
       frameCtx.fillStyle = sunGlow;
       frameCtx.beginPath();
       frameCtx.ellipse(
         DISH_CX,
         DISH_CY,
-        22 + sunBreath * 3,
-        12 + sunBreath * 2,
+        20 + sunBreath * 2,
+        10 + sunBreath * 1.5,
         0,
         0,
         Math.PI * 2,
@@ -358,8 +409,8 @@ export async function loadKevinPixelMotion(
       // Render bodies in front of the Sun (gy >= DISH_CY)
       for (const s of states) {
         if (s.depth >= DISH_CY) {
-          const iw = Math.round(s.image.naturalWidth * s.scale);
-          const ih = Math.round(s.image.naturalHeight * s.scale);
+          const iw = Math.round(s.dw * s.scale);
+          const ih = Math.round(s.dh * s.scale);
           frameCtx.drawImage(
             s.image,
             Math.round(s.gx - iw / 2),
