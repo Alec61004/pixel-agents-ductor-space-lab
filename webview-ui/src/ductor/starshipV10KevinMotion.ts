@@ -99,8 +99,8 @@ const HEIGHT = 230;
 const SUN_X = 308.7;
 const SUN_Y = 54.2;
 const ORBIT_Y_SCALE = KEVIN_DISC.ry / KEVIN_DISC.rx;
-const KEPLER_REFERENCE_RADIUS = 60;
-const KEPLER_REFERENCE_PERIOD_SEC = 72;
+const KEPLER_REFERENCE_RADIUS = 50;
+const KEPLER_REFERENCE_PERIOD_SEC = 28;
 
 // The atlas polygon is the measured edge of the actual glass map. The old
 // ellipse is only a conservative bounding approximation and clips valid source
@@ -170,76 +170,76 @@ interface PlanetVisualSpec {
 }
 
 const PLANET_MOTION: Readonly<Record<MovingPlanetId, PlanetMotionConfig>> = {
-  planet_gold_small: {
-    orbitRadius: 40,
-    orbitTheta: 0.85,
-    speed: 1.0,
-    phase: 2.1,
-    scaleAmplitude: 0.025,
-    angularAmplitude: 0.14,
-    radialAmplitude: 1.6,
-    feather: 6,
-    donorAngle: 0.5,
-  },
   planet_purple_small: {
-    orbitRadius: 68,
-    orbitTheta: 3.40,
-    speed: 0.95,
+    orbitRadius: 28,
+    orbitTheta: -2.53,
+    speed: 1.0,
     phase: 1.25,
-    scaleAmplitude: 0.026,
+    scaleAmplitude: 0.02,
     angularAmplitude: 0.16,
-    radialAmplitude: 1.25,
+    radialAmplitude: 1.0,
     feather: 6,
     donorAngle: 0.47,
   },
+  planet_gold_small: {
+    orbitRadius: 39,
+    orbitTheta: -2.86,
+    speed: 0.95,
+    phase: 2.1,
+    scaleAmplitude: 0.022,
+    angularAmplitude: 0.14,
+    radialAmplitude: 1.2,
+    feather: 6,
+    donorAngle: 0.5,
+  },
   planet_cyan: {
-    orbitRadius: 96,
-    orbitTheta: 5.15,
+    orbitRadius: 50,
+    orbitTheta: 0.33,
     speed: 0.90,
     phase: 3.7,
-    scaleAmplitude: 0.034,
+    scaleAmplitude: 0.026,
     angularAmplitude: 0.12,
-    radialAmplitude: 2.4,
+    radialAmplitude: 1.5,
     feather: 8,
     donorAngle: 0.36,
   },
   planet_orange: {
-    orbitRadius: 122,
-    orbitTheta: 1.70,
+    orbitRadius: 62,
+    orbitTheta: 2.95,
     speed: 0.85,
     phase: 0.4,
-    scaleAmplitude: 0.03,
+    scaleAmplitude: 0.028,
     angularAmplitude: 0.13,
-    radialAmplitude: 2.2,
+    radialAmplitude: 1.6,
     feather: 7,
     donorAngle: 0.42,
   },
   planet_white: {
-    orbitRadius: 148,
-    orbitTheta: 4.60,
+    orbitRadius: 73,
+    orbitTheta: 0.48,
     speed: 0.80,
     phase: 5.2,
-    scaleAmplitude: 0.036,
+    scaleAmplitude: 0.03,
     angularAmplitude: 0.095,
-    radialAmplitude: 2.0,
+    radialAmplitude: 1.5,
     feather: 9,
     donorAngle: 0.31,
   },
 };
 
 const PLANET_VISUALS: Readonly<Record<MovingPlanetId, PlanetVisualSpec>> = {
-  planet_gold_small: {
+  planet_purple_small: {
     style: 'rocky',
-    radius: 9.2,
+    radius: 4.2,
     primary: '#cca86e',
     secondary: '#664e2e',
     highlight: '#fff6d9',
     accent: '#947545',
     tilt: 0.12,
   },
-  planet_purple_small: {
+  planet_gold_small: {
     style: 'crimson_desert',
-    radius: 11.2,
+    radius: 5.2,
     primary: '#d65432',
     secondary: '#6e2010',
     highlight: '#ffa890',
@@ -248,16 +248,16 @@ const PLANET_VISUALS: Readonly<Record<MovingPlanetId, PlanetVisualSpec>> = {
   },
   planet_cyan: {
     style: 'oasis_ocean',
-    radius: 13.8,
+    radius: 6.2,
     primary: '#1e78c7',
     secondary: '#0b3866',
     highlight: '#70cbff',
     accent: '#32a868',
-    tilt: -0.15,
+    tilt: 0.38,
   },
   planet_orange: {
     style: 'gas_banded',
-    radius: 19.5,
+    radius: 7.8,
     primary: '#e0955a',
     secondary: '#6e3a1d',
     highlight: '#fae4c2',
@@ -266,13 +266,13 @@ const PLANET_VISUALS: Readonly<Record<MovingPlanetId, PlanetVisualSpec>> = {
   },
   planet_white: {
     style: 'ringed_gas',
-    radius: 16.8,
+    radius: 6.4,
     primary: '#e2d8c2',
     secondary: '#807664',
     highlight: '#fffaf0',
     accent: '#b3a58e',
     ring: 'rgba(240, 228, 202, 0.82)',
-    tilt: -0.28,
+    tilt: -0.25,
   },
 };
 
@@ -1684,7 +1684,7 @@ function planetCentroid(mask: Uint8Array): { x: number; y: number } {
 }
 
 function makePlanetSprite(spec: PlanetVisualSpec): HTMLCanvasElement {
-  const padding = spec.style === 'ringed_gas' ? 26 : 12;
+  const padding = spec.style === 'ringed_gas' ? 14 : 6;
   const size = Math.ceil((spec.radius + padding) * 2);
   const cx = size / 2;
   const cy = size / 2;
@@ -1703,27 +1703,27 @@ function makePlanetSprite(spec: PlanetVisualSpec): HTMLCanvasElement {
     ctx.translate(cx, cy);
     ctx.rotate(spec.tilt);
 
-    const rOuter = spec.radius * 2.30;
-    const rMid = spec.radius * 1.82;
-    const yRatio = 0.32;
+    const rOuter = spec.radius * 2.05;
+    const rMid = spec.radius * 1.68;
+    const yRatio = 0.35;
 
     // Rear outer B-ring
     ctx.strokeStyle = spec.ring;
-    ctx.lineWidth = spec.radius * 0.42;
+    ctx.lineWidth = spec.radius * 0.38;
     ctx.beginPath();
     ctx.ellipse(0, 0, rMid, rMid * yRatio, 0, Math.PI, Math.PI * 2);
     ctx.stroke();
 
     // Dark Cassini division gap in rear ring
     ctx.strokeStyle = 'rgba(15, 12, 10, 0.70)';
-    ctx.lineWidth = 1.2;
+    ctx.lineWidth = 1.0;
     ctx.beginPath();
-    ctx.ellipse(0, 0, spec.radius * 1.95, spec.radius * 1.95 * yRatio, 0, Math.PI, Math.PI * 2);
+    ctx.ellipse(0, 0, spec.radius * 1.80, spec.radius * 1.80 * yRatio, 0, Math.PI, Math.PI * 2);
     ctx.stroke();
 
     // Faint translucent outer A-ring
     ctx.strokeStyle = 'rgba(215, 205, 180, 0.35)';
-    ctx.lineWidth = spec.radius * 0.28;
+    ctx.lineWidth = spec.radius * 0.24;
     ctx.beginPath();
     ctx.ellipse(0, 0, rOuter, rOuter * yRatio, 0, Math.PI, Math.PI * 2);
     ctx.stroke();
@@ -1902,27 +1902,27 @@ function makePlanetSprite(spec: PlanetVisualSpec): HTMLCanvasElement {
     ctx.translate(cx, cy);
     ctx.rotate(spec.tilt);
 
-    const rOuter = spec.radius * 2.30;
-    const rMid = spec.radius * 1.82;
-    const yRatio = 0.32;
+    const rOuter = spec.radius * 2.05;
+    const rMid = spec.radius * 1.68;
+    const yRatio = 0.35;
 
     // Front main B-ring
     ctx.strokeStyle = spec.ring;
-    ctx.lineWidth = spec.radius * 0.42;
+    ctx.lineWidth = spec.radius * 0.38;
     ctx.beginPath();
     ctx.ellipse(0, 0, rMid, rMid * yRatio, 0, 0, Math.PI);
     ctx.stroke();
 
     // Dark Cassini division in front ring
     ctx.strokeStyle = 'rgba(15, 12, 10, 0.75)';
-    ctx.lineWidth = 1.2;
+    ctx.lineWidth = 1.0;
     ctx.beginPath();
-    ctx.ellipse(0, 0, spec.radius * 1.95, spec.radius * 1.95 * yRatio, 0, 0, Math.PI);
+    ctx.ellipse(0, 0, spec.radius * 1.80, spec.radius * 1.80 * yRatio, 0, 0, Math.PI);
     ctx.stroke();
 
     // Faint outer A-ring in front
     ctx.strokeStyle = 'rgba(215, 205, 180, 0.35)';
-    ctx.lineWidth = spec.radius * 0.28;
+    ctx.lineWidth = spec.radius * 0.24;
     ctx.beginPath();
     ctx.ellipse(0, 0, rOuter, rOuter * yRatio, 0, 0, Math.PI);
     ctx.stroke();
@@ -2004,21 +2004,21 @@ function drawSolarCore(
   ctx.globalCompositeOperation = 'screen';
 
   const pulse = Math.sin(timeSec * 1.5) * 0.06 + Math.cos(timeSec * 2.7) * 0.03;
-  const rx = 19 * (1 + pulse * 0.10);
+  const rx = 12 * (1 + pulse * 0.08);
 
   ctx.save();
   ctx.translate(SUN_X, SUN_Y);
   ctx.scale(1, ORBIT_Y_SCALE);
 
   // Soft radiant coronal luminescence
-  const corona = ctx.createRadialGradient(0, 0, 1, 0, 0, rx * 3.6);
+  const corona = ctx.createRadialGradient(0, 0, 1, 0, 0, rx * 2.8);
   corona.addColorStop(0, working ? 'rgba(255, 248, 200, 0.72)' : 'rgba(255, 238, 180, 0.58)');
   corona.addColorStop(0.20, 'rgba(255, 190, 80, 0.40)');
   corona.addColorStop(0.50, 'rgba(255, 120, 35, 0.16)');
   corona.addColorStop(1, 'rgba(255, 60, 0, 0)');
   ctx.fillStyle = corona;
   ctx.beginPath();
-  ctx.arc(0, 0, rx * 3.6, 0, Math.PI * 2);
+  ctx.arc(0, 0, rx * 2.8, 0, Math.PI * 2);
   ctx.fill();
 
   // Vibrant fusion core
@@ -2341,7 +2341,6 @@ export async function loadKevinPixelMotion(
       // Sun focus inside that glass; these are intentionally separate centers.
       drawSemanticMapContext(frameCtx, timeSec, working);
       drawMeasuredOrbitTracks(frameCtx, patches, working);
-      drawSolarCore(frameCtx, timeSec, working);
 
       const states = patches
         .map((patch) => {
@@ -2369,7 +2368,7 @@ export async function loadKevinPixelMotion(
       frameCtx.save();
       clipToKevinStarMap(frameCtx);
 
-      for (const state of states) {
+      const renderPlanetState = (state: (typeof states)[0]) => {
         const { patch, x, y, depth } = state;
         const config = patch.config;
         const scale =
@@ -2396,7 +2395,25 @@ export async function loadKevinPixelMotion(
           -patch.localCenterY,
         );
         frameCtx.restore();
+      };
+
+      // 1. Draw rear planets (orbiting behind the Sun)
+      for (const state of states) {
+        if (state.depth < 0) {
+          renderPlanetState(state);
+        }
       }
+
+      // 2. Radiant solar core & coronal light (illuminates and occludes rear space)
+      drawSolarCore(frameCtx, timeSec, working);
+
+      // 3. Draw foreground planets (passing in front of the Sun)
+      for (const state of states) {
+        if (state.depth >= 0) {
+          renderPlanetState(state);
+        }
+      }
+
       frameCtx.restore();
 
       if (intro < 1) {
