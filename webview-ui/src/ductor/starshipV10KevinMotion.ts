@@ -2,7 +2,6 @@ import {
   decodeKevinAuthoredMask,
   KEVIN_AUTHORED_OBJECTS,
   KEVIN_DISC,
-  KEVIN_STAR_MAP_POLYGON,
   type KevinAuthoredObjectDefinition,
   type KevinAuthoredObjectId,
 } from './starshipV10PixelAtlas.js';
@@ -96,20 +95,24 @@ const HEIGHT = 230;
 // 1) the physical star-map glass/disc, measured by the semantic atlas;
 // 2) the solar-system focus, measured from the authored Sun pixels.
 // Never use the Sun as the clipping center of the physical map.
-const SUN_X = 308.7;
-const SUN_Y = 54.2;
-const ORBIT_Y_SCALE = KEVIN_DISC.ry / KEVIN_DISC.rx;
-const KEPLER_REFERENCE_RADIUS = 50;
+const SUN_X = 300;
+const SUN_Y = 68;
+const KEVIN_MAP_DISH = { cx: 300, cy: 68, rx: 158, ry: 62 } as const;
+const ORBIT_Y_SCALE = KEVIN_MAP_DISH.ry / KEVIN_MAP_DISH.rx;
+const KEPLER_REFERENCE_RADIUS = 64;
 const KEPLER_REFERENCE_PERIOD_SEC = 28;
 
-// The atlas polygon is the measured edge of the actual glass map. The old
-// ellipse is only a conservative bounding approximation and clips valid source
-// area along the upper edge.
 function traceKevinStarMap(ctx: CanvasRenderingContext2D): void {
-  const [first, ...rest] = KEVIN_STAR_MAP_POLYGON;
   ctx.beginPath();
-  ctx.moveTo(first[0], first[1]);
-  for (const [x, y] of rest) ctx.lineTo(x, y);
+  ctx.ellipse(
+    KEVIN_MAP_DISH.cx,
+    KEVIN_MAP_DISH.cy,
+    KEVIN_MAP_DISH.rx,
+    KEVIN_MAP_DISH.ry,
+    0,
+    0,
+    Math.PI * 2,
+  );
   ctx.closePath();
 }
 
@@ -119,20 +122,9 @@ function clipToKevinStarMap(ctx: CanvasRenderingContext2D): void {
 }
 
 function insideMap(x: number, y: number): boolean {
-  let inside = false;
-  for (
-    let index = 0, previous = KEVIN_STAR_MAP_POLYGON.length - 1;
-    index < KEVIN_STAR_MAP_POLYGON.length;
-    previous = index, index += 1
-  ) {
-    const [xi, yi] = KEVIN_STAR_MAP_POLYGON[index]!;
-    const [xj, yj] = KEVIN_STAR_MAP_POLYGON[previous]!;
-    const crosses = (yi > y) !== (yj > y);
-    if (crosses && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) {
-      inside = !inside;
-    }
-  }
-  return inside;
+  const dx = (x - KEVIN_MAP_DISH.cx) / KEVIN_MAP_DISH.rx;
+  const dy = (y - KEVIN_MAP_DISH.cy) / KEVIN_MAP_DISH.ry;
+  return dx * dx + dy * dy <= 1;
 }
 
 type MovingPlanetId = Exclude<KevinAuthoredObjectId, 'sun' | 'marker_star'>;
@@ -171,9 +163,9 @@ interface PlanetVisualSpec {
 
 const PLANET_MOTION: Readonly<Record<MovingPlanetId, PlanetMotionConfig>> = {
   planet_purple_small: {
-    orbitRadius: 28,
+    orbitRadius: 26,
     orbitTheta: -2.53,
-    speed: 1.0,
+    speed: 1.05,
     phase: 1.25,
     scaleAmplitude: 0.02,
     angularAmplitude: 0.16,
@@ -182,9 +174,9 @@ const PLANET_MOTION: Readonly<Record<MovingPlanetId, PlanetMotionConfig>> = {
     donorAngle: 0.47,
   },
   planet_gold_small: {
-    orbitRadius: 39,
+    orbitRadius: 44,
     orbitTheta: -2.86,
-    speed: 0.95,
+    speed: 0.98,
     phase: 2.1,
     scaleAmplitude: 0.022,
     angularAmplitude: 0.14,
@@ -193,9 +185,9 @@ const PLANET_MOTION: Readonly<Record<MovingPlanetId, PlanetMotionConfig>> = {
     donorAngle: 0.5,
   },
   planet_cyan: {
-    orbitRadius: 50,
+    orbitRadius: 64,
     orbitTheta: 0.33,
-    speed: 0.90,
+    speed: 0.92,
     phase: 3.7,
     scaleAmplitude: 0.026,
     angularAmplitude: 0.12,
@@ -204,9 +196,9 @@ const PLANET_MOTION: Readonly<Record<MovingPlanetId, PlanetMotionConfig>> = {
     donorAngle: 0.36,
   },
   planet_orange: {
-    orbitRadius: 62,
+    orbitRadius: 85,
     orbitTheta: 2.95,
-    speed: 0.85,
+    speed: 0.86,
     phase: 0.4,
     scaleAmplitude: 0.028,
     angularAmplitude: 0.13,
@@ -215,7 +207,7 @@ const PLANET_MOTION: Readonly<Record<MovingPlanetId, PlanetMotionConfig>> = {
     donorAngle: 0.42,
   },
   planet_white: {
-    orbitRadius: 73,
+    orbitRadius: 106,
     orbitTheta: 0.48,
     speed: 0.80,
     phase: 5.2,
@@ -368,17 +360,17 @@ function mapSemanticPoint(x: number, y: number): { x: number; y: number } {
   const nx = (x - LEGACY_MAP_CENTER_X) / LEGACY_MAP_HALF_W;
   const ny = (y - LEGACY_MAP_CENTER_Y) / LEGACY_MAP_HALF_H;
   return {
-    x: KEVIN_DISC.cx + nx * KEVIN_DISC.rx,
-    y: KEVIN_DISC.cy + ny * KEVIN_DISC.ry,
+    x: KEVIN_MAP_DISH.cx + nx * KEVIN_MAP_DISH.rx,
+    y: KEVIN_MAP_DISH.cy + ny * KEVIN_MAP_DISH.ry,
   };
 }
 
 function semanticRadiusX(radius: number): number {
-  return (radius / LEGACY_MAP_HALF_W) * KEVIN_DISC.rx;
+  return (radius / LEGACY_MAP_HALF_W) * KEVIN_MAP_DISH.rx;
 }
 
 function semanticRadiusY(radius: number): number {
-  return (radius / LEGACY_MAP_HALF_H) * KEVIN_DISC.ry;
+  return (radius / LEGACY_MAP_HALF_H) * KEVIN_MAP_DISH.ry;
 }
 
 function drawSemanticMapStar(
@@ -499,6 +491,55 @@ function drawSemanticStarGridLayer(
   }
 }
 
+function drawGalaxySpiralLayer(
+  ctx: CanvasRenderingContext2D,
+  timeSec: number,
+  working: boolean,
+): void {
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  const boost = working ? 1.25 : 1.0;
+  const rotation = timeSec * 0.04;
+
+  // 1. Soft radiant cosmic core haze around the Sun
+  const sunPulse = 0.5 + 0.5 * Math.sin(timeSec * 2.2);
+  const coronaRadius = 26 + sunPulse * 4;
+  const sunCorona = ctx.createRadialGradient(SUN_X, SUN_Y, 1, SUN_X, SUN_Y, coronaRadius);
+  sunCorona.addColorStop(0, 'rgba(255, 248, 220, 0.42)');
+  sunCorona.addColorStop(0.28, 'rgba(255, 195, 75, 0.20)');
+  sunCorona.addColorStop(0.65, 'rgba(255, 115, 30, 0.06)');
+  sunCorona.addColorStop(1, 'rgba(255, 50, 0, 0)');
+  ctx.fillStyle = sunCorona;
+  ctx.beginPath();
+  ctx.arc(SUN_X, SUN_Y, coronaRadius, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 2. Majestic spiral galaxy arms swirling with cosmic stardust
+  const arms = 2;
+  const starsPerArm = 64;
+  for (let arm = 0; arm < arms; arm += 1) {
+    const armOffset = arm * Math.PI;
+    for (let i = 0; i < starsPerArm; i += 1) {
+      const t = i / starsPerArm;
+      const angle = armOffset + rotation + t * 4.6;
+      const dist = 14 + t * 105;
+      const px = SUN_X + Math.cos(angle) * dist;
+      const py = SUN_Y + Math.sin(angle) * dist * ORBIT_Y_SCALE;
+      const size = 0.35 + (i % 3) * 0.28;
+      const alpha = (0.22 + (1 - t) * 0.45) * boost * (0.75 + 0.25 * Math.sin(timeSec * 1.8 + i));
+
+      // Astronomical celestial dust palette: warm gold, electric cyan, diamond white
+      ctx.fillStyle = i % 5 === 0 ? '#ffea9f' : i % 2 === 0 ? '#7fe0f7' : '#ffffff';
+      ctx.globalAlpha = alpha;
+      ctx.beginPath();
+      ctx.arc(px, py, size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  ctx.restore();
+}
+
 function drawSemanticMapContext(
   ctx: CanvasRenderingContext2D,
   timeSec: number,
@@ -507,9 +548,26 @@ function drawSemanticMapContext(
   ctx.save();
   clipToKevinStarMap(ctx);
 
+  // Deep space concave dish backing: cleanly covers all static concentric circles across the entire dish
+  // Uses exact elliptical scaling matching dish geometry (158x62)
+  ctx.save();
+  ctx.translate(KEVIN_MAP_DISH.cx, KEVIN_MAP_DISH.cy);
+  ctx.scale(1, KEVIN_MAP_DISH.ry / KEVIN_MAP_DISH.rx);
+  const glass = ctx.createRadialGradient(0, 0, 5, 0, 0, KEVIN_MAP_DISH.rx);
+  glass.addColorStop(0, 'rgba(4, 12, 22, 0.98)');
+  glass.addColorStop(0.86, 'rgba(4, 12, 22, 0.98)');
+  glass.addColorStop(0.96, 'rgba(3, 9, 18, 0.82)');
+  glass.addColorStop(1.0, 'rgba(2, 6, 12, 0.0)');
+  ctx.fillStyle = glass;
+  ctx.beginPath();
+  ctx.arc(0, 0, KEVIN_MAP_DISH.rx, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
   drawSemanticHazeLayer(ctx, timeSec, working);
   drawSemanticDustLayer(ctx, timeSec, working);
   drawSemanticStarGridLayer(ctx, working);
+  drawGalaxySpiralLayer(ctx, timeSec, working);
 
   ctx.restore();
 }
@@ -1941,58 +1999,7 @@ function keplerAngularSpeed(radius: number, speedMultiplier: number): number {
   return (Math.PI * 2 * speedMultiplier) / period;
 }
 
-function drawMeasuredOrbitTracks(
-  ctx: CanvasRenderingContext2D,
-  patches: readonly PlanetPatch[],
-  working: boolean,
-): void {
-  ctx.save();
-  clipToKevinStarMap(ctx);
 
-  ctx.globalCompositeOperation = 'screen';
-
-  const uniqueRadii = [...patches]
-    .map((patch) => patch.orbitRadius)
-    .sort((a, b) => a - b);
-
-  for (const radius of uniqueRadii) {
-    // 1. Full orbit track (softer background arc)
-    ctx.strokeStyle = working
-      ? 'rgba(90, 205, 235, 0.16)'
-      : 'rgba(75, 175, 215, 0.11)';
-    ctx.lineWidth = 0.65;
-    ctx.beginPath();
-    ctx.ellipse(
-      SUN_X,
-      SUN_Y,
-      radius,
-      radius * ORBIT_Y_SCALE,
-      0,
-      0,
-      Math.PI * 2,
-    );
-    ctx.stroke();
-
-    // 2. Foreground luminous sweep (closer to viewer)
-    ctx.strokeStyle = working
-      ? 'rgba(125, 235, 255, 0.28)'
-      : 'rgba(95, 210, 245, 0.20)';
-    ctx.lineWidth = 0.95;
-    ctx.beginPath();
-    ctx.ellipse(
-      SUN_X,
-      SUN_Y,
-      radius,
-      radius * ORBIT_Y_SCALE,
-      0,
-      0.15 * Math.PI,
-      0.85 * Math.PI,
-    );
-    ctx.stroke();
-  }
-
-  ctx.restore();
-}
 
 function drawSolarCore(
   ctx: CanvasRenderingContext2D,
@@ -2340,7 +2347,6 @@ export async function loadKevinPixelMotion(
       // into the exact physical V10 glass. The solar system keeps its authored
       // Sun focus inside that glass; these are intentionally separate centers.
       drawSemanticMapContext(frameCtx, timeSec, working);
-      drawMeasuredOrbitTracks(frameCtx, patches, working);
 
       const states = patches
         .map((patch) => {
