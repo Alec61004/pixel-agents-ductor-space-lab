@@ -1,8 +1,8 @@
 import {
+  decodeKevinAuthoredMask,
   KEVIN_AUTHORED_OBJECTS,
   KEVIN_DISC,
   KEVIN_STAR_MAP_POLYGON,
-  decodeKevinAuthoredMask,
   type KevinAuthoredObjectDefinition,
   type KevinAuthoredObjectId,
 } from './starshipV10PixelAtlas.js';
@@ -496,67 +496,6 @@ function drawSemanticStarGridLayer(
     ctx.beginPath();
     ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
     ctx.fill();
-  }
-}
-
-function drawSemanticNavigationLayer(
-  ctx: CanvasRenderingContext2D,
-  working: boolean,
-): void {
-  const p32_15 = mapSemanticPoint(32, 15);
-  const p54_38 = mapSemanticPoint(54, 38);
-  const p86_20 = mapSemanticPoint(86, 20);
-  const p87_51 = mapSemanticPoint(87, 51);
-  const c1 = mapSemanticPoint(35, 28);
-  const c2 = mapSemanticPoint(43, 35);
-  const c3 = mapSemanticPoint(66, 32);
-  const c4 = mapSemanticPoint(76, 23);
-  const c5 = mapSemanticPoint(68, 44);
-  const c6 = mapSemanticPoint(79, 46);
-
-  ctx.globalAlpha = working ? 0.24 : 0.16;
-  ctx.strokeStyle = '#70c4d8';
-  ctx.lineWidth = 0.75;
-  ctx.beginPath();
-  ctx.moveTo(p32_15.x, p32_15.y);
-  ctx.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, p54_38.x, p54_38.y);
-  ctx.bezierCurveTo(c3.x, c3.y, c4.x, c4.y, p86_20.x, p86_20.y);
-  ctx.moveTo(p54_38.x, p54_38.y);
-  ctx.bezierCurveTo(c5.x, c5.y, c6.x, c6.y, p87_51.x, p87_51.y);
-  ctx.stroke();
-}
-
-function drawSemanticStarNodesLayer(
-  ctx: CanvasRenderingContext2D,
-  working: boolean,
-): void {
-  drawSemanticMapStar(ctx, 32, 15, 0.42, '#ffae83', working ? 0.66 : 0.50);
-  drawSemanticMapStar(ctx, 86, 20, 0.68, '#c1f3ff', working ? 0.82 : 0.64);
-  drawSemanticMapStar(ctx, 87, 51, 0.50, '#bceeff', working ? 0.68 : 0.50);
-  drawSemanticMapStar(ctx, 69, 27, 0.28, '#bceeff', working ? 0.74 : 0.56);
-  drawSemanticMapStar(ctx, 18, 45, 0.30, '#bceeff', working ? 0.58 : 0.42);
-}
-
-function drawSemanticGuideOrbitLayer(
-  ctx: CanvasRenderingContext2D,
-  working: boolean,
-): void {
-  const guideRadii = [56, 91, 132] as const;
-  ctx.strokeStyle = '#70c4d8';
-  ctx.lineWidth = 0.62;
-  ctx.globalAlpha = working ? 0.16 : 0.10;
-  for (const radius of guideRadii) {
-    ctx.beginPath();
-    ctx.ellipse(
-      SUN_X,
-      SUN_Y,
-      radius,
-      radius * ORBIT_Y_SCALE,
-      0,
-      0,
-      Math.PI * 2,
-    );
-    ctx.stroke();
   }
 }
 
@@ -1786,7 +1725,7 @@ function makePlanetSprite(spec: PlanetVisualSpec): HTMLCanvasElement {
     ctx.strokeStyle = 'rgba(215, 205, 180, 0.35)';
     ctx.lineWidth = spec.radius * 0.28;
     ctx.beginPath();
-    ctx.ellipse(0, 0, spec.radius * 2.15, spec.radius * 2.15 * yRatio, 0, Math.PI, Math.PI * 2);
+    ctx.ellipse(0, 0, rOuter, rOuter * yRatio, 0, Math.PI, Math.PI * 2);
     ctx.stroke();
 
     ctx.restore();
@@ -1985,7 +1924,7 @@ function makePlanetSprite(spec: PlanetVisualSpec): HTMLCanvasElement {
     ctx.strokeStyle = 'rgba(215, 205, 180, 0.35)';
     ctx.lineWidth = spec.radius * 0.28;
     ctx.beginPath();
-    ctx.ellipse(0, 0, spec.radius * 2.15, spec.radius * 2.15 * yRatio, 0, 0, Math.PI);
+    ctx.ellipse(0, 0, rOuter, rOuter * yRatio, 0, 0, Math.PI);
     ctx.stroke();
 
     ctx.restore();
@@ -2111,6 +2050,9 @@ function buildPlanetPatch(
   }
 
   const id = definition.id;
+  const centroid = planetCentroid(mask);
+  const u = centroid.x - SUN_X;
+  const v = (centroid.y - SUN_Y) / ORBIT_Y_SCALE;
   const visual = PLANET_VISUALS[id];
   const sprite = makePlanetSprite(visual);
 
@@ -2119,8 +2061,8 @@ function buildPlanetPatch(
     canvas: sprite,
     localCenterX: sprite.width / 2,
     localCenterY: sprite.height / 2,
-    orbitRadius: config.orbitRadius,
-    orbitTheta: config.orbitTheta,
+    orbitRadius: config.orbitRadius || Math.hypot(u, v),
+    orbitTheta: config.orbitTheta ?? Math.atan2(v, u),
     config,
     visual,
   };

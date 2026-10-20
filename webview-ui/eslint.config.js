@@ -46,8 +46,7 @@ export default defineConfig([
       'src/constants.ts',
       'src/fonts/**',
       'src/office/sprites/**',
-      'src/ductor/StarshipLab.tsx',
-      'src/ductor/starshipSimulation.ts',
+      'src/ductor/**',
       'test/**',
     ],
     rules: {
