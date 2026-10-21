@@ -498,16 +498,16 @@ function drawGalaxySpiralLayer(
 ): void {
   ctx.save();
   ctx.globalCompositeOperation = 'screen';
-  const boost = working ? 1.25 : 1.0;
+  const boost = working ? 1.35 : 1.15;
   const rotation = timeSec * 0.04;
 
   // 1. Soft radiant cosmic core haze around the Sun
   const sunPulse = 0.5 + 0.5 * Math.sin(timeSec * 2.2);
-  const coronaRadius = 26 + sunPulse * 4;
+  const coronaRadius = 28 + sunPulse * 5;
   const sunCorona = ctx.createRadialGradient(SUN_X, SUN_Y, 1, SUN_X, SUN_Y, coronaRadius);
-  sunCorona.addColorStop(0, 'rgba(255, 248, 220, 0.42)');
-  sunCorona.addColorStop(0.28, 'rgba(255, 195, 75, 0.20)');
-  sunCorona.addColorStop(0.65, 'rgba(255, 115, 30, 0.06)');
+  sunCorona.addColorStop(0, 'rgba(255, 250, 225, 0.55)');
+  sunCorona.addColorStop(0.28, 'rgba(255, 205, 85, 0.28)');
+  sunCorona.addColorStop(0.65, 'rgba(255, 125, 35, 0.09)');
   sunCorona.addColorStop(1, 'rgba(255, 50, 0, 0)');
   ctx.fillStyle = sunCorona;
   ctx.beginPath();
@@ -516,21 +516,21 @@ function drawGalaxySpiralLayer(
 
   // 2. Majestic spiral galaxy arms swirling with cosmic stardust
   const arms = 2;
-  const starsPerArm = 64;
+  const starsPerArm = 76;
   for (let arm = 0; arm < arms; arm += 1) {
     const armOffset = arm * Math.PI;
     for (let i = 0; i < starsPerArm; i += 1) {
       const t = i / starsPerArm;
       const angle = armOffset + rotation + t * 4.6;
-      const dist = 14 + t * 105;
+      const dist = 14 + t * 115;
       const px = SUN_X + Math.cos(angle) * dist;
       const py = SUN_Y + Math.sin(angle) * dist * ORBIT_Y_SCALE;
-      const size = 0.35 + (i % 3) * 0.28;
-      const alpha = (0.22 + (1 - t) * 0.45) * boost * (0.75 + 0.25 * Math.sin(timeSec * 1.8 + i));
+      const size = 0.45 + (i % 3) * 0.35;
+      const alpha = (0.35 + (1 - t) * 0.60) * boost * (0.80 + 0.20 * Math.sin(timeSec * 1.8 + i));
 
       // Astronomical celestial dust palette: warm gold, electric cyan, diamond white
-      ctx.fillStyle = i % 5 === 0 ? '#ffea9f' : i % 2 === 0 ? '#7fe0f7' : '#ffffff';
-      ctx.globalAlpha = alpha;
+      ctx.fillStyle = i % 4 === 0 ? '#ffea9f' : i % 2 === 0 ? '#00e5ff' : '#ffffff';
+      ctx.globalAlpha = Math.min(1.0, alpha);
       ctx.beginPath();
       ctx.arc(px, py, size, 0, Math.PI * 2);
       ctx.fill();
@@ -2034,35 +2034,30 @@ function drawSolarCore(
   clipToKevinStarMap(ctx);
   ctx.globalCompositeOperation = 'screen';
 
-  const pulse = Math.sin(timeSec * 1.5) * 0.06 + Math.cos(timeSec * 2.7) * 0.03;
-  const rx = 12 * (1 + pulse * 0.08);
+  const pulse = Math.sin(timeSec * 1.5) * 0.08 + Math.cos(timeSec * 2.7) * 0.04;
+  const sunRadius = 13 * (1 + pulse);
 
-  ctx.save();
-  ctx.translate(SUN_X, SUN_Y);
-  ctx.scale(1, ORBIT_Y_SCALE);
-
-  // Soft radiant coronal luminescence
-  const corona = ctx.createRadialGradient(0, 0, 1, 0, 0, rx * 2.8);
-  corona.addColorStop(0, working ? 'rgba(255, 248, 200, 0.72)' : 'rgba(255, 238, 180, 0.58)');
-  corona.addColorStop(0.20, 'rgba(255, 190, 80, 0.40)');
-  corona.addColorStop(0.50, 'rgba(255, 120, 35, 0.16)');
+  // Volumetric radiant coronal luminescence (spherical bloom like Benjamin's turtle)
+  const corona = ctx.createRadialGradient(SUN_X, SUN_Y, 1, SUN_X, SUN_Y, sunRadius * 3.4);
+  corona.addColorStop(0, working ? 'rgba(255, 250, 220, 0.88)' : 'rgba(255, 245, 200, 0.78)');
+  corona.addColorStop(0.20, 'rgba(255, 200, 80, 0.52)');
+  corona.addColorStop(0.55, 'rgba(255, 130, 35, 0.22)');
   corona.addColorStop(1, 'rgba(255, 60, 0, 0)');
   ctx.fillStyle = corona;
   ctx.beginPath();
-  ctx.arc(0, 0, rx * 2.8, 0, Math.PI * 2);
+  ctx.arc(SUN_X, SUN_Y, sunRadius * 3.4, 0, Math.PI * 2);
   ctx.fill();
 
   // Vibrant fusion core
-  const core = ctx.createRadialGradient(0, 0, 0, 0, 0, rx * 0.82);
+  const core = ctx.createRadialGradient(SUN_X, SUN_Y, 0, SUN_X, SUN_Y, sunRadius);
   core.addColorStop(0, '#ffffff');
-  core.addColorStop(0.25, '#fff8d0');
-  core.addColorStop(0.65, '#ffb845');
-  core.addColorStop(1, 'rgba(255, 100, 0, 0)');
+  core.addColorStop(0.30, '#fffbe0');
+  core.addColorStop(0.70, '#ffc450');
+  core.addColorStop(1, 'rgba(255, 120, 0, 0)');
   ctx.fillStyle = core;
   ctx.beginPath();
-  ctx.arc(0, 0, rx * 0.82, 0, Math.PI * 2);
+  ctx.arc(SUN_X, SUN_Y, sunRadius, 0, Math.PI * 2);
   ctx.fill();
-  ctx.restore();
 
   ctx.restore();
 }
@@ -2376,20 +2371,22 @@ export async function loadKevinPixelMotion(
         .map((patch) => {
           const config = patch.config;
 
-          // Stable prograde orbital motion. Radius never breathes or reverses.
-          // Kepler's third-law relationship makes inner worlds visibly faster
-          // and outer worlds slower while preserving each authored start point.
+          // Stable prograde orbital motion with Keplerian third-law speed
           const omega = keplerAngularSpeed(
             patch.orbitRadius,
             config.speed,
           );
           const theta = patch.orbitTheta + omega * timeSec;
           const radius = patch.orbitRadius;
-          const x = SUN_X + Math.cos(theta) * radius;
-          const y =
+          const groundX = SUN_X + Math.cos(theta) * radius;
+          const groundY =
             SUN_Y + Math.sin(theta) * radius * ORBIT_Y_SCALE;
           const depth = Math.sin(theta);
-          return { patch, x, y, depth };
+          // Floating in 3D air above the table dish like Benjamin's turtle!
+          const floatHeight = 8.0 + Math.sin(timeSec * 2.0 + config.phase) * 1.5;
+          const x = groundX;
+          const y = groundY - floatHeight;
+          return { patch, x, y, groundX, groundY, depth, theta, radius };
         })
         .sort((a, b) => a.depth - b.depth);
 
@@ -2399,7 +2396,7 @@ export async function loadKevinPixelMotion(
       clipToKevinStarMap(frameCtx);
 
       const renderPlanetState = (state: (typeof states)[0]) => {
-        const { patch, x, y, depth } = state;
+        const { patch, x, y, groundX, groundY, depth, theta, radius } = state;
         const config = patch.config;
         const scale =
           1 + config.scaleAmplitude * depth * intro;
@@ -2408,10 +2405,59 @@ export async function loadKevinPixelMotion(
         const hologramPulse =
           Math.sin(timeSec * 0.65 + config.phase) * 0.005;
         const brightness =
-          0.985 +
-          (depth + 1) * 0.016 +
+          1.05 +
+          (depth + 1) * 0.02 +
           hologramPulse;
 
+        // 1. Short holographic motion wake (fading 25° laser arc behind planet)
+        frameCtx.save();
+        const trailSteps = 10;
+        for (let s = 1; s <= trailSteps; s += 1) {
+          const trailTheta = theta - (s / trailSteps) * 0.45;
+          const tx = SUN_X + Math.cos(trailTheta) * radius;
+          const ty = SUN_Y + Math.sin(trailTheta) * radius * ORBIT_Y_SCALE - 8.0;
+          const alpha = (1 - s / trailSteps) * 0.45;
+          frameCtx.fillStyle = `rgba(0, 230, 255, ${alpha.toFixed(3)})`;
+          frameCtx.beginPath();
+          frameCtx.arc(tx, ty, 0.75, 0, Math.PI * 2);
+          frameCtx.fill();
+        }
+        frameCtx.restore();
+
+        // 2. Vertical elevation laser drop line connecting floating planet down to track
+        frameCtx.save();
+        frameCtx.strokeStyle = 'rgba(0, 230, 255, 0.45)';
+        frameCtx.lineWidth = 1.0;
+        frameCtx.beginPath();
+        frameCtx.moveTo(groundX, groundY);
+        frameCtx.lineTo(x, y + patch.visual.radius);
+        frameCtx.stroke();
+
+        // Luminous track beacon on the dish plane
+        frameCtx.fillStyle = 'rgba(0, 255, 255, 0.75)';
+        frameCtx.beginPath();
+        frameCtx.ellipse(groundX, groundY, 1.8, 1.0, 0, 0, Math.PI * 2);
+        frameCtx.fill();
+        frameCtx.restore();
+
+        // 3. Volumetric Hologram Aura (Fresnel bloom like Benjamin's turtle)
+        frameCtx.save();
+        frameCtx.globalCompositeOperation = 'screen';
+        const auraRadius = patch.visual.radius * 2.5;
+        const aura = frameCtx.createRadialGradient(
+          x, y, patch.visual.radius * 0.5,
+          x, y, auraRadius,
+        );
+        aura.addColorStop(0, `${patch.visual.highlight}99`);
+        aura.addColorStop(0.55, `${patch.visual.primary}44`);
+        aura.addColorStop(1, 'rgba(0,0,0,0)');
+        frameCtx.fillStyle = aura;
+        frameCtx.beginPath();
+        frameCtx.arc(x, y, auraRadius, 0, Math.PI * 2);
+        frameCtx.fill();
+        frameCtx.restore();
+
+        // 4. Draw the 3D Planet Sprite
         frameCtx.save();
         frameCtx.translate(x, y);
         frameCtx.scale(scale, scale);
