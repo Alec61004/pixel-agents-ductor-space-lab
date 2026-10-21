@@ -549,15 +549,15 @@ function drawSemanticMapContext(
   clipToKevinStarMap(ctx);
 
   // Deep space concave dish backing: cleanly covers all static concentric circles across the entire dish
-  // Uses exact elliptical scaling matching dish geometry (158x62)
+  // Uses exact elliptical scaling matching dish geometry (158x62) with solid cosmic void
   ctx.save();
   ctx.translate(KEVIN_MAP_DISH.cx, KEVIN_MAP_DISH.cy);
   ctx.scale(1, KEVIN_MAP_DISH.ry / KEVIN_MAP_DISH.rx);
   const glass = ctx.createRadialGradient(0, 0, 5, 0, 0, KEVIN_MAP_DISH.rx);
-  glass.addColorStop(0, 'rgba(4, 12, 22, 0.98)');
-  glass.addColorStop(0.86, 'rgba(4, 12, 22, 0.98)');
-  glass.addColorStop(0.96, 'rgba(3, 9, 18, 0.82)');
-  glass.addColorStop(1.0, 'rgba(2, 6, 12, 0.0)');
+  glass.addColorStop(0, 'rgba(5, 16, 28, 0.98)');
+  glass.addColorStop(0.60, 'rgba(3, 10, 18, 0.97)');
+  glass.addColorStop(0.88, 'rgba(2, 7, 14, 0.96)');
+  glass.addColorStop(1.0, 'rgba(2, 6, 12, 0.92)');
   ctx.fillStyle = glass;
   ctx.beginPath();
   ctx.arc(0, 0, KEVIN_MAP_DISH.rx, 0, Math.PI * 2);
