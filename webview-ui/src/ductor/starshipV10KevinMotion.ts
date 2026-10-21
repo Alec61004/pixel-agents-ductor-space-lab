@@ -548,20 +548,44 @@ function drawSemanticMapContext(
   ctx.save();
   clipToKevinStarMap(ctx);
 
-  // Deep space concave dish backing: cleanly covers all static concentric circles across the entire dish
-  // Uses exact elliptical scaling matching dish geometry (158x62) with solid cosmic void
+  // 1. Holographic projector aura / floor emitter beam matching ship bridge lighting
   ctx.save();
-  ctx.translate(KEVIN_MAP_DISH.cx, KEVIN_MAP_DISH.cy);
-  ctx.scale(1, KEVIN_MAP_DISH.ry / KEVIN_MAP_DISH.rx);
-  const glass = ctx.createRadialGradient(0, 0, 5, 0, 0, KEVIN_MAP_DISH.rx);
-  glass.addColorStop(0, 'rgba(5, 16, 28, 0.98)');
-  glass.addColorStop(0.60, 'rgba(3, 10, 18, 0.97)');
-  glass.addColorStop(0.88, 'rgba(2, 7, 14, 0.96)');
-  glass.addColorStop(1.0, 'rgba(2, 6, 12, 0.92)');
-  ctx.fillStyle = glass;
+  ctx.globalCompositeOperation = 'screen';
+  
+  // Ambient cyan beam base
+  const beam = ctx.createRadialGradient(SUN_X, SUN_Y, 2, SUN_X, SUN_Y, 135);
+  beam.addColorStop(0, 'rgba(0, 215, 255, 0.16)');
+  beam.addColorStop(0.4, 'rgba(0, 160, 220, 0.08)');
+  beam.addColorStop(0.75, 'rgba(0, 80, 160, 0.03)');
+  beam.addColorStop(1, 'rgba(0, 20, 80, 0)');
+  ctx.fillStyle = beam;
   ctx.beginPath();
-  ctx.arc(0, 0, KEVIN_MAP_DISH.rx, 0, Math.PI * 2);
+  ctx.ellipse(SUN_X, SUN_Y, 145, 145 * ORBIT_Y_SCALE, 0, 0, Math.PI * 2);
   ctx.fill();
+
+  // Volumetric amber nebular clouds matching window black hole
+  const hazeCount = 6;
+  for (let h = 0; h < hazeCount; h += 1) {
+    const hAngle = h * (Math.PI * 2 / hazeCount) + timeSec * 0.02;
+    const hDist = 35 + (h % 3) * 25;
+    const hx = SUN_X + Math.cos(hAngle) * hDist;
+    const hy = SUN_Y + Math.sin(hAngle) * hDist * ORBIT_Y_SCALE;
+    const hr = 28 + (h % 2) * 16;
+    
+    const cloud = ctx.createRadialGradient(hx, hy, 2, hx, hy, hr);
+    if (h % 2 === 0) {
+      cloud.addColorStop(0, 'rgba(255, 185, 80, 0.10)');
+      cloud.addColorStop(0.6, 'rgba(230, 120, 40, 0.03)');
+    } else {
+      cloud.addColorStop(0, 'rgba(80, 220, 255, 0.08)');
+      cloud.addColorStop(0.6, 'rgba(20, 130, 210, 0.025)');
+    }
+    cloud.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = cloud;
+    ctx.beginPath();
+    ctx.ellipse(hx, hy, hr, hr * ORBIT_Y_SCALE, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
   ctx.restore();
 
   drawSemanticHazeLayer(ctx, timeSec, working);
