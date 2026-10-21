@@ -548,46 +548,6 @@ function drawSemanticMapContext(
   ctx.save();
   clipToKevinStarMap(ctx);
 
-  // 1. Holographic projector aura / floor emitter beam matching ship bridge lighting
-  ctx.save();
-  ctx.globalCompositeOperation = 'screen';
-  
-  // Ambient cyan beam base
-  const beam = ctx.createRadialGradient(SUN_X, SUN_Y, 2, SUN_X, SUN_Y, 135);
-  beam.addColorStop(0, 'rgba(0, 215, 255, 0.16)');
-  beam.addColorStop(0.4, 'rgba(0, 160, 220, 0.08)');
-  beam.addColorStop(0.75, 'rgba(0, 80, 160, 0.03)');
-  beam.addColorStop(1, 'rgba(0, 20, 80, 0)');
-  ctx.fillStyle = beam;
-  ctx.beginPath();
-  ctx.ellipse(SUN_X, SUN_Y, 145, 145 * ORBIT_Y_SCALE, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Volumetric amber nebular clouds matching window black hole
-  const hazeCount = 6;
-  for (let h = 0; h < hazeCount; h += 1) {
-    const hAngle = h * (Math.PI * 2 / hazeCount) + timeSec * 0.02;
-    const hDist = 35 + (h % 3) * 25;
-    const hx = SUN_X + Math.cos(hAngle) * hDist;
-    const hy = SUN_Y + Math.sin(hAngle) * hDist * ORBIT_Y_SCALE;
-    const hr = 28 + (h % 2) * 16;
-    
-    const cloud = ctx.createRadialGradient(hx, hy, 2, hx, hy, hr);
-    if (h % 2 === 0) {
-      cloud.addColorStop(0, 'rgba(217, 70, 239, 0.12)');
-      cloud.addColorStop(0.6, 'rgba(147, 51, 234, 0.04)');
-    } else {
-      cloud.addColorStop(0, 'rgba(0, 240, 255, 0.14)');
-      cloud.addColorStop(0.6, 'rgba(14, 165, 233, 0.04)');
-    }
-    cloud.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = cloud;
-    ctx.beginPath();
-    ctx.ellipse(hx, hy, hr, hr * ORBIT_Y_SCALE, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.restore();
-
   drawSemanticHazeLayer(ctx, timeSec, working);
   drawSemanticDustLayer(ctx, timeSec, working);
   drawSemanticStarGridLayer(ctx, working);
