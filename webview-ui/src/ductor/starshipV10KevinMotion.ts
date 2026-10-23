@@ -431,33 +431,6 @@ function copyMapSurface(
   }
 }
 
-function addDilatedMask(
-  target: Uint8Array,
-  mask: Uint8Array,
-  radius: number,
-  protectedMask?: Uint8Array,
-): void {
-  const radiusSq = radius * radius;
-
-  for (let pixel = 0; pixel < mask.length; pixel += 1) {
-    if (!mask[pixel]) continue;
-    const x = pixel % WIDTH;
-    const y = Math.floor(pixel / WIDTH);
-
-    for (let oy = -radius; oy <= radius; oy += 1) {
-      for (let ox = -radius; ox <= radius; ox += 1) {
-        if (ox * ox + oy * oy > radiusSq) continue;
-        const nx = x + ox;
-        const ny = y + oy;
-        if (nx < 0 || ny < 0 || nx >= WIDTH || ny >= HEIGHT) continue;
-        if (!insideMap(nx, ny)) continue;
-        const np = ny * WIDTH + nx;
-        if (protectedMask?.[np]) continue;
-        target[np] = 1;
-      }
-    }
-  }
-}
 
 interface PixelComponent {
   pixels: number[];
@@ -560,151 +533,13 @@ function isDecorativeSourcePixel(
   return purple || warm || neutralBright;
 }
 
-function buildCleanupMask(source: Uint8ClampedArray): Uint8Array {
-  const cleanup = new Uint8Array(WIDTH * HEIGHT);
-  const protectedMask = new Uint8Array(WIDTH * HEIGHT);
-
-  const sun = KEVIN_AUTHORED_OBJECTS.find((definition) => definition.id === 'sun');
-  if (!sun) throw new Error('Kevin authored sun mask is missing');
-  addDilatedMask(protectedMask, decodeKevinAuthoredMask(sun), 12);
-
-  // Deterministic removal of only known authored movable bodies and marker.
-  for (const definition of KEVIN_AUTHORED_OBJECTS) {
-    if (definition.id === 'sun') continue;
-    if (definition.id !== 'marker_star' && !MOVING_PLANETS.has(definition.id)) continue;
-
-    const radius = definition.id === 'marker_star' ? 2 : 3;
-    addDilatedMask(
-      cleanup,
-      decodeKevinAuthoredMask(definition),
-      radius,
-      protectedMask,
-    );
-  }
-
-  // Detect source decorations only. This analysis is performed against the
-  // untouched PNG, never against a partially repaired frame.
-  const candidates = new Uint8Array(WIDTH * HEIGHT);
-  for (let pixel = 0; pixel < candidates.length; pixel += 1) {
-    if (isDecorativeSourcePixel(source, pixel, protectedMask)) {
-      candidates[pixel] = 1;
-    }
-  }
-
-  for (const component of collectComponents(candidates)) {
-    const width = component.maxX - component.minX + 1;
-    const height = component.maxY - component.minY + 1;
-    const maxDim = Math.max(width, height);
-    const minDim = Math.max(1, Math.min(width, height));
-
-    // Source-pixel audit: decorative dots, dashes and small blocks stay under
-    // these limits. Long cyan orbit strokes do not.
-    const markerLike =
-      component.pixels.length >= 2 &&
-      component.pixels.length <= 180 &&
-      maxDim <= 30 &&
-      minDim <= 13;
-
-    if (!markerLike) continue;
-
-    const componentMask = new Uint8Array(WIDTH * HEIGHT);
-    for (const pixel of component.pixels) componentMask[pixel] = 1;
-    addDilatedMask(cleanup, componentMask, 1, protectedMask);
-  }
-
-  return cleanup;
-}
-
-function boundaryPixelsForComponent(
-  component: PixelComponent,
-  cleanupMask: Uint8Array,
-): number[] {
-  const boundary = new Set<number>();
-
-  for (const pixel of component.pixels) {
-    const x = pixel % WIDTH;
-    const y = Math.floor(pixel / WIDTH);
-
-    for (let oy = -2; oy <= 2; oy += 1) {
-      for (let ox = -2; ox <= 2; ox += 1) {
-        if (!ox && !oy) continue;
-        const nx = x + ox;
-        const ny = y + oy;
-        if (nx < 0 || ny < 0 || nx >= WIDTH || ny >= HEIGHT) continue;
-        if (!insideMap(nx, ny)) continue;
-        const np = ny * WIDTH + nx;
-        if (cleanupMask[np]) continue;
-        boundary.add(np);
-      }
-    }
-  }
-
-  const values = Array.from(boundary);
-  if (values.length <= 180) return values;
-
-  // Deterministic even down-sampling keeps load cost bounded.
-  const sampled: number[] = [];
-  for (let i = 0; i < 180; i += 1) {
-    sampled.push(values[Math.floor((i * values.length) / 180)]!);
-  }
-  return sampled;
-}
-
-function repairComponentFromBoundary(
-  source: Uint8ClampedArray,
-  target: Uint8ClampedArray,
-  component: PixelComponent,
-  cleanupMask: Uint8Array,
-): void {
-  const boundary = boundaryPixelsForComponent(component, cleanupMask);
-  if (!boundary.length) return;
-
-  for (const pixel of component.pixels) {
-    const x = pixel % WIDTH;
-    const y = Math.floor(pixel / WIDTH);
-    const offset = pixel * 4;
-
-    let totalWeight = 0;
-    let sumR = 0;
-    let sumG = 0;
-    let sumB = 0;
-
-    for (const boundaryPixel of boundary) {
-      const bx = boundaryPixel % WIDTH;
-      const by = Math.floor(boundaryPixel / WIDTH);
-      const dx = bx - x;
-      const dy = by - y;
-      const weight = 1 / (dx * dx + dy * dy + 0.5);
-      const boundaryOffset = boundaryPixel * 4;
-
-      totalWeight += weight;
-      sumR += source[boundaryOffset]! * weight;
-      sumG += source[boundaryOffset + 1]! * weight;
-      sumB += source[boundaryOffset + 2]! * weight;
-    }
-
-    target[offset] = Math.round(sumR / totalWeight);
-    target[offset + 1] = Math.round(sumG / totalWeight);
-    target[offset + 2] = Math.round(sumB / totalWeight);
-    target[offset + 3] = source[offset + 3]!;
-  }
-}
 
 function buildCleanBasePixels(
-  source: Uint8ClampedArray,
+  _source: Uint8ClampedArray,
   sourceEllipse: Uint8ClampedArray,
 ): Uint8ClampedArray {
-  const clean = sourceEllipse.slice();
-  const cleanupMask = buildCleanupMask(source);
-
-  // Boundary interpolation uses only untouched neighboring source pixels.
-  // Unlike the old angular donor pass it cannot copy distant dark squares,
-  // planets or unrelated HUD fragments into the repaired region.
-  for (const component of collectComponents(cleanupMask)) {
-    repairComponentFromBoundary(source, clean, component, cleanupMask);
-  }
-
-  return clean;
+  // Preserve authored master artwork intact with zero inpainting smudges or holes
+  return sourceEllipse.slice();
 }
 
 
@@ -2079,9 +1914,7 @@ export async function loadKevinPixelMotion(
       );
     },
     render(timeSec: number, working: boolean): HTMLCanvasElement {
-      if (timeSec <= 0.0001) return sourceEllipse;
-
-      const intro = smoothstep(0, 0.65, timeSec);
+      if (timeSec <= 0.0001 && !working) return sourceEllipse;
 
       frameCtx.save();
       frameCtx.setTransform(1, 0, 0, 1, 0, 0);
@@ -2090,70 +1923,17 @@ export async function loadKevinPixelMotion(
       frameCtx.globalAlpha = 1;
       frameCtx.filter = 'none';
       frameCtx.drawImage(cleanBase, 0, 0);
-
-      // Authentic dish artwork is preserved directly without duplicate canvas orbit lines or haze.
       drawSemanticMapContext(frameCtx, timeSec, working);
 
-      const states = patches
-        .map((patch) => {
-          const config = patch.config;
-
-          // Stable prograde orbital motion. Radius never breathes or reverses.
-          // Kepler's third-law relationship makes inner worlds visibly faster
-          // and outer worlds slower while preserving each authored start point.
-          const omega = keplerAngularSpeed(
-            patch.orbitRadius,
-            config.speed,
-          );
-          const theta = patch.orbitTheta + omega * timeSec;
-          const radius = patch.orbitRadius;
-          const x = SUN_X + Math.cos(theta) * radius;
-          const y =
-            SUN_Y + Math.sin(theta) * radius * ORBIT_Y_SCALE;
-          const depth = Math.sin(theta);
-          return { patch, x, y, depth };
-        })
-        .sort((a, b) => a.depth - b.depth);
-
-      // Planet sprites belong to the holographic glass as well. Clip them to
-      // the authored disc so rings/glow can never float over the metal table.
-      frameCtx.save();
-      clipToKevinStarMap(frameCtx);
-
-      for (const state of states) {
-        const { patch, x, y, depth } = state;
-        const config = patch.config;
-        const scale =
-          1 + config.scaleAmplitude * depth * intro;
-        const opacity =
-          0.95 + (depth + 1) * 0.025;
-        const hologramPulse =
-          Math.sin(timeSec * 0.65 + config.phase) * 0.005;
-        const brightness =
-          0.985 +
-          (depth + 1) * 0.016 +
-          hologramPulse;
-
+      if (working) {
+        // Subtle holographic pulse matching Benjamin's active console aura
+        const pulse = 0.5 + 0.5 * Math.sin(timeSec * 2.8);
         frameCtx.save();
-        frameCtx.translate(x, y);
-        frameCtx.scale(scale, scale);
-
-        frameCtx.globalAlpha = opacity;
-        frameCtx.filter =
-          `brightness(${brightness.toFixed(3)})`;
-        frameCtx.drawImage(
-          patch.canvas,
-          -patch.localCenterX,
-          -patch.localCenterY,
-        );
+        clipToKevinStarMap(frameCtx);
+        frameCtx.globalCompositeOperation = 'screen';
+        frameCtx.fillStyle = `rgba(0, 240, 255, ${(pulse * 0.12).toFixed(3)})`;
+        frameCtx.fill();
         frameCtx.restore();
-      }
-      frameCtx.restore();
-
-      if (intro < 1) {
-        frameCtx.globalAlpha = 1 - intro;
-        frameCtx.filter = 'none';
-        frameCtx.drawImage(sourceEllipse, 0, 0);
       }
 
       frameCtx.restore();
